@@ -1,0 +1,36 @@
+# Configuración del servidor web
+server:
+  port: ${SERVER_PORT:8080} # Puerto de ejecución (fallback a 8080)
+
+spring:
+  application:
+    name: mediflow-backend # Nombre del microservicio
+
+  # Conexión a base de datos PostgreSQL
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:mediflow}
+    username: ${DB_USER:mediflow_user}
+    password: ${DB_PASSWORD:changeme}
+    driver-class-name: org.postgresql.Driver
+
+  # Configuración ORM (JPA / Hibernate)
+  jpa:
+    hibernate:
+      ddl-auto: update # Sincroniza entidades Java con tablas en desarrollo
+    properties:
+      hibernate:
+        format_sql: true # Formatea las consultas SQL en consola
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false # Libera conexiones a la BD rápidamente (evita saturación en HikariCP)
+
+  # Formato de respuestas JSON
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false # Formatea fechas a estándar ISO-8601 (2026-09-19T14:30:00Z)
+
+# Endpoints de monitoreo y salud
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info # Expone /actuator/health y /actuator/info para Docker/OCI
