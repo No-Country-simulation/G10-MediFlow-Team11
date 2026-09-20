@@ -1,11 +1,7 @@
-import { Button } from "@mui/material";
+import AppRoutes from "./routes/AppRoutes";
 
 function App() {
-  return (
-    <Button variant="contained">
-      Hola MediFlow
-    </Button>
-  );
+  return <AppRoutes />;
 }
 
 export default App;
