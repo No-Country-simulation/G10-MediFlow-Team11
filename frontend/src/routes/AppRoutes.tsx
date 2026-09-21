@@ -1,12 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-function HomePage() {
-  return <h1>Bienvenido a MediFlow</h1>;
-}
-
-function LoginPage() {
-  return <h1>Iniciar sesión</h1>;
-}
+import HomePage from "../pages/HomePage";
+import LoginPage from "../pages/LoginPage";
 
 function AppRoutes() {
   return (
