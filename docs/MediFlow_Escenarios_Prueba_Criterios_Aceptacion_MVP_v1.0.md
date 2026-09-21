@@ -41,7 +41,7 @@ Las pruebas se alinean con la baseline vigente:
 
 ### Entradas externas
 - `POST /api/v1/documents/process-file`: PDF, JPG o PNG.
-- `POST /api/v1/documents/process-text`: texto normalizado.
+- `POST /api/v1/documents/process-text: texto ingresado directamente por el usuario o sistema origen.
 
 ### Estados canónicos
 - `RECEIVED`
