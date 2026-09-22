@@ -118,3 +118,9 @@ export interface ProcessTextRequest {
   document_text: string;
   origin_channel: string;
 }
+
+export interface ProcessFileRequest {
+  file: File;
+  origin_channel: string;
+  document_id?: string;
+}
