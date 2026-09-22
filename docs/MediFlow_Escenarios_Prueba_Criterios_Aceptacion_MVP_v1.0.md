@@ -22,7 +22,7 @@ Cada ejecución QA debe disponer de:
 - resultado esperado definido antes de ejecutar;
 - criterio PASS / FAIL;
 - evidencia suficiente para reproducir el resultado;
-- trazabilidad mediante `documento_id`.
+- trazabilidad mediante `document_id`.
 
 ### PASS
 El comportamiento obtenido coincide con el resultado esperado y existe evidencia suficiente.
@@ -41,7 +41,7 @@ Las pruebas se alinean con la baseline vigente:
 
 ### Entradas externas
 - `POST /api/v1/documents/process-file`: PDF, JPG o PNG.
-- `POST /api/v1/documents/process-text: texto ingresado directamente por el usuario o sistema origen.
+- `POST /api/v1/documents/process-text`: texto ingresado directamente por el usuario o sistema origen.
 
 ### Estados canónicos
 - `RECEIVED`
@@ -53,15 +53,15 @@ Las pruebas se alinean con la baseline vigente:
 - `FAILED`
 
 ### Prioridad
-- `RUTINA`
-- `URGENTE`
+- `ROUTINE`
+- `URGENT`
 
 ### Destinos de negocio
-- `EMERGENCIA_MEDICA`
-- `FARMACIA`
-- `AUDITORIA_AUTORIZACIONES`
-- `HISTORIA_CLINICA`
-- `REVISION_HUMANA`
+- `MEDICAL_EMERGENCY`
+- `PHARMACY`
+- `AUTHORIZATION_AUDIT`
+- `MEDICAL_RECORD`
+- `HUMAN_REVIEW`
 
 ### Motivos semánticos de auditoría
 - `LOW_CONFIDENCE`
@@ -71,7 +71,7 @@ Las pruebas se alinean con la baseline vigente:
 
 Los fallos técnicos (`AI_TIMEOUT`, `AI_UNAVAILABLE`, `INVALID_AI_RESPONSE`) son responsabilidad del Backend y se validan mediante pruebas controladas/fault injection, no mediante el contenido del documento.
 
-El umbral inicial del MVP es `AUDIT_CONFIDENCE_THRESHOLD=0.85`, configurable. Una `confianza.global < 0.85` debe originar `LOW_CONFIDENCE`.
+El umbral inicial del MVP es `AUDIT_CONFIDENCE_THRESHOLD=0.85`, configurable. Una `confidence.global < 0.85` debe originar `LOW_CONFIDENCE`.
 
 ## 4. Escenario principal A — Flujo estándar / rutina
 
@@ -85,14 +85,14 @@ Documento sintético soportado por el MVP, recibido por `process-file` o `proces
 - el Backend acepta la entrada y conserva el original;
 - el documento recorre `RECEIVED → PROCESSING → PROCESSED`;
 - IA Core devuelve una respuesta válida según el contrato;
-- `clasificacion.nivel_prioridad = RUTINA`;
-- `confianza.global >= 0.85`;
+- `classification.priority_level = ROUTINE`;
+- `confidence.global >= 0.85`;
 - `audit_reasons = []`;
-- `requiere_auditoria_humana = false`;
-- `destino_principal` corresponde al contenido del documento y no es `REVISION_HUMANA`;
-- `notificacion.generada = false`;
+- `requires_human_review = false`;
+- `primary_destination` corresponde al contenido del documento y no es `HUMAN_REVIEW`;
+- `notification.generated = false`;
 - original y `triage.json` quedan persistidos en el prefijo de rutina definido por arquitectura;
-- la respuesta final es JSON estructurado y trazable mediante `documento_id`.
+- la respuesta final es JSON estructurado y trazable mediante `document_id`.
 
 ### PASS
 Todos los puntos del resultado esperado se cumplen y existe evidencia.
@@ -115,13 +115,13 @@ Documento sintético soportado, legible y suficiente, cuyo contenido represente 
 
 ### Resultado esperado
 - el documento se procesa de extremo a extremo;
-- `clasificacion.nivel_prioridad = URGENTE`;
-- `destino_principal = EMERGENCIA_MEDICA`;
+- `classification.priority_level = URGENT`;
+- `primary_destination = MEDICAL_EMERGENCY`;
 - si no existen motivos de auditoría, el estado final es `PROCESSED`;
-- `requiere_auditoria_humana = false` cuando el estado es `PROCESSED`;
+- `requires_human_review = false` cuando el estado es `PROCESSED`;
 - se genera la notificación de urgencia definida por Backend;
 - original y `triage.json` quedan persistidos en `procesados/urgentes/`;
-- la respuesta conserva `documento_id`, clasificación, datos extraídos, confianza, decisión de enrutamiento y almacenamiento.
+- la respuesta conserva `document_id`, clasificación, datos extraídos, confianza, decisión de enrutamiento y almacenamiento.
 
 ### PASS
 La urgencia es identificada, la prioridad y el destino son correctos, la notificación se genera y la persistencia/trazabilidad quedan confirmadas.
@@ -146,8 +146,8 @@ Los fallos técnicos se validan separadamente mediante fault injection.
 ### Resultado esperado
 - el documento original queda recuperable;
 - `status = NEEDS_AUDIT`;
-- `requiere_auditoria_humana = true`;
-- `decision_enrutamiento.destino_principal = REVISION_HUMANA` cuando no existe un destino confiable;
+- `requires_human_review = true`;
+- `routing_decision.primary_destination = HUMAN_REVIEW` cuando no existe un destino confiable;
 - `audit_reasons` contiene el/los motivo(s) aplicables;
 - no se inventa información faltante o ilegible;
 - el caso aparece en `GET /api/v1/documents/audit`;
@@ -165,12 +165,12 @@ El sistema adivina datos, procesa el caso como válido sin control humano, pierd
 
 | ID | Validación | Resultado esperado / PASS | FAIL |
 |---|---|---|---|
-| T01 | Ingestión válida | Entrada soportada aceptada, `documento_id` válido y flujo iniciado. | Rechazo injustificado, pérdida del documento o imposibilidad de continuar. |
-| T02 | Clasificación | `tipo_documento` pertenece al enum y coincide con el caso esperado. | Tipo incorrecto o salida fuera del contrato. |
+| T01 | Ingestión válida | Entrada soportada aceptada, `document_id` válido y flujo iniciado. | Rechazo injustificado, pérdida del documento o imposibilidad de continuar. |
+| T02 | Clasificación | `document_type` pertenece al enum y coincide con el caso esperado. | Tipo incorrecto o salida fuera del contrato. |
 | T03 | Extracción estructurada | Datos esperados presentes; desconocidos se omiten o quedan `null`; estructura válida. | Datos inventados, incorrectos o estructura inválida. |
 | T04 | Confianza | Valores entre 0 y 1; decisión coherente con umbral y hallazgos. | Score inválido o decisión incompatible con la confianza. |
-| T05 | Flujo estándar | Estado `PROCESSED`, prioridad `RUTINA`, sin auditoría y destino correcto. | Auditoría injustificada, estado/destino incorrecto o fallo de trazabilidad. |
-| T06 | Urgencia | Prioridad `URGENTE`, destino `EMERGENCIA_MEDICA`, notificación y persistencia urgentes. | Caso urgente tratado como rutina o mal enrutado. |
+| T05 | Flujo estándar | Estado `PROCESSED`, prioridad `ROUTINE`, sin auditoría y destino correcto. | Auditoría injustificada, estado/destino incorrecto o fallo de trazabilidad. |
+| T06 | Urgencia | Prioridad `URGENT`, destino `MEDICAL_EMERGENCY`, notificación y persistencia urgentes. | Caso urgente tratado como rutina o mal enrutado. |
 | T07 | Ambigüedad / baja confianza | `NEEDS_AUDIT`, motivo correcto y revisión humana disponible. | Automatización insegura o información inventada. |
 | T08 | Faltantes / inconsistencias | Motivo semántico correcto y flujo seguro a auditoría cuando corresponde. | Falta/contradicción ignorada o tratada como dato válido. |
 | T09 | Persistencia OCI / trazabilidad | Original y `triage.json` quedan en el prefijo coherente con el estado; historial reconstruible. | Persistencia incorrecta, pérdida de original o ausencia de trazabilidad. |
@@ -181,7 +181,7 @@ El sistema adivina datos, procesa el caso como válido sin control humano, pierd
 Para cada ejecución se debe conservar, como mínimo:
 
 - ID de prueba;
-- `documento_id`;
+- `document_id`;
 - entrada utilizada;
 - resultado esperado;
 - resultado obtenido;
