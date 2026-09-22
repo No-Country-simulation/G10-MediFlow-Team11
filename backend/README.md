@@ -234,7 +234,7 @@ Con esto, el entorno Cloud (IAM, VCN y Object Storage) queda activo y estructura
    ./mvnw spring-boot:run
    ```
 
-   > Sin una instancia de PostgreSQL accesible con las credenciales configuradas, el arranque fallará al inicializar JPA. Esto es esperado hasta completar la configuración de base de datos (Issue #14).
+   > Sin una instancia de PostgreSQL accesible con las credenciales configuradas, el arranque fallará al inicializar JPA. Esto es esperado hasta completar la configuración de base de datos (Issue #13).
 
 6. Verificar el estado del servicio una vez levantado:
 
