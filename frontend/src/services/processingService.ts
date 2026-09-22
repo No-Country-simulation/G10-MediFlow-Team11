@@ -1,7 +1,8 @@
 import { env } from "../config/env";
 import type {
-  ProcessTextRequest,
+  ApiErrorResponse,
   ProcessFileRequest,
+  ProcessTextRequest,
   ProcessingResponse,
 } from "../types/processing";
 
@@ -20,7 +21,7 @@ export async function processText(
   });
 
   if (!response.ok) {
-    throw new Error("Failed to process text");
+    await handleApiError(response);
   }
 
   return response.json() as Promise<ProcessingResponse>;
@@ -44,8 +45,41 @@ export async function processFile(
   });
 
   if (!response.ok) {
-    throw new Error("Failed to process file");
+    await handleApiError(response);
   }
 
   return response.json() as Promise<ProcessingResponse>;
+}
+
+export class ApiError extends Error {
+  status: number;
+  code: string;
+
+  constructor(status: number, code: string, message: string) {
+    super(message);
+
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function handleApiError(response: Response): Promise<never> {
+  let errorResponse: ApiErrorResponse;
+
+  try {
+    errorResponse = (await response.json()) as ApiErrorResponse;
+  } catch {
+    throw new ApiError(
+      response.status,
+      "UNKNOWN_ERROR",
+      "An unexpected API error occurred",
+    );
+  }
+
+  throw new ApiError(
+    response.status,
+    errorResponse.error.code,
+    errorResponse.error.message,
+  );
 }

@@ -124,3 +124,12 @@ export interface ProcessFileRequest {
   origin_channel: string;
   document_id?: string;
 }
+
+export interface ApiErrorDetail {
+  code: string;
+  message: string;
+}
+
+export interface ApiErrorResponse {
+  error: ApiErrorDetail;
+}
