@@ -150,7 +150,7 @@ Puntos clave:
 **Verificación realizada**
 
 - `./mvnw clean compile` → `BUILD SUCCESS`.
-- La aplicación levanta el contexto de Spring y expone `GET /actuator/health`.
+- El arranque completo y la disponibilidad de `GET /actuator/health` con PostgreSQL se validarán al integrar el servicio de base de datos del Issue #13.
 - Test de contexto (`BackendApplicationTests`) incluido; queda condicionado a la disponibilidad de PostgreSQL (Issue #14, pendiente).
 
 ---
