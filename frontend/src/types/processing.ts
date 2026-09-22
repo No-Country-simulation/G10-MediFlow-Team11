@@ -8,21 +8,21 @@ export type DocumentStatus =
   | "FAILED";
 
 export type DocumentType =
-  | "RECETA"
-  | "INFORME_IMAGENES"
-  | "INFORME_ESTUDIO"
-  | "ORDEN_PROCEDIMIENTO"
-  | "EPICRISIS"
-  | "CERTIFICADO_MEDICO";
+  | "PRESCRIPTION"
+  | "IMAGING_REPORT"
+  | "STUDY_REPORT"
+  | "PROCEDURE_ORDER"
+  | "DISCHARGE_SUMMARY"
+  | "MEDICAL_CERTIFICATE";
 
-export type PriorityLevel = "RUTINA" | "URGENTE";
+export type PriorityLevel = "ROUTINE" | "URGENT";
 
 export type RoutingDestination =
-  | "EMERGENCIA_MEDICA"
-  | "FARMACIA"
-  | "AUDITORIA_AUTORIZACIONES"
-  | "HISTORIA_CLINICA"
-  | "REVISION_HUMANA";
+  | "MEDICAL_EMERGENCY"
+  | "PHARMACY"
+  | "AUTHORIZATION_AUDIT"
+  | "MEDICAL_RECORD"
+  | "HUMAN_REVIEW";
 
 export type AuditReason =
   | "LOW_CONFIDENCE"
@@ -33,82 +33,88 @@ export type AuditReason =
   | "AI_TIMEOUT"
   | "AI_UNAVAILABLE";
 
+export type StorageState = "PENDING" | "SUCCESS" | "ERROR";
+
 export interface DocumentClassification {
-  tipo_documento: DocumentType;
-  especialidad: string | null;
-  nivel_prioridad: PriorityLevel;
+  document_type: DocumentType;
+  specialty: string | null;
+  priority_level: PriorityLevel;
 }
 
 export interface Confidence {
-  clasificacion: number;
-  extraccion: number;
-  global: number;
-}
-
-export interface Confidence {
-  clasificacion: number;
-  extraccion: number;
+  classification: number;
+  extraction: number;
   global: number;
 }
 
 export interface PatientData {
-  nombre?: string | null;
-  edad?: number | null;
+  name?: string | null;
+  age?: number | null;
 }
 
 export interface RequestingDoctor {
-  nombre?: string | null;
-  matricula?: string | null;
+  name?: string | null;
+  license_number?: string | null;
 }
 
 export interface Medication {
-  nombre?: string | null;
-  dosis?: string | null;
+  name?: string | null;
+  dosage?: string | null;
 }
 
 export interface ExtractedData {
-  paciente?: PatientData | null;
-  medico_solicitante?: RequestingDoctor | null;
-  diagnostico_principal?: string | null;
-  cie10_sugerido?: string | null;
-  medicamentos?: Medication[];
+  patient?: PatientData | null;
+  requesting_doctor?: RequestingDoctor | null;
+  primary_diagnosis?: string | null;
+  suggested_icd10?: string | null;
+  medications?: Medication[];
   [key: string]: unknown;
 }
 
 export interface Validation {
-  requiere_revision_humana: boolean;
-  razones: string[];
+  missing_fields: string[];
+  inconsistencies: string[];
+  warnings: string[];
 }
 
 export interface RoutingDecision {
-  destino: RoutingDestination;
-  requiere_revision_humana: boolean;
+  primary_destination: RoutingDestination;
+  requires_human_review: boolean;
+  audit_reasons: AuditReason[];
+  justification: string;
 }
 
-export interface Notification {
-  enviada: boolean;
-  canal: string | null;
+export interface GeneratedNotification {
+  generated: true;
+  type: string;
+  message: string;
 }
+
+export interface NoNotification {
+  generated: false;
+}
+
+export type Notification = GeneratedNotification | NoNotification;
 
 export interface Storage {
-  raw_documento: string | null;
-  processed_json: string | null;
+  provider: "OCI_OBJECT_STORAGE";
+  state: StorageState;
 }
 
 export interface ProcessingResponse {
-  documento_id: string;
+  document_id: string;
   status: DocumentStatus;
-  clasificacion: DocumentClassification | null;
-  confianza: Confidence | null;
-  datos_extraidos: ExtractedData | null;
-  validacion: Validation | null;
-  decision_enrutamiento: RoutingDecision;
-  audit_reasons: AuditReason[];
-  notificacion: Notification;
-  almacenamiento: Storage;
+  classification: DocumentClassification | null;
+  confidence: Confidence | null;
+  extracted_data: ExtractedData | null;
+  validation: Validation | null;
+  routing_decision: RoutingDecision;
+  notification: Notification;
+  storage: Storage;
 }
 
 export interface ProcessTextRequest {
-  texto: string;
-  metadata?: Record<string, unknown>;
+  document_id?: string;
+  document_text: string;
+  origin_channel: string;
 }
