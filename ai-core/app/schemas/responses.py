@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.enums import (
     DocumentType,
-    PriorityLevel,
+    Priority,
     RoutingDestination,
     SemanticAuditReason,
 )
@@ -13,9 +13,9 @@ from app.schemas.enums import (
 class Classification(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    tipo_documento: DocumentType
-    especialidad: str | None = None
-    nivel_prioridad: PriorityLevel
+    document_type: DocumentType
+    specialty: str | None = None
+    priority_level: Priority
 
 
 class Confidence(BaseModel):
@@ -24,11 +24,11 @@ class Confidence(BaseModel):
         populate_by_name=True,
     )
 
-    clasificacion: float = Field(ge=0, le=1)
-    extraccion: float = Field(ge=0, le=1)
+    classification: float = Field(ge=0, le=1)
+    extraction: float = Field(ge=0, le=1)
     global_: float = Field(ge=0, le=1, alias="global")
 
-    @field_validator("clasificacion", "extraccion", "global_", mode="before")
+    @field_validator("classification", "extraction", "global_", mode="before")
     @classmethod
     def validate_numeric_confidence(cls, value: object) -> object:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -40,56 +40,56 @@ class Confidence(BaseModel):
 class Patient(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
-    nombre: str | None = None
-    edad: int | None = Field(default=None, ge=0)
+    name: str | None = None
+    age: int | None = Field(default=None, ge=0)
 
 
 class RequestingDoctor(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
-    nombre: str | None = None
-    matricula: str | None = None
+    name: str | None = None
+    license_number: str | None = None
 
 
 class Medication(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
-    nombre: str | None = None
-    dosis: str | None = None
+    name: str | None = None
+    dosage: str | None = None
 
 
 class ExtractedData(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
-    paciente: Patient | None = None
-    medico_solicitante: RequestingDoctor | None = None
-    diagnostico_principal: str | None = None
-    cie10_sugerido: str | None = None
-    medicamentos: list[Medication] | None = None
+    patient: Patient | None = None
+    requesting_doctor: RequestingDoctor | None = None
+    primary_diagnosis: str | None = None
+    suggested_icd10: str | None = None
+    medications: list[Medication] | None = None
 
 
 class ValidationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    campos_faltantes: list[str] = Field(default_factory=list)
-    inconsistencias: list[str] = Field(default_factory=list)
-    advertencias: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list)
+    inconsistencies: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class RoutingDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    destino_principal: RoutingDestination
+    primary_destination: RoutingDestination
     audit_reasons: list[SemanticAuditReason] = Field(default_factory=list)
-    justificacion: str = Field(min_length=1)
+    justification: str = Field(min_length=1)
 
 
 class AIProcessingResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    documento_id: str = Field(min_length=1)
-    clasificacion: Classification
-    confianza: Confidence
-    datos_extraidos: ExtractedData
-    validacion: ValidationResult
-    decision_enrutamiento: RoutingDecision
+    document_id: str = Field(min_length=1)
+    classification: Classification
+    confidence: Confidence
+    extracted_data: ExtractedData
+    validation: ValidationResult
+    routing_decision: RoutingDecision

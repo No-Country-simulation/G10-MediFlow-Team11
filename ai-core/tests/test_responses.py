@@ -11,44 +11,44 @@ from app.schemas.responses import AIProcessingResponse
 
 def valid_response_payload() -> dict:
     return {
-        "documento_id": "DOC-CLIN-001",
-        "clasificacion": {
-            "tipo_documento": "RECETA",
-            "especialidad": "Medicina general",
-            "nivel_prioridad": "RUTINA",
+        "document_id": "DOC-CLIN-001",
+        "classification": {
+            "document_type": "PRESCRIPTION",
+            "specialty": "Medicina general",
+            "priority_level": "ROUTINE",
         },
-        "confianza": {
-            "clasificacion": 0.95,
-            "extraccion": 0.90,
+        "confidence": {
+            "classification": 0.95,
+            "extraction": 0.90,
             "global": 0.92,
         },
-        "datos_extraidos": {
-            "paciente": {
-                "nombre": "Ana Torres",
-                "edad": 42,
+        "extracted_data": {
+            "patient": {
+                "name": "Ana Torres",
+                "age": 42,
             },
-            "medico_solicitante": {
-                "nombre": "Dra. Laura Gómez",
-                "matricula": "MP-12345",
+            "requesting_doctor": {
+                "name": "Dra. Laura Gómez",
+                "license_number": "MP-12345",
             },
-            "diagnostico_principal": "Infección respiratoria",
-            "cie10_sugerido": "J06.9",
-            "medicamentos": [
+            "primary_diagnosis": "Infección respiratoria",
+            "suggested_icd10": "J06.9",
+            "medications": [
                 {
-                    "nombre": "Amoxicilina",
-                    "dosis": "500 mg cada 8 horas",
+                    "name": "Amoxicilina",
+                    "dosage": "500 mg cada 8 horas",
                 }
             ],
         },
-        "validacion": {
-            "campos_faltantes": [],
-            "inconsistencias": [],
-            "advertencias": [],
+        "validation": {
+            "missing_fields": [],
+            "inconsistencies": [],
+            "warnings": [],
         },
-        "decision_enrutamiento": {
-            "destino_principal": "FARMACIA",
+        "routing_decision": {
+            "primary_destination": "PHARMACY",
             "audit_reasons": [],
-            "justificacion": "Receta válida para dispensación.",
+            "justification": "Receta válida para dispensación.",
         },
     }
 
@@ -58,13 +58,13 @@ def test_accepts_and_serializes_complete_response() -> None:
 
     serialized = response.model_dump(mode="json", by_alias=True)
 
-    assert serialized["confianza"]["global"] == 0.92
-    assert serialized["decision_enrutamiento"]["destino_principal"] == "FARMACIA"
+    assert serialized["confidence"]["global"] == 0.92
+    assert serialized["routing_decision"]["primary_destination"] == "PHARMACY"
 
 
 def test_rejects_confidence_above_one() -> None:
     payload = valid_response_payload()
-    payload["confianza"]["global"] = 1.1
+    payload["confidence"]["global"] = 1.1
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
@@ -75,7 +75,7 @@ def test_rejects_non_numeric_confidence(
     invalid_confidence: object,
 ) -> None:
     payload = valid_response_payload()
-    payload["confianza"]["global"] = invalid_confidence
+    payload["confidence"]["global"] = invalid_confidence
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
@@ -83,7 +83,7 @@ def test_rejects_non_numeric_confidence(
 
 def test_rejects_negative_patient_age() -> None:
     payload = valid_response_payload()
-    payload["datos_extraidos"]["paciente"]["edad"] = -1
+    payload["extracted_data"]["patient"]["age"] = -1
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
@@ -91,7 +91,7 @@ def test_rejects_negative_patient_age() -> None:
 
 def test_rejects_unknown_document_type() -> None:
     payload = valid_response_payload()
-    payload["clasificacion"]["tipo_documento"] = "HISTORIA_MEDICA"
+    payload["classification"]["document_type"] = "HISTORIA_MEDICA"
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
@@ -99,7 +99,7 @@ def test_rejects_unknown_document_type() -> None:
 
 def test_rejects_technical_audit_reason() -> None:
     payload = valid_response_payload()
-    payload["decision_enrutamiento"]["audit_reasons"] = ["AI_TIMEOUT"]
+    payload["routing_decision"]["audit_reasons"] = ["AI_TIMEOUT"]
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
@@ -107,7 +107,7 @@ def test_rejects_technical_audit_reason() -> None:
 
 def test_rejects_response_without_required_block() -> None:
     payload = valid_response_payload()
-    del payload["validacion"]
+    del payload["validation"]
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
@@ -123,10 +123,10 @@ def test_rejects_unknown_top_level_response_field() -> None:
 
 def test_allows_additional_extracted_data_by_document_type() -> None:
     payload = valid_response_payload()
-    payload["datos_extraidos"]["resultado_estudio"] = "Sin hallazgos críticos."
+    payload["extracted_data"]["resultado_estudio"] = "Sin hallazgos críticos."
 
     response = AIProcessingResponse.model_validate(payload)
 
-    assert response.datos_extraidos.model_dump()["resultado_estudio"] == (
+    assert response.extracted_data.model_dump()["resultado_estudio"] == (
         "Sin hallazgos críticos."
     )
