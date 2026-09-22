@@ -151,7 +151,7 @@ Puntos clave:
 
 - `./mvnw clean compile` → `BUILD SUCCESS`.
 - El arranque completo y la disponibilidad de `GET /actuator/health` con PostgreSQL se validarán al integrar el servicio de base de datos del Issue #13.
-- Test de contexto (`BackendApplicationTests`) incluido; queda condicionado a la disponibilidad de PostgreSQL (Issue #14, pendiente).
+- Test de contexto (`BackendApplicationTests`) incluido; queda condicionado a la disponibilidad de PostgreSQL (Issue #13, pendiente).
 
 ---
 
