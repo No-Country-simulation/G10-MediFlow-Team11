@@ -5,6 +5,10 @@ import type {
   ProcessTextRequest,
   ProcessingResponse,
 } from "../types/processing";
+import {
+  auditRequiredProcessingResponse,
+  successfulProcessingResponse,
+} from "../mocks/processingMocks";
 
 const PROCESS_TEXT_ENDPOINT = "/api/v1/documents/process-text";
 const PROCESS_FILE_ENDPOINT = "/api/v1/documents/process-file";
@@ -12,6 +16,10 @@ const PROCESS_FILE_ENDPOINT = "/api/v1/documents/process-file";
 export async function processText(
   request: ProcessTextRequest,
 ): Promise<ProcessingResponse> {
+  if (env.useMocks) {
+    return successfulProcessingResponse;
+  }
+
   const response = await fetch(`${env.apiBaseUrl}${PROCESS_TEXT_ENDPOINT}`, {
     method: "POST",
     headers: {
@@ -30,6 +38,10 @@ export async function processText(
 export async function processFile(
   request: ProcessFileRequest,
 ): Promise<ProcessingResponse> {
+  if (env.useMocks) {
+    return auditRequiredProcessingResponse;
+  }
+
   const formData = new FormData();
 
   formData.append("file", request.file);
