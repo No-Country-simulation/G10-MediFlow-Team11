@@ -39,21 +39,21 @@ El diagrama muestra la ruta de éxito; el orden de persistencia y las compensaci
 |---|---|
 | Clasificación, extracción, confianza, validación semántica y ruteo sugerido iniciales | **IA Core** |
 | Confirmación/corrección clínica en HITL; aplicación de merge, validación estructural y persistencia de la revisión | **Auditor humano / Backend**, respectivamente |
-| Resolución y garantía de unicidad de `documento_id`, `status`, persistencia, OCI, timestamps, errores técnicos, respuesta final al Frontend | **Backend** |
+| Resolución y garantía de unicidad de `document_id`, `status`, persistencia, OCI, timestamps, errores técnicos, respuesta final al Frontend | **Backend** |
 | Redacción de la notificación final (plantilla) | **Backend** |
 | Validación de que la respuesta de IA cumple el contrato acordado | **Backend** |
-| Valor final de `requiere_auditoria_humana` | **Backend** |
+| Valor final de `requires_human_review` | **Backend** |
 
 IA Core **no** devuelve `status` del documento, ni datos de almacenamiento OCI, ni el texto final de la notificación. Esos campos son responsabilidad exclusiva del Backend.
 
-**`requiere_auditoria_humana` es autoridad final del Backend**, no de IA. Se deriva del `status`, no de la presencia histórica de motivos:
+**`requires_human_review` es autoridad final del Backend**, no de IA. Se deriva del `status`, no de la presencia histórica de motivos:
 
 ```
-status = NEEDS_AUDIT  → requiere_auditoria_humana = true
-cualquier otro status → requiere_auditoria_humana = false
+status = NEEDS_AUDIT  → requires_human_review = true
+cualquier otro status → requires_human_review = false
 ```
 
-`audit_reasons` conserva los motivos que originaron la revisión incluso después de `APPROVED` o `REJECTED`, por trazabilidad. `requiere_auditoria_humana` representa si el documento requiere revisión **actualmente**. Si la regla se basara en `audit_reasons` en vez de en `status`, un documento ya `APPROVED` con motivos históricos (p. ej. `["LOW_CONFIDENCE"]`) volvería a marcar `requiere_auditoria_humana = true`, lo cual es incorrecto.
+`audit_reasons` conserva los motivos que originaron la revisión incluso después de `APPROVED` o `REJECTED`, por trazabilidad. `requires_human_review` representa si el documento requiere revisión **actualmente**. Si la regla se basara en `audit_reasons` en vez de en `status`, un documento ya `APPROVED` con motivos históricos (p. ej. `["LOW_CONFIDENCE"]`) volvería a marcar `requires_human_review = true`, lo cual es incorrecto.
 
 ---
 
@@ -66,25 +66,25 @@ El reto exige ingerir documentos en PDF, imagen o texto/JSON. Se exponen dos end
 ```
 Content-Type: multipart/form-data
 
-documento_id: String (opcional)
+document_id: String (opcional)
 file: (PDF, JPG, PNG)
-canal_origen: String
+origin_channel: String
 ```
 
 ### `POST /api/v1/documents/process-text`
 
 ```json
 {
-  "documento_id": "DOC-CLIN-2026-8942",
-  "documento_texto": "HOSPITAL SANTA LUCIA - INFORME DE ESTUDIO RADIOLOGICO...",
-  "canal_origen": "Guardia_Emergencias"
+  "document_id": "DOC-CLIN-2026-8942",
+  "document_text": "HOSPITAL SANTA LUCIA - INFORME DE ESTUDIO RADIOLOGICO...",
+  "origin_channel": "Guardia_Emergencias"
 }
 ```
 
-En ambos, `documento_id` es **opcional**:
+En ambos, `document_id` es **opcional**:
 
 ```
-Si viene documento_id → Backend lo valida y lo utiliza.
+Si viene document_id → Backend lo valida y lo utiliza.
 Si no viene           → Backend genera uno.
 ```
 
@@ -98,25 +98,25 @@ Internamente, el Backend traduce cualquiera de las dos entradas a un único DTO 
 
 ```json
 {
-  "documento_id": "DOC-CLIN-2026-8942",
+  "document_id": "DOC-CLIN-2026-8942",
   "input_type": "FILE",
   "mime_type": "application/pdf",
   "file_name": "informe.pdf",
   "content_base64": "...",
-  "documento_texto": null,
-  "canal_origen": "Guardia_Emergencias"
+  "document_text": null,
+  "origin_channel": "Guardia_Emergencias"
 }
 ```
 
 ```json
 {
-  "documento_id": "DOC-CLIN-2026-8943",
+  "document_id": "DOC-CLIN-2026-8943",
   "input_type": "TEXT",
   "mime_type": "text/plain",
   "file_name": null,
   "content_base64": null,
-  "documento_texto": "HOSPITAL SANTA LUCIA...",
-  "canal_origen": "Guardia_Emergencias"
+  "document_text": "HOSPITAL SANTA LUCIA...",
+  "origin_channel": "Guardia_Emergencias"
 }
 ```
 
@@ -124,7 +124,7 @@ Reglas de validación:
 
 ```
 input_type = FILE → content_base64 obligatorio
-input_type = TEXT → documento_texto obligatorio
+input_type = TEXT → document_text obligatorio
 ```
 
 Para el volumen de un hackathon (PDFs/imágenes sintéticas), enviar el archivo en Base64 dentro del JSON es una simplificación razonable. En producción se evaluaría evitar el overhead de Base64.
@@ -141,57 +141,57 @@ Un solo endpoint, un solo DTO, un solo mock para el Squad IA.
 
 ```json
 {
-  "documento_id": "DOC-CLIN-2026-8942",
+  "document_id": "DOC-CLIN-2026-8942",
 
-  "clasificacion": {
-    "tipo_documento": "INFORME_IMAGENES",
-    "especialidad": "Radiologia / Neumonologia",
-    "nivel_prioridad": "URGENTE"
+  "classification": {
+    "document_type": "IMAGING_REPORT",
+    "specialty": "Radiologia / Neumonologia",
+    "priority_level": "URGENT"
   },
 
-  "confianza": {
-    "clasificacion": 0.99,
-    "extraccion": 0.94,
+  "confidence": {
+    "classification": 0.99,
+    "extraction": 0.94,
     "global": 0.96
   },
 
-  "datos_extraidos": {
-    "paciente": { "nombre": "Carlos Eduardo Mendes", "edad": 52 },
-    "medico_solicitante": { "nombre": "Dra. Renata Silveira", "matricula": "145892" },
-    "diagnostico_principal": "Tromboembolismo Pulmonar Agudo",
-    "cie10_sugerido": "I26.9"
+  "extracted_data": {
+    "patient": { "name": "Carlos Eduardo Mendes", "age": 52 },
+    "requesting_doctor": { "name": "Dra. Renata Silveira", "license_number": "145892" },
+    "primary_diagnosis": "Tromboembolismo Pulmonar Agudo",
+    "suggested_icd10": "I26.9"
   },
 
-  "validacion": {
-    "campos_faltantes": [],
-    "inconsistencias": [],
-    "advertencias": []
+  "validation": {
+    "missing_fields": [],
+    "inconsistencies": [],
+    "warnings": []
   },
 
-  "decision_enrutamiento": {
-    "destino_principal": "EMERGENCIA_MEDICA",
+  "routing_decision": {
+    "primary_destination": "MEDICAL_EMERGENCY",
     "audit_reasons": [],
-    "justificacion": "Hallazgo de alta prioridad clínica."
+    "justification": "Hallazgo de alta prioridad clínica."
   }
 }
 ```
 
-**`requiere_auditoria_humana` no forma parte de este contrato.** IA solo reporta `audit_reasons` semánticos; el booleano final lo calcula exclusivamente el Backend a partir del `status` del documento (sección 2). Mantener el booleano en ambos lados crearía dos versiones del mismo campo (`IA.requiere_auditoria_humana` vs `Backend.requiere_auditoria_humana`) sin necesidad.
+**`requires_human_review` no forma parte de este contrato.** IA solo reporta `audit_reasons` semánticos; el booleano final lo calcula exclusivamente el Backend a partir del `status` del documento (sección 2). Mantener el booleano en ambos lados crearía dos versiones del mismo campo (`IA.requires_human_review` vs `Backend.requires_human_review`) sin necesidad.
 
 ### Campos mínimos de la respuesta de éxito de IA
 
-HTTP `200` solo se devuelve si se cumple este contrato. Todas las claves de primer nivel del ejemplo son obligatorias. No se permiten motivos técnicos en `decision_enrutamiento.audit_reasons`.
+HTTP `200` solo se devuelve si se cumple este contrato. Todas las claves de primer nivel del ejemplo son obligatorias. No se permiten motivos técnicos en `routing_decision.audit_reasons`.
 
 | Bloque/campo | Tipo y obligatoriedad |
 |---|---|
-| `documento_id` | String no vacío, idéntico al recibido |
-| `clasificacion` | Objeto obligatorio; `tipo_documento` y `nivel_prioridad` son enums obligatorios, `especialidad` es string o null |
-| `confianza` | Objeto obligatorio con `clasificacion`, `extraccion` y `global`: números entre 0 y 1 |
-| `datos_extraidos` | Objeto obligatorio con la estructura común indicada abajo; puede contener valores desconocidos |
-| `validacion` | Objeto obligatorio; `campos_faltantes`, `inconsistencias` y `advertencias` son arrays de strings, vacíos cuando no hay hallazgos |
-| `decision_enrutamiento` | Objeto obligatorio con `destino_principal` del enum, `audit_reasons` como array de motivos semánticos y `justificacion` como string no vacío |
+| `document_id` | String no vacío, idéntico al recibido |
+| `classification` | Objeto obligatorio; `document_type` y `priority_level` son enums obligatorios, `specialty` es string o null |
+| `confidence` | Objeto obligatorio con `classification`, `extraction` y `global`: números entre 0 y 1 |
+| `extracted_data` | Objeto obligatorio con la estructura común indicada abajo; puede contener valores desconocidos |
+| `validation` | Objeto obligatorio; `missing_fields`, `inconsistencies` y `warnings` son arrays de strings, vacíos cuando no hay hallazgos |
+| `routing_decision` | Objeto obligatorio con `primary_destination` del enum, `audit_reasons` como array de motivos semánticos y `justification` como string no vacío |
 
-Estructura común de `datos_extraidos`: las claves son opcionales; un valor desconocido se omite o se envía en null. `paciente` admite `nombre` (string) y `edad` (entero no negativo); `medico_solicitante` admite `nombre` y `matricula` (strings); `diagnostico_principal` y `cie10_sugerido` son strings; `medicamentos` es un array de objetos con `nombre` y `dosis` (strings opcionales/nullable). `[]` indica que no se identificaron medicamentos. Se permiten campos adicionales JSON por tipo de documento, sin exigir formularios exhaustivos en el Frontend. Un objeto `{}` es estructuralmente válido; las carencias clínicas se señalan en `validacion` y, si son críticas, con `MISSING_CRITICAL_FIELDS`.
+Estructura común de `extracted_data`: las claves son opcionales; un valor desconocido se omite o se envía en null. `patient` admite `name` (string) y `age` (entero no negativo); `requesting_doctor` admite `name` y `license_number` (strings); `primary_diagnosis` y `suggested_icd10` son strings; `medications` es un array de objetos con `name` y `dosage` (strings opcionales/nullable). `[]` indica que no se identificaron medicamentos. Se permiten campos adicionales JSON por tipo de documento, sin exigir formularios exhaustivos en el Frontend. Un objeto `{}` es estructuralmente válido; las carencias clínicas se señalan en `validation` y, si son críticas, con `MISSING_CRITICAL_FIELDS`.
 
 Ninguno de los bloques completos puede ser null en un éxito de IA. Si no es posible clasificar con alguno de los tipos admitidos o producir esta estructura, IA usa el error controlado siguiente. Los null de la respuesta canónica los construye el Backend ante fallos o después de revisión humana (secciones 6 y 9).
 
@@ -213,18 +213,18 @@ Los errores controlados de IA usan este sobre `{ error: { code, message } }`; un
 Enums acordados (sin texto libre):
 
 ```
-tipo_documento: RECETA | INFORME_IMAGENES | INFORME_ESTUDIO |
-                ORDEN_PROCEDIMIENTO | EPICRISIS | CERTIFICADO_MEDICO
-nivel_prioridad: RUTINA | URGENTE
-destino_principal: EMERGENCIA_MEDICA | FARMACIA | AUDITORIA_AUTORIZACIONES |
-                   HISTORIA_CLINICA | REVISION_HUMANA
+document_type: PRESCRIPTION | IMAGING_REPORT | STUDY_REPORT |
+                PROCEDURE_ORDER | DISCHARGE_SUMMARY | MEDICAL_CERTIFICATE
+priority_level: ROUTINE | URGENT
+primary_destination: MEDICAL_EMERGENCY | PHARMACY | AUTHORIZATION_AUDIT |
+                   MEDICAL_RECORD | HUMAN_REVIEW
 ```
 
-`INFORME_IMAGENES` conserva el valor de los ejemplos existentes; `INFORME_ESTUDIO` cubre los demás informes de estudio del MVP. No se incorporan categorías clínicas adicionales.
+`IMAGING_REPORT` cubre los informes de imágenes; `STUDY_REPORT` cubre los demás informes de estudio del MVP. No se incorporan categorías clínicas adicionales.
 
-`destino_principal` en la respuesta de IA representa el **destino de negocio sugerido**. Si el Backend determina `status = NEEDS_AUDIT`, ese destino no se ejecuta todavía: el documento permanece en `auditoria_humana/` hasta que un auditor lo apruebe o corrija. Cuando IA no produce un destino confiable (por ejemplo, `AI_TIMEOUT`), el Backend usa `REVISION_HUMANA` en la respuesta canónica.
+`primary_destination` en la respuesta de IA representa el **destino de negocio sugerido**. Si el Backend determina `status = NEEDS_AUDIT`, ese destino no se ejecuta todavía: el documento permanece en `auditoria_humana/` hasta que un auditor lo apruebe o corrija. Cuando IA no produce un destino confiable (por ejemplo, `AI_TIMEOUT`), el Backend usa `HUMAN_REVIEW` en la respuesta canónica.
 
-**Ejecutar enrutamiento en el MVP significa una acción lógica/simulada:** persistir el destino confirmado, incluirlo en el resultado JSON, exponerlo por API/Frontend y reflejar el estado/prioridad en el prefijo OCI y el destino en su artefacto JSON. No se llama a sistemas externos de Emergencias, Farmacia, Autorizaciones o Historia Clínica. Con una respuesta válida sin motivos de auditoría y destino distinto de `REVISION_HUMANA`, el resultado es `PROCESSED`; con motivos semánticos o destino `REVISION_HUMANA`, es `NEEDS_AUDIT`. Los fallos técnicos siguen la sección 12.
+**Ejecutar enrutamiento en el MVP significa una acción lógica/simulada:** persistir el destino confirmado, incluirlo en el resultado JSON, exponerlo por API/Frontend y reflejar el estado/prioridad en el prefijo OCI y el destino en su artefacto JSON. No se llama a sistemas externos de Emergencias, Farmacia, Autorizaciones o Historia Clínica. Con una respuesta válida sin motivos de auditoría y destino distinto de `HUMAN_REVIEW`, el resultado es `PROCESSED`; con motivos semánticos o destino `HUMAN_REVIEW`, es `NEEDS_AUDIT`. Los fallos técnicos siguen la sección 12.
 
 ---
 
@@ -234,79 +234,79 @@ Es la que consume el Frontend al pedir el resultado de un documento:
 
 ```json
 {
-  "documento_id": "DOC-CLIN-2026-8942",
+  "document_id": "DOC-CLIN-2026-8942",
   "status": "PROCESSED",
 
-  "clasificacion": {
-    "tipo_documento": "INFORME_IMAGENES",
-    "especialidad": "Radiologia / Neumonologia",
-    "nivel_prioridad": "URGENTE"
+  "classification": {
+    "document_type": "IMAGING_REPORT",
+    "specialty": "Radiologia / Neumonologia",
+    "priority_level": "URGENT"
   },
 
-  "confianza": {
-    "clasificacion": 0.99,
-    "extraccion": 0.94,
+  "confidence": {
+    "classification": 0.99,
+    "extraction": 0.94,
     "global": 0.96
   },
 
-  "datos_extraidos": { "...": "..." },
+  "extracted_data": { "...": "..." },
 
-  "validacion": {
-    "campos_faltantes": [],
-    "inconsistencias": [],
-    "advertencias": []
+  "validation": {
+    "missing_fields": [],
+    "inconsistencies": [],
+    "warnings": []
   },
 
-  "decision_enrutamiento": {
-    "destino_principal": "EMERGENCIA_MEDICA",
-    "requiere_auditoria_humana": false,
+  "routing_decision": {
+    "primary_destination": "MEDICAL_EMERGENCY",
+    "requires_human_review": false,
     "audit_reasons": [],
-    "justificacion": "..."
+    "justification": "..."
   },
 
-  "notificacion": {
-    "generada": true,
-    "tipo": "URGENCIA_MEDICA",
-    "mensaje": "ALERTA URGENTE: el documento DOC-CLIN-2026-8942 requiere atención inmediata."
+  "notification": {
+    "generated": true,
+    "type": "MEDICAL_EMERGENCY",
+    "message": "ALERTA URGENTE: el documento DOC-CLIN-2026-8942 requiere atención inmediata."
   },
 
-  "almacenamiento": {
+  "storage": {
     "provider": "OCI_OBJECT_STORAGE",
-    "estado": "SUCCESS"
+    "state": "SUCCESS"
   }
 }
 ```
 
-El Frontend **no** recibe bucket, namespace ni object key internos — eso es infraestructura y queda encapsulado en el Backend. Para casos de rutina sin alerta, el Backend devuelve `"notificacion": { "generada": false }`.
+El Frontend **no** recibe bucket, namespace ni object key internos — eso es infraestructura y queda encapsulado en el Backend. Para casos de rutina sin alerta, el Backend devuelve `"notification": { "generated": false }`.
 
 ### Respuesta cuando IA no responde o falla
 
-Los bloques derivados de IA (`clasificacion`, `confianza`, `datos_extraidos`, `validacion`) son **nullable**: se devuelven en `null` cuando no existe una respuesta válida del servicio de IA. `decision_enrutamiento`, `almacenamiento` y `status` siempre están presentes porque los arma el Backend.
+Los bloques derivados de IA (`classification`, `confidence`, `extracted_data`, `validation`) son **nullable**: se devuelven en `null` cuando no existe una respuesta válida del servicio de IA. `routing_decision`, `storage` y `status` siempre están presentes porque los arma el Backend.
 
-Tras una revisión, los bloques completados por el humano pueden tener valores aunque IA haya fallado. `confianza` permanece null si no hubo respuesta válida de IA o si se modificó su contenido clínico/clasificación/destino (sección 9). Para estados iniciales `RECEIVED`/`PROCESSING`, los bloques aún no obtenidos son null; se persisten destino `REVISION_HUMANA`, justificación `Procesamiento pendiente`, `audit_reasons = []` y `notificacion = { "generada": false }`. `almacenamiento.estado` usa `PENDING`, `SUCCESS` o `ERROR` según la sección 10, sin alterar el enum de `status`.
+Tras una revisión, los bloques completados por el humano pueden tener valores aunque IA haya fallado. `confidence` permanece null si no hubo respuesta válida de IA o si se modificó su contenido clínico/clasificación/destino (sección 9). Para estados iniciales `RECEIVED`/`PROCESSING`, los bloques aún no obtenidos son null; se persisten destino `HUMAN_REVIEW`, justificación `Procesamiento pendiente`, `audit_reasons = []` y `notification = { "generated": false }`. `storage.state` usa `PENDING`, `SUCCESS` o `ERROR` según la sección 10, sin alterar el enum de `status`.
 
 ```json
 {
-  "documento_id": "DOC-CLIN-2026-8942",
+  "document_id": "DOC-CLIN-2026-8942",
   "status": "NEEDS_AUDIT",
 
-  "clasificacion": null,
-  "confianza": null,
-  "datos_extraidos": null,
-  "validacion": null,
+  "classification": null,
+  "confidence": null,
+  "extracted_data": null,
+  "validation": null,
 
-  "decision_enrutamiento": {
-    "destino_principal": "REVISION_HUMANA",
-    "requiere_auditoria_humana": true,
+  "routing_decision": {
+    "primary_destination": "HUMAN_REVIEW",
+    "requires_human_review": true,
     "audit_reasons": ["AI_TIMEOUT"],
-    "justificacion": "El servicio de IA no respondió dentro del tiempo configurado."
+    "justification": "El servicio de IA no respondió dentro del tiempo configurado."
   },
 
-  "notificacion": { "generada": false },
+  "notification": { "generated": false },
 
-  "almacenamiento": {
+  "storage": {
     "provider": "OCI_OBJECT_STORAGE",
-    "estado": "SUCCESS"
+    "state": "SUCCESS"
   }
 }
 ```
@@ -410,7 +410,7 @@ Este enum diferenciado permite que el Squad Producto diseñe cada documento de p
 ```
 AUDIT_CONFIDENCE_THRESHOLD = 0.85   (configurable; 0.85 es solo el valor inicial del MVP)
 
-confianza.global < AUDIT_CONFIDENCE_THRESHOLD → LOW_CONFIDENCE
+confidence.global < AUDIT_CONFIDENCE_THRESHOLD → LOW_CONFIDENCE
 ```
 
 No se deja hardcodeado en el código de IA Core: vive como configuración externa (variable de entorno o archivo de config).
@@ -422,17 +422,17 @@ No se deja hardcodeado en el código de IA Core: vive como configuración extern
 ### `GET /api/v1/documents/audit`
 Lista documentos con `status = NEEDS_AUDIT`, con metadatos y referencia al documento original (PDF, imagen o texto) para que el auditor lo revise.
 
-**Response (200 OK):** array, vacío si no hay pendientes, ordenado por `created_at` y luego `documento_id`. Cada elemento tiene las siguientes claves obligatorias; `file_name` y `tipo_documento` pueden ser null:
+**Response (200 OK):** array, vacío si no hay pendientes, ordenado por `created_at` y luego `document_id`. Cada elemento tiene las siguientes claves obligatorias; `file_name` y `document_type` pueden ser null:
 
 ```json
 [
   {
-    "documento_id": "DOC-CLIN-2026-8942",
+    "document_id": "DOC-CLIN-2026-8942",
     "status": "NEEDS_AUDIT",
     "input_type": "FILE",
     "mime_type": "application/pdf",
     "file_name": "informe.pdf",
-    "tipo_documento": null,
+    "document_type": null,
     "audit_reasons": ["AI_TIMEOUT"],
     "created_at": "2026-09-15T18:00:00Z",
     "updated_at": "2026-09-15T18:01:00Z"
@@ -440,14 +440,14 @@ Lista documentos con `status = NEEDS_AUDIT`, con metadatos y referencia al docum
 ]
 ```
 
-`documento_id` es la referencia para abrir `GET /api/v1/documents/{id}` y `GET /api/v1/documents/{id}/content`; no se incluyen rutas internas OCI.
+`document_id` es la referencia para abrir `GET /api/v1/documents/{id}` y `GET /api/v1/documents/{id}/content`; no se incluyen rutas internas OCI.
 
 ### `GET /api/v1/documents/{id}`
 Devuelve el detalle completo de un documento (respuesta canónica de la sección 6).
 
 ### `GET /api/v1/documents/{id}/history`
 
-Devuelve HTTP `200` con `{ "documento_id": "...", "entries": [...] }`. Cada entrada contiene `sequence` (entero creciente por documento), `event_type` (`INITIAL_TRIAGE` o `HUMAN_REVIEW`), `decision` (null, `APPROVE` o `REJECT`), `occurred_at` (timestamp UTC ISO 8601) y `result` (snapshot completo de la respuesta canónica de la sección 6). `entries` se ordena por `sequence` ascendente, que refleja el orden de confirmación; queda vacío si aún no hay resultado. Un ID inexistente devuelve `404 DOCUMENT_NOT_FOUND`.
+Devuelve HTTP `200` con `{ "document_id": "...", "entries": [...] }`. Cada entrada contiene `sequence` (entero creciente por documento), `event_type` (`INITIAL_TRIAGE` o `HUMAN_REVIEW`), `decision` (null, `APPROVE` o `REJECT`), `occurred_at` (timestamp UTC ISO 8601) y `result` (snapshot completo de la respuesta canónica de la sección 6). `entries` se ordena por `sequence` ascendente, que refleja el orden de confirmación; queda vacío si aún no hay resultado. Un ID inexistente devuelve `404 DOCUMENT_NOT_FOUND`.
 
 Se registra un resultado inicial automatizado, incluido el fallback técnico, y una entrada por decisión humana confirmada. La entrada humana contiene el resultado ya corregido, por lo que no se duplica con un evento adicional de corrección. No se registran transiciones internas como `RECEIVED → PROCESSING`. La persistencia append-only se define en la sección 10.
 
@@ -460,28 +460,28 @@ FILE → binario original; Content-Type = mime_type persistido (application/pdf,
 TEXT → JSON UTF-8 original almacenado; Content-Type = application/json.
 ```
 
-Para TEXT se devuelve exactamente el objeto guardado en OCI con `documento_id` resuelto, `documento_texto` y `canal_origen`; el Frontend muestra su campo `documento_texto`. PostgreSQL es la fuente durable de `input_type`, `mime_type` y `file_name`. En TEXT el `mime_type` persistido es `application/json`, porque describe el objeto almacenado; el `mime_type = text/plain` del `ProcessingRequest` describe el texto enviado a IA y no se copia a esa columna. `file_name` es null para TEXT.
+Para TEXT se devuelve exactamente el objeto guardado en OCI con `document_id` resuelto, `document_text` y `origin_channel`; el Frontend muestra su campo `document_text`. PostgreSQL es la fuente durable de `input_type`, `mime_type` y `file_name`. En TEXT el `mime_type` persistido es `application/json`, porque describe el objeto almacenado; el `mime_type = text/plain` del `ProcessingRequest` describe el texto enviado a IA y no se copia a esa columna. `file_name` es null para TEXT.
 
 ### `PATCH /api/v1/documents/{id}/review`
 
-Permite tanto **corregir** lo que IA ya produjo como **completar manualmente** un documento cuando IA no respondió (`clasificacion`, `datos_extraidos`, etc. en `null`). Los campos de contenido admiten correcciones parciales: solo se envían los necesarios, sujetos a las invariantes de APPROVE y a la confirmación de `validacion` detalladas abajo.
+Permite tanto **corregir** lo que IA ya produjo como **completar manualmente** un documento cuando IA no respondió (`classification`, `extracted_data`, etc. en `null`). Los campos de contenido admiten correcciones parciales: solo se envían los necesarios, sujetos a las invariantes de APPROVE y a la confirmación de `validation` detalladas abajo.
 
 **Request:**
 ```json
 {
-  "clasificacion": {
-    "tipo_documento": "INFORME_IMAGENES",
-    "especialidad": "Radiologia",
-    "nivel_prioridad": "URGENTE"
+  "classification": {
+    "document_type": "IMAGING_REPORT",
+    "specialty": "Radiologia",
+    "priority_level": "URGENT"
   },
-  "datos_extraidos": { "...": "..." },
-  "decision_enrutamiento": {
-    "destino_principal": "EMERGENCIA_MEDICA"
+  "extracted_data": { "...": "..." },
+  "routing_decision": {
+    "primary_destination": "MEDICAL_EMERGENCY"
   },
-  "validacion": {
-    "campos_faltantes": [],
-    "inconsistencias": [],
-    "advertencias": []
+  "validation": {
+    "missing_fields": [],
+    "inconsistencies": [],
+    "warnings": []
   },
   "decision": "APPROVE"
 }
@@ -490,21 +490,21 @@ Valores válidos de `decision`: `APPROVE` | `REJECT`.
 
 `decision` es obligatorio. El Backend hace merge recursivo de los objetos enviados sobre el contenido persistido: las claves omitidas se conservan, los arrays se reemplazan completos y un null explícito borra únicamente un valor nullable. Se rechazan campos fuera del contrato de revisión; el auditor no modifica `status`, confianza ni `audit_reasons` directamente.
 
-**Invariantes de APPROVE:** después del merge deben existir `clasificacion.tipo_documento` y `clasificacion.nivel_prioridad` válidos, `datos_extraidos` no null con la forma común de la sección 5 y `decision_enrutamiento.destino_principal` válido y distinto de `REVISION_HUMANA`. Si falla una condición, se devuelve `400 REVIEW_VALIDATION_FAILED` sin guardar correcciones, cambiar estado, enrutar ni escribir una decisión. `{}` puede satisfacer la forma de extracción: la confirmación de suficiencia clínica corresponde al auditor. `REJECT` no exige esos campos y no ejecuta enrutamiento.
+**Invariantes de APPROVE:** después del merge deben existir `classification.document_type` y `classification.priority_level` válidos, `extracted_data` no null con la forma común de la sección 5 y `routing_decision.primary_destination` válido y distinto de `HUMAN_REVIEW`. Si falla una condición, se devuelve `400 REVIEW_VALIDATION_FAILED` sin guardar correcciones, cambiar estado, enrutar ni escribir una decisión. `{}` puede satisfacer la forma de extracción: la confirmación de suficiencia clínica corresponde al auditor. `REJECT` no exige esos campos y no ejecuta enrutamiento.
 
 **Control atómico de estado:** la revisión solo es válida desde `NEEDS_AUDIT`. En una transacción PostgreSQL el Backend bloquea la fila (`SELECT ... FOR UPDATE`), comprueba el estado y mantiene el bloqueo hasta confirmar o revertir la revisión, siguiendo la secuencia OCI de la sección 12. Cualquier otro estado, incluidos `RECEIVED` y `PROCESSING`, devuelve `409 INVALID_REVIEW_STATE` antes de cambios o escrituras OCI. Una solicitud repetida o atrasada no sobrescribe resultados ni duplica movimiento, enrutamiento o historial. Una revisión competidora espera el bloqueo y vuelve a comprobar el estado.
 
 ### Campos derivados después de revisión humana
 
-- Los `audit_reasons` históricos se conservan. Si cambia efectivamente clasificación (incluida prioridad), datos extraídos o destino, las tres columnas de confianza quedan null y la respuesta actual devuelve `confianza: null`. La confianza anterior sigue disponible en el snapshot inicial del historial; no se agrega otro modelo de auditoría.
-- `validacion` representa la revisión final: el request admite opcionalmente ese objeto completo con los tres arrays de strings de la sección 5, confirmados por el auditor. Es obligatorio enviarlo si cambia alguno de esos contenidos o la validación previa es null; de lo contrario, la decisión confirma la validación existente. Su ausencia cuando es obligatorio devuelve `400 REVIEW_VALIDATION_FAILED`. Para `REJECT` sin correcciones puede seguir en null. El Backend valida la estructura; no inventa una nueva evaluación clínica ni vuelve a llamar a IA.
-- La justificación final la construye el Backend: `Destino {destino_principal} confirmado por revisión humana` para APPROVE, y `Documento rechazado en revisión humana; no se ejecuta enrutamiento` para REJECT. No se conserva como justificación actual una explicación de IA para un destino anterior.
-- Se regenera y persiste `notificacion` desde el resultado final: en APPROVE con prioridad `URGENTE` y destino `EMERGENCIA_MEDICA`, se usa la plantilla `URGENCIA_MEDICA` de la sección 6; en los demás casos de revisión, incluido REJECT, se guarda `{ "generada": false }`. Generar significa producir el mensaje del resultado, no enviar comunicaciones externas.
+- Los `audit_reasons` históricos se conservan. Si cambia efectivamente clasificación (incluida prioridad), datos extraídos o destino, las tres columnas de confianza quedan null y la respuesta actual devuelve `confidence: null`. La confianza anterior sigue disponible en el snapshot inicial del historial; no se agrega otro modelo de auditoría.
+- `validation` representa la revisión final: el request admite opcionalmente ese objeto completo con los tres arrays de strings de la sección 5, confirmados por el auditor. Es obligatorio enviarlo si cambia alguno de esos contenidos o la validación previa es null; de lo contrario, la decisión confirma la validación existente. Su ausencia cuando es obligatorio devuelve `400 REVIEW_VALIDATION_FAILED`. Para `REJECT` sin correcciones puede seguir en null. El Backend valida la estructura; no inventa una nueva evaluación clínica ni vuelve a llamar a IA.
+- La justificación final la construye el Backend: `Destino {primary_destination} confirmado por revisión humana` para APPROVE, y `Documento rechazado en revisión humana; no se ejecuta enrutamiento` para REJECT. No se conserva como justificación actual una explicación de IA para un destino anterior.
+- Se regenera y persiste `notification` desde el resultado final: en APPROVE con prioridad `URGENT` y destino `MEDICAL_EMERGENCY`, se usa la plantilla `MEDICAL_EMERGENCY` de la sección 6; en los demás casos de revisión, incluido REJECT, se guarda `{ "generated": false }`. Generar significa producir el mensaje del resultado, no enviar comunicaciones externas.
 
 **Response:**
 ```json
 {
-  "documento_id": "DOC-CLIN-2026-8942",
+  "document_id": "DOC-CLIN-2026-8942",
   "status": "APPROVED",
   "message": "Revisión humana registrada correctamente"
 }
@@ -518,7 +518,7 @@ IA no respondió (AI_TIMEOUT / AI_UNAVAILABLE) → el auditor completa manualmen
                                                   datos extraídos y destino de enrutamiento
 ```
 
-Sin esto, un documento con `AI_TIMEOUT` podría terminar en `APPROVED` con `clasificacion = null` y `routing_destination = null`, lo cual rompe el flujo aguas abajo.
+Sin esto, un documento con `AI_TIMEOUT` podría terminar en `APPROVED` con `classification = null` y `routing_destination = null`, lo cual rompe el flujo aguas abajo.
 
 **Mientras `status = NEEDS_AUDIT`, el Backend no ejecuta el destino de negocio sugerido:** el documento permanece en `auditoria_humana/`. El enrutamiento final se materializa únicamente después de `APPROVE`, usando los valores confirmados o corregidos por el auditor.
 
@@ -526,8 +526,8 @@ Tras la decisión, el Backend actualiza:
 
 ```mermaid
 flowchart TD
-    A["NEEDS_AUDIT"] -->|"APPROVE + nivel_prioridad = URGENTE"| B["APPROVED<br/>OCI: auditoria_humana/ → procesados/urgentes/"]
-    A -->|"APPROVE + nivel_prioridad = RUTINA"| C["APPROVED<br/>OCI: auditoria_humana/ → procesados/rutina/"]
+    A["NEEDS_AUDIT"] -->|"APPROVE + priority_level = URGENT"| B["APPROVED<br/>OCI: auditoria_humana/ → procesados/urgentes/"]
+    A -->|"APPROVE + priority_level = ROUTINE"| C["APPROVED<br/>OCI: auditoria_humana/ → procesados/rutina/"]
     A -->|"REJECT"| D["REJECTED<br/>OCI: permanece en auditoria_humana/<br/>(no se crea un prefijo adicional para el MVP)"]
 ```
 
@@ -537,7 +537,7 @@ Las invariantes de APPROVE garantizan que existe una prioridad antes de aprobar,
 
 ## 10. Modelo Mínimo de Datos (PostgreSQL)
 
-Tabla `documentos`, con campos consultables promovidos fuera del JSONB:
+Tabla `documents`, con campos consultables promovidos fuera del JSONB:
 
 **Identificación y auditoría**
 
@@ -579,7 +579,7 @@ Tabla `documentos`, con campos consultables promovidos fuera del JSONB:
 
 | Campo | Regla / estructura | Descripción |
 |---|---|---|
-| `routing_destination` | Obligatorio | `REVISION_HUMANA` al inicializar o sin destino confiable |
+| `routing_destination` | Obligatorio | `HUMAN_REVIEW` al inicializar o sin destino confiable |
 | `routing_justification` | Obligatoria | Persistida también en fallback |
 
 **Bloques JSONB**
@@ -587,8 +587,8 @@ Tabla `documentos`, con campos consultables promovidos fuera del JSONB:
 | Campo | Regla / estructura | Descripción |
 |---|---|---|
 | `extracted_data` | `JSONB, nullable` | Varía según tipo de documento |
-| `validation` | `JSONB, nullable` | `{ campos_faltantes, inconsistencias, advertencias }` |
-| `notification` | `JSONB, obligatorio` | `{ generada: false }` cuando no hay notificación |
+| `validation` | `JSONB, nullable` | `{ missing_fields, inconsistencies, warnings }` |
+| `notification` | `JSONB, obligatorio` | `{ generated: false }` cuando no hay notificación |
 
 **Timestamps**
 
@@ -599,7 +599,7 @@ Tabla `documentos`, con campos consultables promovidos fuera del JSONB:
 
 `extracted_data`, `validation` y `notification` permanecen como JSONB por su variabilidad según tipo de documento; el resto de los campos usados para filtrar o listar se mantiene como columnas explícitas.
 
-**Las columnas y estos tres campos JSONB permiten que `GET /api/v1/documents/{id}` reconstruya la respuesta canónica completa (sección 6) sin recalcular el análisis.** La respuesta canónica incluye `especialidad`, `validacion` y `decision_enrutamiento.justificacion`, que sin estas columnas no tendrían dónde persistirse — quedarían disponibles solo en el momento de la llamada original a IA y se perderían en consultas posteriores.
+**Las columnas y estos tres campos JSONB permiten que `GET /api/v1/documents/{id}` reconstruya la respuesta canónica completa (sección 6) sin recalcular el análisis.** La respuesta canónica incluye `specialty`, `validation` y `routing_decision.justification`, que sin estas columnas no tendrían dónde persistirse — quedarían disponibles solo en el momento de la llamada original a IA y se perderían en consultas posteriores.
 
 **No se almacena `needs_audit` como columna.** Al ser un valor completamente derivado de `status = NEEDS_AUDIT`, guardarlo por separado permite que quede desincronizado (p. ej. `status = APPROVED` con `needs_audit = true` tras un bug de actualización). El endpoint `GET /api/v1/documents/audit` consulta directamente `WHERE status = 'NEEDS_AUDIT'`.
 
@@ -607,16 +607,16 @@ Tabla `documentos`, con campos consultables promovidos fuera del JSONB:
 
 | Campo canónico | Fuente durable o regla |
 |---|---|
-| `documento_id`, `status` | `id` (identificador público único) y `status` |
-| `clasificacion` | `document_type`, `specialty`, `priority`; null si los tres son null |
-| `confianza` | Las tres columnas `confidence_*`; todas presentes o todas null |
-| `datos_extraidos`, `validacion`, `notificacion` | `extracted_data`, `validation`, `notification`, sin volver a llamar a IA |
+| `document_id`, `status` | `id` (identificador público único) y `status` |
+| `classification` | `document_type`, `specialty`, `priority`; null si los tres son null |
+| `confidence` | Las tres columnas `confidence_*`; todas presentes o todas null |
+| `extracted_data`, `validation`, `notification` | `extracted_data`, `validation`, `notification`, sin volver a llamar a IA |
 | Destino, motivos y justificación | `routing_destination`, `audit_reasons`, `routing_justification` |
-| `requiere_auditoria_humana` | Derivado exclusivamente de `status = NEEDS_AUDIT` |
-| `almacenamiento.provider` | Constante `OCI_OBJECT_STORAGE`, sin columna adicional |
-| `almacenamiento.estado` | `storage_state`: `PENDING` antes del resultado, `SUCCESS` si original y artefacto actual están confirmados, `ERROR` si su persistencia falló |
+| `requires_human_review` | Derivado exclusivamente de `status = NEEDS_AUDIT` |
+| `storage.provider` | Constante `OCI_OBJECT_STORAGE`, sin columna adicional |
+| `storage.state` | `storage_state`: `PENDING` antes del resultado, `SUCCESS` si original y artefacto actual están confirmados, `ERROR` si su persistencia falló |
 
-El Backend **persiste también sus fallbacks**: destino `REVISION_HUMANA`, justificación técnica específica, motivos técnicos y `notification = { "generada": false }`. Destino, justificación y notificación se inicializan al crear el registro y nunca quedan null en un resultado confirmado. No dependen de memoria de la solicitud. Los valores null de clasificación o confianza se guardan y reconstruyen como tales; en una revisión parcial se conservan únicamente las claves nullable permitidas por el contrato.
+El Backend **persiste también sus fallbacks**: destino `HUMAN_REVIEW`, justificación técnica específica, motivos técnicos y `notification = { "generated": false }`. Destino, justificación y notificación se inicializan al crear el registro y nunca quedan null en un resultado confirmado. No dependen de memoria de la solicitud. Los valores null de clasificación o confianza se guardan y reconstruyen como tales; en una revisión parcial se conservan únicamente las claves nullable permitidas por el contrato.
 
 ### Historial mínimo de triaje
 
@@ -624,8 +624,8 @@ Tabla `document_triage_history`:
 
 | Campo | Regla / estructura | Descripción |
 |---|---|---|
-| `documento_id` | FK a `documentos.id` | — |
-| `sequence` | Entero creciente por documento; PK (`documento_id`, `sequence`) | — |
+| `document_id` | FK a `documents.id` | — |
+| `sequence` | Entero creciente por documento; PK (`document_id`, `sequence`) | — |
 | `event_type` | `INITIAL_TRIAGE` \| `HUMAN_REVIEW` | — |
 | `decision` | `null` para `INITIAL_TRIAGE`; `APPROVE` \| `REJECT` para `HUMAN_REVIEW` | — |
 | `occurred_at` | — | Timestamp UTC de confirmación |
@@ -646,7 +646,7 @@ procesados/rutina/      (rutina procesados correctamente o aprobados por humano)
 auditoria_humana/       (pendientes de revisión humana o rechazados)
 ```
 
-**Entradas de tipo `TEXT` también se persisten en OCI.** Para mantener representación uniforme de todo documento, independientemente del canal de entrada, el Backend serializa el payload original (`documento_id`, `documento_texto` y `canal_origen`) como `.json` y lo guarda en `recibidos/` siguiendo los mismos prefijos y transiciones que un archivo:
+**Entradas de tipo `TEXT` también se persisten en OCI.** Para mantener representación uniforme de todo documento, independientemente del canal de entrada, el Backend serializa el payload original (`document_id`, `document_text` y `origin_channel`) como `.json` y lo guarda en `recibidos/` siguiendo los mismos prefijos y transiciones que un archivo:
 
 ```
 recibidos/DOC-CLIN-2026-8943/original.json
@@ -654,9 +654,9 @@ recibidos/DOC-CLIN-2026-8943/original.json
 
 ### Original y artefacto de resultado/decisión
 
-Convención determinista: `{prefijo}/{id_codificado}/original.{ext}` y `{prefijo}/{id_codificado}/triage.json`. `id_codificado` es `documento_id` codificado en UTF-8 con percent-encoding para ocupar un único segmento (solo letras ASCII, números, guion y guion bajo quedan literales); no cambia el ID público. La extensión se obtiene del MIME admitido (`pdf`, `jpg`, `png`, o `json` para TEXT), no del nombre aportado por el usuario. `object_key` identifica el original vigente; la clave del artefacto se deriva sustituyendo su nombre por `triage.json`.
+Convención determinista: `{prefix}/{encoded_id}/original.{ext}` y `{prefix}/{encoded_id}/triage.json`. `encoded_id` es `document_id` codificado en UTF-8 con percent-encoding para ocupar un único segmento (solo letras ASCII, números, guion y guion bajo quedan literales); no cambia el ID público. La extensión se obtiene del MIME admitido (`pdf`, `jpg`, `png`, o `json` para TEXT), no del nombre aportado por el usuario. `object_key` identifica el original vigente; la clave del artefacto se deriva sustituyendo su nombre por `triage.json`.
 
-`triage.json` es un objeto JSON UTF-8 con las mismas claves clínicas en español que la respuesta canónica: `documento_id`, `status`, `clasificacion`, `confianza`, `datos_extraidos`, `validacion`, `decision_enrutamiento` (incluidos `audit_reasons`, destino, justificación y booleano derivado), `notificacion` y `almacenamiento`. Añade `sequence`, `created_at`, `updated_at` y `revision_humana` (null inicialmente; después `{ "decision": "APPROVE" }` o `{ "decision": "REJECT" }`; `updated_at` es la fecha de esa decisión). Los bloques no disponibles conservan los null de la respuesta canónica. `sequence` coincide con la entrada de historial que produjo el resultado.
+`triage.json` es un objeto JSON UTF-8 con las mismas claves que la respuesta canónica: `document_id`, `status`, `classification`, `confidence`, `extracted_data`, `validation`, `routing_decision` (incluidos `audit_reasons`, destino, justificación y booleano derivado), `notification` y `storage`. Añade `sequence`, `created_at`, `updated_at` y `human_review` (null inicialmente; después `{ "decision": "APPROVE" }` o `{ "decision": "REJECT" }`; `updated_at` es la fecha de esa decisión). Los bloques no disponibles conservan los null de la respuesta canónica. `sequence` coincide con la entrada de historial que produjo el resultado.
 
 El artefacto contiene **solo el resultado/decisión actual**: se sobrescribe al revisar, sin versionado OCI adicional. Las versiones previas ya se conservan como snapshots en PostgreSQL. Original y artefacto comparten ID y prefijo; al aprobar ambos quedan en el prefijo procesado correspondiente, y al rechazar permanecen en `auditoria_humana/`. El artefacto se crea al confirmar el primer resultado, no durante `RECEIVED`. La sección 12 regula la copia, escritura, confirmación y limpieza, incluidas sus excepciones de fallo.
 
@@ -703,10 +703,10 @@ Si el segundo intento tiene éxito, se descarta el motivo técnico del primero. 
 
 No hay transacción distribuida. Se conserva el original anterior hasta confirmar PostgreSQL y se hacen compensaciones síncronas de mejor esfuerzo. El prefijo normal deriva del estado y prioridad; mientras una operación de almacenamiento falla, el original puede seguir en el prefijo anterior y **`object_key` sigue apuntando a esa copia recuperable**. El estado de negocio no se infiere de ese prefijo excepcional.
 
-1. **Recepción:** validar entrada/ID, subir el original a `recibidos/` y luego insertar `documentos` con `RECEIVED`, metadatos, `object_key` y `storage_state = PENDING`. Si el upload falla, devolver `500 STORAGE_ERROR`, sin llamar a IA ni afirmar un registro creado. Si falla el insert después del upload, eliminar de mejor esfuerzo solo el objeto creado por esa solicitud y devolver `500 PERSISTENCE_ERROR` (o `409 DOCUMENT_ID_ALREADY_EXISTS` por unicidad). La creación del original no sobrescribe un objeto ya existente; una colisión de ID devuelve 409 y nunca borra el objeto ajeno.
+1. **Recepción:** validar entrada/ID, subir el original a `recibidos/` y luego insertar `documents` con `RECEIVED`, metadatos, `object_key` y `storage_state = PENDING`. Si el upload falla, devolver `500 STORAGE_ERROR`, sin llamar a IA ni afirmar un registro creado. Si falla el insert después del upload, eliminar de mejor esfuerzo solo el objeto creado por esa solicitud y devolver `500 PERSISTENCE_ERROR` (o `409 DOCUMENT_ID_ALREADY_EXISTS` por unicidad). La creación del original no sobrescribe un objeto ya existente; una colisión de ID devuelve 409 y nunca borra el objeto ajeno.
 2. **Resultado inicial o revisión:** preparar el resultado canónico y la próxima entrada de historial; en revisión, primero bloquear/comprobar estado y validar merge. Para cambiar de prefijo, copiar el original al destino sin borrar el origen y escribir allí `triage.json`. Si el prefijo no cambia (REJECT), conservar el original y reemplazar solo el artefacto, reteniendo su contenido anterior para compensación. Después actualizar resultado, `object_key`, `storage_state = SUCCESS` e historial **en una única transacción PostgreSQL**. Solo después del commit se borran de mejor esfuerzo las copias del prefijo anterior. No hay nuevo endpoint ni worker de recuperación.
-3. **Fallo de copia o escritura OCI:** no confirmar aprobación/rechazo ni historial humano; eliminar copias nuevas/restaurar el artefacto anterior de mejor esfuerzo antes de liberar el bloqueo y revertir la transacción de revisión. Durante el triaje inicial, si el original sigue accesible, registrar `NEEDS_AUDIT`, `storage_state = ERROR`, destino `REVISION_HUMANA`, justificación técnica del fallo de almacenamiento y notificación no generada, conservando los motivos ya obtenidos (sin inventar un nuevo `audit_reason`). Registrar ese resultado inicial si PostgreSQL funciona e intentar guardar su artefacto junto al original conservado. Sin original recuperable, registrar `FAILED` si existe fila durable. Devolver `500 STORAGE_ERROR`; no prometer persistencia OCI completa cuando falló.
-4. **Fallo de PostgreSQL después de preparar OCI:** hacer rollback y conservar el `object_key` previamente confirmado; devolver `500 PERSISTENCE_ERROR`. El rollback libera el bloqueo de la fila del documento, por lo que la solicitud fallida **no** borra ni restaura objetos OCI de inmediato. Antes de compensar, abre una nueva transacción PostgreSQL corta y vuelve a bloquear esa misma fila (`SELECT ... FOR UPDATE`); este nuevo bloqueo no reabre ni extiende la transacción fallida — su único propósito es verificar la propiedad/estado vigente antes de ejecutar una operación destructiva. Ya con el bloqueo, comprueba que no se haya confirmado un resultado o revisión más nuevo desde que empezó el intento fallido, usando el `sequence`/versión de `document_triage_history` y el estado actual de `documentos`. Solo si esa comprobación demuestra que las copias nuevas y el artefacto anterior siguen perteneciendo exclusivamente a este intento fallido, se borran de mejor esfuerzo las copias nuevas y se restaura el artefacto anterior. Si ya se confirmó un resultado o revisión más nuevo, o la propiedad no puede probarse, la solicitud fallida no borra, sobrescribe, restaura ni modifica de ningún otro modo el objeto OCI actual: el estado más nuevo confirmado queda intacto y el intento fallido se registra para conciliación manual (punto 5), sin agregar un subsistema de reconciliación nuevo. No confirmar enrutamiento ni decisión humana. Si hay un resultado inicial recuperable pendiente y PostgreSQL vuelve a estar disponible dentro del manejo síncrono del error, registrar el fallback `NEEDS_AUDIT` y su snapshot; si sigue inaccesible, queda el último estado durable (`RECEIVED`/`PROCESSING` o `NEEDS_AUDIT`), sin afirmar una transición no persistida. Un commit de resultado incierto debe consultarse por ID/sequence antes de compensar; si no puede comprobarse, conservar las copias y reportar el fallo para conciliación manual.
+3. **Fallo de copia o escritura OCI:** no confirmar aprobación/rechazo ni historial humano; eliminar copias nuevas/restaurar el artefacto anterior de mejor esfuerzo antes de liberar el bloqueo y revertir la transacción de revisión. Durante el triaje inicial, si el original sigue accesible, registrar `NEEDS_AUDIT`, `storage_state = ERROR`, destino `HUMAN_REVIEW`, justificación técnica del fallo de almacenamiento y notificación no generada, conservando los motivos ya obtenidos (sin inventar un nuevo `audit_reason`). Registrar ese resultado inicial si PostgreSQL funciona e intentar guardar su artefacto junto al original conservado. Sin original recuperable, registrar `FAILED` si existe fila durable. Devolver `500 STORAGE_ERROR`; no prometer persistencia OCI completa cuando falló.
+4. **Fallo de PostgreSQL después de preparar OCI:** hacer rollback y conservar el `object_key` previamente confirmado; devolver `500 PERSISTENCE_ERROR`. El rollback libera el bloqueo de la fila del documento, por lo que la solicitud fallida **no** borra ni restaura objetos OCI de inmediato. Antes de compensar, abre una nueva transacción PostgreSQL corta y vuelve a bloquear esa misma fila (`SELECT ... FOR UPDATE`); este nuevo bloqueo no reabre ni extiende la transacción fallida — su único propósito es verificar la propiedad/estado vigente antes de ejecutar una operación destructiva. Ya con el bloqueo, comprueba que no se haya confirmado un resultado o revisión más nuevo desde que empezó el intento fallido, usando el `sequence`/versión de `document_triage_history` y el estado actual de `documents`. Solo si esa comprobación demuestra que las copias nuevas y el artefacto anterior siguen perteneciendo exclusivamente a este intento fallido, se borran de mejor esfuerzo las copias nuevas y se restaura el artefacto anterior. Si ya se confirmó un resultado o revisión más nuevo, o la propiedad no puede probarse, la solicitud fallida no borra, sobrescribe, restaura ni modifica de ningún otro modo el objeto OCI actual: el estado más nuevo confirmado queda intacto y el intento fallido se registra para conciliación manual (punto 5), sin agregar un subsistema de reconciliación nuevo. No confirmar enrutamiento ni decisión humana. Si hay un resultado inicial recuperable pendiente y PostgreSQL vuelve a estar disponible dentro del manejo síncrono del error, registrar el fallback `NEEDS_AUDIT` y su snapshot; si sigue inaccesible, queda el último estado durable (`RECEIVED`/`PROCESSING` o `NEEDS_AUDIT`), sin afirmar una transición no persistida. Un commit de resultado incierto debe consultarse por ID/sequence antes de compensar; si no puede comprobarse, conservar las copias y reportar el fallo para conciliación manual.
 5. **Compensación o limpieza incompleta:** registrar el ID, paso fallido y claves en logs internos para conciliación manual, sin exponerlos al Frontend. Una copia sobrante tras commit no invalida el resultado confirmado: se conserva la respuesta de éxito y se registra su limpieza pendiente. Si no se pudo restaurar el artefacto actual tras un rollback, marcar `storage_state = ERROR` cuando PostgreSQL esté disponible; las consultas siguen leyendo el resultado durable de PostgreSQL. No se garantiza recuperación automática tras caída del proceso o indisponibilidad persistente; no se agrega infraestructura. Un nuevo intento de revisión solo procede desde `NEEDS_AUDIT` y vuelve a escribir el resultado/artefacto coherentes antes de confirmar.
 
 `GET /api/v1/documents/{id}/content` devuelve `500 STORAGE_ERROR` si no puede leer el original referenciado; los fallos de consulta/escritura PostgreSQL usan `500 PERSISTENCE_ERROR`. Un fallo de revisión con original recuperable conserva `NEEDS_AUDIT`; si se comprueba pérdida irrecuperable del original, se registra `FAILED` cuando la base está disponible, sin guardar una decisión humana que no se confirmó. Los errores HTTP no sustituyen las reglas de recuperabilidad de la sección 7.
@@ -723,7 +723,7 @@ No se construye infraestructura de resiliencia distribuida (colas, circuit break
 - Endpoints `POST /api/v1/documents/process-file`, `POST /api/v1/documents/process-text`, `GET /api/v1/documents/{id}`, `GET /api/v1/documents/{id}/content`, `GET /api/v1/documents/audit`, `PATCH /api/v1/documents/{id}/review` y `GET /api/v1/documents/{id}/history`.
 - Normalización a `ProcessingRequest` y llamada a `POST /api/v1/ai/process`.
 - Validación del contrato de respuesta de IA y construcción final de `audit_reasons`.
-- Tablas `documentos` y `document_triage_history` (sección 10), conexión al SDK de OCI, artefacto de resultado/decisión y movimiento entre prefijos con compensación (secciones 11–12).
+- Tablas `documents` y `document_triage_history` (sección 10), conexión al SDK de OCI, artefacto de resultado/decisión y movimiento entre prefijos con compensación (secciones 11–12).
 - Timeout/retry/fallback hacia IA Core.
 - Contenerización (Dockerfile) para despliegue en OCI Compute.
 
@@ -732,7 +732,7 @@ No se construye infraestructura de resiliencia distribuida (colas, circuit break
 
 - Implementar `POST /api/v1/ai/process` según el contrato de la sección 5, incluido `502 AI_OUTPUT_INVALID` en lugar de un éxito inválido.
 - Pipeline: ingest → classify → extract → validate → score → route.
-- Cálculo de confianza separado (`clasificacion`, `extraccion`, `global`).
+- Cálculo de confianza separado (`classification`, `extraction`, `global`).
 - Reporte de `audit_reasons` semánticos (sección 8).
 - Elegir explícitamente **LangGraph o Python puro** según el conocimiento del squad. **`n8n` queda fuera del alcance del MVP** (ver sección 15).
 
