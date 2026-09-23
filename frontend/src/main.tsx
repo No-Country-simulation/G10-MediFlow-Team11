@@ -4,12 +4,15 @@ import { CssBaseline, ThemeProvider } from "@mui/material";
 import "./index.css";
 import App from "./App.tsx";
 import { theme } from "./theme/theme";
+import NotificationProvider from "./notifications/NotificationProvider";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <App />
+      <NotificationProvider>
+        <App />
+      </NotificationProvider>
     </ThemeProvider>
   </StrictMode>,
 );
