@@ -42,6 +42,8 @@ El enrutamiento del MVP es **lógico/simulado**: persiste el destino, lo expone 
 
 El detalle completo de contratos entre componentes, estados, `audit_reasons`, modelo de datos y manejo de errores está en [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
+Estructura común de extracted_data: las claves son opcionales; un valor desconocido se omite o se envía en null. patient admite name (string) y age (entero no negativo); requesting_doctor admite name y license_number (strings); primary_diagnosis y suggested_icd10 son strings; medications es un array de objetos con name y dosage (strings opcionales/nullable). [] indica que no se identificaron medicamentos. requested_studies es un array de objetos con name (string opcional/nullable), correspondiente a los estudios solicitados en el documento. [] indica que no se identificaron estudios solicitados; no se infieren estudios que no consten explícitamente en el documento. Se permiten campos adicionales JSON por tipo de documento, sin exigir formularios exhaustivos en el Frontend.
+
 ## Diagrama del flujo del agente
 
 ```mermaid
