@@ -46,4 +46,4 @@ La API queda disponible en `http://localhost:8000` y su estado se puede consulta
 python -m pytest -q
 ```
 
-Desde `ai-core/`, el resultado esperado de la suite actual es `25 passed`.
+Desde `ai-core/`, el resultado esperado de la suite actual es `35 passed`.
