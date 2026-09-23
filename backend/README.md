@@ -150,8 +150,8 @@ Puntos clave:
 **Verificación realizada**
 
 - `./mvnw clean compile` → `BUILD SUCCESS`.
-- La aplicación levanta el contexto de Spring y expone `GET /actuator/health`.
-- Test de contexto (`BackendApplicationTests`) incluido; queda condicionado a la disponibilidad de PostgreSQL (Issue #14, pendiente).
+- El arranque completo y la disponibilidad de `GET /actuator/health` con PostgreSQL se validarán al integrar el servicio de base de datos del Issue #13.
+- Test de contexto (`BackendApplicationTests`) incluido; queda condicionado a la disponibilidad de PostgreSQL (Issue #13, pendiente).
 
 ---
 
@@ -194,7 +194,7 @@ Puntos clave:
    ./mvnw spring-boot:run
    ```
 
-   > Sin una instancia de PostgreSQL accesible con las credenciales configuradas, el arranque fallará al inicializar JPA. Esto es esperado hasta completar la configuración de base de datos (Issue #14).
+   > Sin una instancia de PostgreSQL accesible con las credenciales configuradas, el arranque fallará al inicializar JPA. Esto es esperado hasta completar la configuración de base de datos (Issue #13).
 
 6. Verificar el estado del servicio una vez levantado:
 
