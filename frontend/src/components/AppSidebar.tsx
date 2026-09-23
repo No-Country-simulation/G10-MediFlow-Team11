@@ -6,12 +6,7 @@ import {
   ListItemText,
   Typography,
 } from "@mui/material";
-import {
-  DescriptionOutlined,
-  FactCheckOutlined,
-  HelpOutlined,
-  SettingsOutlined,
-} from "@mui/icons-material";
+import { DescriptionOutlined, FactCheckOutlined } from "@mui/icons-material";
 import { NavLink } from "react-router-dom";
 
 const SIDEBAR_WIDTH = 240;
@@ -43,56 +38,39 @@ function AppSidebar() {
         </Typography>
       </Box>
       <List component="nav" sx={{ px: 2 }}>
-          <ListItemButton
-            component={NavLink}
-            to="/processing"
-            sx={{
-              borderRadius: 2,
-              mb: 1,
-              "&.active": {
-                bgcolor: "action.selected",
-              },
-            }}
-          >
-            <ListItemIcon>
-              <DescriptionOutlined />
-            </ListItemIcon>
-            <ListItemText primary="Procesamiento" />
-          </ListItemButton>
+        <ListItemButton
+          component={NavLink}
+          to="/processing"
+          sx={{
+            borderRadius: 2,
+            mb: 1,
+            "&.active": {
+              bgcolor: "action.selected",
+            },
+          }}
+        >
+          <ListItemIcon>
+            <DescriptionOutlined />
+          </ListItemIcon>
+          <ListItemText primary="Procesamiento" />
+        </ListItemButton>
 
-          <ListItemButton
-            component={NavLink}
-            to="/audit"
-            sx={{
-              borderRadius: 2,
-              "&.active": {
-                bgcolor: "action.selected",
-              },
-            }}
-          >
-            <ListItemIcon>
-              <FactCheckOutlined />
-            </ListItemIcon>
-            <ListItemText primary="Auditoría" />
-          </ListItemButton>
-        </List>
-        <Box sx={{ flexGrow: 1 }} />
-
-<List sx={{ px: 2, pb: 2 }}>
-  <ListItemButton disabled>
-    <ListItemIcon>
-      <HelpOutlined />
-    </ListItemIcon>
-    <ListItemText primary="Centro de ayuda" />
-  </ListItemButton>
-
-  <ListItemButton disabled>
-    <ListItemIcon>
-      <SettingsOutlined />
-    </ListItemIcon>
-    <ListItemText primary="Configuración" />
-  </ListItemButton>
-</List>
+        <ListItemButton
+          component={NavLink}
+          to="/audit"
+          sx={{
+            borderRadius: 2,
+            "&.active": {
+              bgcolor: "action.selected",
+            },
+          }}
+        >
+          <ListItemIcon>
+            <FactCheckOutlined />
+          </ListItemIcon>
+          <ListItemText primary="Auditoría" />
+        </ListItemButton>
+      </List>
     </Box>
   );
 }

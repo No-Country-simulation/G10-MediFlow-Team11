@@ -237,6 +237,46 @@ El modo mock está destinado al desarrollo y pruebas del Frontend cuando los dem
 * Los archivos `.env` locales no deben versionarse.
 * `.env.example` documenta las variables necesarias para ejecutar el proyecto.
 
+## App Shell y navegación global
+
+La aplicación utiliza un App Shell reutilizable definido en:
+
+```text
+src/layouts/AppLayout.tsx
+```
+El layout mantiene una estructura común para las vistas principales:
+
+-   sidebar persistente;
+-   header sobre el área principal;
+-   contenido dinámico mediante rutas anidadas de React Router.
+
+La navegación global incluye únicamente:
+
+-   `Procesamiento` (`/processing`);
+-   `Auditoría` (`/audit`).
+
+Las vistas de resultado e historial se consideran navegación contextual asociada a un documento y no forman parte de la navegación global.
+
+Las nuevas vistas que utilicen el App Shell deben integrarse como rutas hijas de `AppLayout` para reutilizar sidebar y header.
+
+## Notificaciones y errores
+
+El sistema global de notificaciones se encuentra en:
+
+```
+src/notifications/
+```
+
+Las vistas pueden utilizar `useNotification()` para mostrar mensajes de:
+
+-   éxito;
+-   advertencia;
+-   error.
+
+Para errores provenientes de servicios, `showError(error)` convierte el error en un mensaje seguro para el usuario.
+
+La normalización de errores HTTP permanece en la capa de servicios. La interfaz no debe mostrar directamente códigos de error, stack traces, URLs internas u otros detalles técnicos sensibles.
+
 ## Documentación por ticket
 
 Este `README.md` es la documentación técnica principal del escuadrón Frontend.
