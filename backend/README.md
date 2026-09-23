@@ -155,46 +155,6 @@ Puntos clave:
 
 ---
 
-### Infraestructura Cloud — Aprovisionamiento en OCI (Issue #9)
-
-Se completó la configuración base del entorno en Oracle Cloud Infrastructure (capa Always Free) necesaria para soportar Backend, IA Core y Frontend.
-
-**1. Gobernanza, Identidad y Seguridad (IAM)**
-
-Entorno aislado configurado con *Instance Principals*, evitando el uso de credenciales embebidas:
-
-- **Compartment**: `MediFlow_Hackathon` — aislamiento de todos los recursos del MVP.
-- **Dynamic Group**: `MediFlow_VM_Group` — asociación automática de instancias del compartment.
-- **Política IAM**: `MediFlow_ObjectStorage_Policy` — autoriza al grupo dinámico a administrar objetos dentro del compartment.
-
-**2. Redes (Virtual Cloud Network)**
-
-- **VCN aprovisionada**: `MediFlow_VCN`, con conectividad a Internet.
-- **Reglas de ingreso configuradas** para los puertos necesarios del MVP:
-
-  | Puerto | Protocolo | Uso |
-  |--------|-----------|-----|
-  | 22     | TCP | Acceso SSH administrativo |
-  | 80, 443 | TCP | Tráfico HTTP/HTTPS del Frontend |
-  | 8080   | TCP | API Backend (Spring Boot) |
-  | 8000   | TCP | API IA Core (FastAPI) |
-  | 5432   | TCP | Acceso administrativo a PostgreSQL |
-
-**3. Almacenamiento (Object Storage)**
-
-- **Bucket creado**: `mediflow-documentos-clinicos`.
-- **Capa**: Standard.
-- **Visibilidad**: privado, en cumplimiento de la confidencialidad de datos médicos.
-- **Estructura de prefijos inicializada**:
-  - `/recibidos/`
-  - `/procesados/urgentes/`
-  - `/procesados/rutina/`
-  - `/auditoria_humana/`
-
-Con esto, el entorno Cloud (IAM, VCN y Object Storage) queda activo y estructurado, y los contratos de integración con el almacenamiento están disponibles para que el Backend continúe su desarrollo.
-
----
-
 ## Requisitos previos
 
 | Herramienta | Verificación | Notas |
@@ -259,40 +219,3 @@ Definidas en `backend/.env.example` (sin valores reales):
 
 `.env` está excluido del control de versiones mediante `.gitignore`; solo `.env.example` se versiona.
 
----
-
-## Flujo de contribución
-
-1. Partir siempre de la rama `develop`:
-
-   ```bash
-   git checkout develop
-   git pull origin develop
-   ```
-
-2. Crear una rama de trabajo por ticket, con el patrón `task/<numero-issue>-<descripcion-corta>`:
-
-   ```bash
-   git checkout -b task/<n>-descripcion-corta
-   ```
-
-3. Commits con prefijo semántico (`feat:`, `fix:`, `chore:`, `docs:`, etc.).
-
-4. Abrir el Pull Request hacia `develop`, referenciando el Issue correspondiente (`Issue: #n`) e incluyendo cómo se validó el cambio.
-
-5. Requiere al menos una aprobación antes de hacer merge.
-
----
-
-## Próximos pasos
-
-El backlog continúa, en orden de dependencias, con:
-
-- **Issue #2** — Contratos (DTOs) de entrada y salida para el procesamiento de documentos.
-- **Issue #14** — Configuración de PostgreSQL (Docker Compose, healthcheck, conexión desde el Backend).
-- **Issue #9 (continuación)** — Aprovisionamiento de la instancia Compute y despliegue de contenedores.
-- **Persistencia** — Entidades JPA para `documentos` y `document_triage_history`.
-- **Issue #15** — Integración del Backend con OCI Object Storage.
-- **Issue #18** — Flujo principal de procesamiento (`process-file` / `process-text`) con orquestación hacia IA Core.
-
-Cada ticket se documentará en este README a medida que se complete y valide.
