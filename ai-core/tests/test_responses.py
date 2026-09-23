@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -56,9 +57,10 @@ def valid_response_payload() -> dict:
 def test_accepts_and_serializes_complete_response() -> None:
     response = AIProcessingResponse.model_validate(valid_response_payload())
 
-    serialized = response.model_dump(mode="json", by_alias=True)
+    serialized = json.loads(response.model_dump_json(by_alias=True))
 
     assert serialized["confidence"]["global"] == 0.92
+    assert "global_" not in serialized["confidence"]
     assert serialized["routing_decision"]["primary_destination"] == "PHARMACY"
 
 
@@ -81,9 +83,53 @@ def test_rejects_non_numeric_confidence(
         AIProcessingResponse.model_validate(payload)
 
 
-def test_rejects_negative_patient_age() -> None:
+def test_accepts_non_negative_patient_age() -> None:
     payload = valid_response_payload()
-    payload["extracted_data"]["patient"]["age"] = -1
+    payload["extracted_data"]["patient"]["age"] = 0
+
+    response = AIProcessingResponse.model_validate(payload)
+
+    assert response.extracted_data.patient.age == 0
+
+
+@pytest.mark.parametrize("invalid_age", [True, "42", -1])
+def test_rejects_invalid_patient_age(invalid_age: object) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["patient"]["age"] = invalid_age
+
+    with pytest.raises(ValidationError):
+        AIProcessingResponse.model_validate(payload)
+
+
+def test_accepts_null_patient_age() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["patient"]["age"] = None
+
+    response = AIProcessingResponse.model_validate(payload)
+
+    assert response.extracted_data.patient.age is None
+
+
+def test_rejects_global_field_name_as_input_key() -> None:
+    payload = valid_response_payload()
+    payload["confidence"]["global_"] = payload["confidence"].pop("global")
+
+    with pytest.raises(ValidationError):
+        AIProcessingResponse.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "block, field",
+    [
+        ("validation", "missing_fields"),
+        ("validation", "inconsistencies"),
+        ("validation", "warnings"),
+        ("routing_decision", "audit_reasons"),
+    ],
+)
+def test_rejects_missing_required_arrays(block: str, field: str) -> None:
+    payload = valid_response_payload()
+    del payload[block][field]
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
@@ -95,6 +141,54 @@ def test_rejects_unknown_document_type() -> None:
 
     with pytest.raises(ValidationError):
         AIProcessingResponse.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "field, obsolete_value",
+    [
+        ("document_type", "RECETA"),
+        ("document_type", "INFORME_IMAGENES"),
+        ("primary_destination", "EMERGENCIA_MEDICA"),
+        ("primary_destination", "HISTORIA_CLINICA"),
+    ],
+)
+def test_rejects_obsolete_spanish_contract_values(
+    field: str,
+    obsolete_value: str,
+) -> None:
+    payload = valid_response_payload()
+    if field == "document_type":
+        payload["classification"][field] = obsolete_value
+    else:
+        payload["routing_decision"][field] = obsolete_value
+
+    with pytest.raises(ValidationError):
+        AIProcessingResponse.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "document_type, destination",
+    [
+        ("PRESCRIPTION", "PHARMACY"),
+        ("IMAGING_REPORT", "MEDICAL_EMERGENCY"),
+        ("STUDY_REPORT", "MEDICAL_RECORD"),
+        ("PROCEDURE_ORDER", "AUTHORIZATION_AUDIT"),
+        ("DISCHARGE_SUMMARY", "HUMAN_REVIEW"),
+        ("MEDICAL_CERTIFICATE", "PHARMACY"),
+    ],
+)
+def test_accepts_current_contract_enum_values(
+    document_type: str,
+    destination: str,
+) -> None:
+    payload = valid_response_payload()
+    payload["classification"]["document_type"] = document_type
+    payload["routing_decision"]["primary_destination"] = destination
+
+    response = AIProcessingResponse.model_validate(payload)
+
+    assert response.classification.document_type.value == document_type
+    assert response.routing_decision.primary_destination.value == destination
 
 
 def test_rejects_technical_audit_reason() -> None:
@@ -123,10 +217,10 @@ def test_rejects_unknown_top_level_response_field() -> None:
 
 def test_allows_additional_extracted_data_by_document_type() -> None:
     payload = valid_response_payload()
-    payload["extracted_data"]["resultado_estudio"] = "Sin hallazgos críticos."
+    payload["extracted_data"]["study_result"] = "Sin hallazgos críticos."
 
     response = AIProcessingResponse.model_validate(payload)
 
-    assert response.extracted_data.model_dump()["resultado_estudio"] == (
+    assert response.extracted_data.model_dump()["study_result"] == (
         "Sin hallazgos críticos."
     )

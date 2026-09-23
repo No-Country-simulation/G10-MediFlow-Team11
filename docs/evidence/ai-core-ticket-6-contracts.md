@@ -12,41 +12,57 @@ Implementar y validar los modelos Pydantic de entrada y salida de IA Core.
 ## Validaciones realizadas
 
 - `ProcessingRequest` acepta `FILE` con `content_base64`.
-- `ProcessingRequest` acepta `TEXT` con `documento_texto`.
+- `ProcessingRequest` acepta `TEXT` con `document_text`.
 - Se rechazan `FILE` sin Base64 y `TEXT` sin texto.
 - Se validan los enums de documento, prioridad, destino y motivos semánticos.
-- Se rechazan confianza fuera de `0–1`, edad negativa y motivos técnicos de Backend.
-- Se rechazan valores booleanos y strings en los tres campos de confianza.
+- Los enums usan los identificadores en inglés definidos por la arquitectura
+ vigente; se rechazan valores españoles obsoletos.
+- Se rechazan confianza fuera de `0–1`, edades negativas, booleanos y strings
+ numericos en `patient.age`, y motivos técnicos de Backend.
+- `patient.age` acepta `null` y enteros no negativos estrictos.
+- `validation.missing_fields`, `inconsistencies` y `warnings` son arrays
+ obligatorios, igual que `routing_decision.audit_reasons`.
+- La clave de entrada `global` se acepta y `global_` se rechaza.
 - La respuesta se serializa con la clave contractual `"global"`.
+- `extracted_data` admite campos adicionales por tipo de documento, incluido
+ `study_result`.
 
 ## Comandos ejecutados
 
+Desde `ai-core/`:
+
 ```powershell
-python -m pip install -r requirements.txt
-python -m py_compile .\app\schemas\enums.py
-python -m py_compile .\app\schemas\requests.py
-python -m py_compile .\app\schemas\responses.py
-python -m pytest -q
-```
+python -m pytest -v
+python -m pytest -v -k "current_contract_enum_values or obsolete_spanish_contract_values"
+python -m pytest -v -k "global"
+python -m pytest -v .\tests\test_responses.py
 
 ## Resultados de pruebas
 
-- `python -m pytest -q`: `16 passed`.
+- `python -m pytest -q`: `35 passed in 0.68s`.
 - Se verificó el rechazo de campos extra en el request y en la respuesta principal.
 - Se confirmó que `status` no pertenece al contrato de IA Core.
-- Se confirmó que `datos_extraidos` admite campos adicionales por tipo de documento.
-- La serialización JSON conserva `"global"` como clave contractual.
+- Se confirmó que `extracted_data` admite campos adicionales por tipo de documento.
+- La serialización JSON conserva `"global" como clave contractual.
 
-## Evidencia visual
+## Evidencia de pruebas
 
-### Pruebas automatizadas
+- Suite completa: `python -m pytest -v` — **35 passed, 2 warnings in 0.68s**.
 
-![Resultado de pytest: contratos Pydantic aprobados](./images/ai-core-ticket-6-pytest.jpg)
+  ![Suite completa de pruebas](./images/ai-core-ticket-6-suite-completa.jpg)
 
-### Serialización del contrato
+- Contrato de enums: `python -m pytest -v -k "current_contract_enum_values or obsolete_spanish_contract_values"` — **10 passed, 25 deselected**.
 
-![Serialización JSON con la clave global](./images/ai-core-ticket-6-json-serialization.jpg)
+  ![Enums actuales aceptados y valores obsoletos rechazados](./images/ai-core-ticket-6-enums.jpg)
 
-## Resultado final
+- Confianza: `python -m pytest -v -k "global"` — **1 passed, 34 deselected**.
 
-Los contratos Pydantic de IA Core cumplen el contrato Backend → IA definido en `docs/ARCHITECTURE.md`.
+  ![Prueba de rechazo de la clave global_](./images/ai-core-ticket-6-global.jpg)
+
+- Modelos de respuesta: `python -m pytest -v .\tests\test_responses.py` — **29 passed in 0.23s**.
+
+  ![Pruebas de los modelos de respuesta](./images/ai-core-ticket-6-responses.jpg)
+
+  Resultado final
+Los contratos Pydantic de IA Core cumplen el contrato Backend → IA definido en docs/ARCHITECTURE.md.
+```

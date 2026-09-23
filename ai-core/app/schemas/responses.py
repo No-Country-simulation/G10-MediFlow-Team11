@@ -1,6 +1,4 @@
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 
 from app.schemas.enums import (
     DocumentType,
@@ -21,7 +19,6 @@ class Classification(BaseModel):
 class Confidence(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
-        populate_by_name=True,
     )
 
     classification: float = Field(ge=0, le=1)
@@ -41,7 +38,7 @@ class Patient(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
     name: str | None = None
-    age: int | None = Field(default=None, ge=0)
+    age: StrictInt | None = Field(default=None, ge=0)
 
 
 class RequestingDoctor(BaseModel):
@@ -71,16 +68,16 @@ class ExtractedData(BaseModel):
 class ValidationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    missing_fields: list[str] = Field(default_factory=list)
-    inconsistencies: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
+    missing_fields: list[str]
+    inconsistencies: list[str]
+    warnings: list[str]
 
 
 class RoutingDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     primary_destination: RoutingDestination
-    audit_reasons: list[SemanticAuditReason] = Field(default_factory=list)
+    audit_reasons: list[SemanticAuditReason]
     justification: str = Field(min_length=1)
 
 
