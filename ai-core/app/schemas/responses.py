@@ -55,6 +55,12 @@ class Medication(BaseModel):
     dosage: str | None = None
 
 
+class RequestedStudy(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str | None = None
+
+
 class ExtractedData(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
@@ -63,6 +69,7 @@ class ExtractedData(BaseModel):
     primary_diagnosis: str | None = None
     suggested_icd10: str | None = None
     medications: list[Medication] | None = None
+    requested_studies: list[RequestedStudy] | None = None
 
 
 class ValidationResult(BaseModel):
