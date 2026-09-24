@@ -10,6 +10,8 @@ import {
   DescriptionOutlined,
   FactCheckOutlined,
   MonitorHeart,
+  HelpOutlined,
+  SettingsOutlined,
 } from "@mui/icons-material";
 import { NavLink } from "react-router-dom";
 
@@ -84,6 +86,23 @@ function AppSidebar() {
             <FactCheckOutlined />
           </ListItemIcon>
           <ListItemText primary="Auditoría" />
+        </ListItemButton>
+      </List>
+      <Box sx={{ flexGrow: 1 }} />
+
+      <List sx={{ px: 2, pb: 2 }}>
+        <ListItemButton disabled>
+          <ListItemIcon>
+            <HelpOutlined />
+          </ListItemIcon>
+          <ListItemText primary="Centro de ayuda" />
+        </ListItemButton>
+
+        <ListItemButton disabled>
+          <ListItemIcon>
+            <SettingsOutlined />
+          </ListItemIcon>
+          <ListItemText primary="Configuración" />
         </ListItemButton>
       </List>
     </Box>

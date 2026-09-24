@@ -277,6 +277,8 @@ Para errores provenientes de servicios, `showError(error)` convierte el error en
 
 La normalización de errores HTTP permanece en la capa de servicios. La interfaz no debe mostrar directamente códigos de error, stack traces, URLs internas u otros detalles técnicos sensibles.
 
+`Centro de ayuda` y `Configuración` se mantienen visibles en la parte inferior del sidebar como elementos reservados de la interfaz. Actualmente se encuentran deshabilitados y no representan funcionalidades activas del MVP.
+
 ## Documentación por ticket
 
 Este `README.md` es la documentación técnica principal del escuadrón Frontend.
