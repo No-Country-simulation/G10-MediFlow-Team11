@@ -6,7 +6,11 @@ import {
   ListItemText,
   Typography,
 } from "@mui/material";
-import { DescriptionOutlined, FactCheckOutlined } from "@mui/icons-material";
+import {
+  DescriptionOutlined,
+  FactCheckOutlined,
+  MonitorHeart,
+} from "@mui/icons-material";
 import { NavLink } from "react-router-dom";
 
 const SIDEBAR_WIDTH = 240;
@@ -21,6 +25,7 @@ function AppSidebar() {
         height: "100vh",
         borderRight: 1,
         borderColor: "divider",
+        bgcolor: "background.paper",
         display: "flex",
         flexDirection: "column",
         position: "sticky",
@@ -31,8 +36,18 @@ function AppSidebar() {
         sx={{
           px: 3,
           py: 3,
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
         }}
       >
+        <MonitorHeart
+          sx={{
+            fontSize: 32,
+            color: "primary.main",
+          }}
+        />
+
         <Typography variant="h5" component="div" sx={{ fontWeight: 700 }}>
           MediFlow
         </Typography>

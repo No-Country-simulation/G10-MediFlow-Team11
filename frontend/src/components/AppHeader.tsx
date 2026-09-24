@@ -11,6 +11,7 @@ function AppHeader() {
         borderBottom: 1,
         borderColor: "divider",
         display: "flex",
+        bgcolor: "background.paper",
         alignItems: "center",
         justifyContent: "flex-end",
       }}

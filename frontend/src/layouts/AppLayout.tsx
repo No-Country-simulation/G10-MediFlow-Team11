@@ -28,6 +28,7 @@ function AppLayout() {
           sx={{
             flexGrow: 1,
             p: 3,
+            bgcolor: "background.default",
           }}
         >
           <Outlet />
