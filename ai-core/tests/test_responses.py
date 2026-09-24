@@ -224,3 +224,75 @@ def test_allows_additional_extracted_data_by_document_type() -> None:
     assert response.extracted_data.model_dump()["study_result"] == (
         "Sin hallazgos críticos."
     )
+
+
+def test_accepts_omitted_requested_studies() -> None:
+    response = AIProcessingResponse.model_validate(valid_response_payload())
+
+    assert response.extracted_data.requested_studies is None
+
+
+def test_accepts_null_requested_studies() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["requested_studies"] = None
+
+    response = AIProcessingResponse.model_validate(payload)
+
+    assert response.extracted_data.requested_studies is None
+
+
+def test_accepts_empty_requested_studies() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["requested_studies"] = []
+
+    response = AIProcessingResponse.model_validate(payload)
+
+    assert response.extracted_data.requested_studies == []
+
+
+@pytest.mark.parametrize(
+    "study, expected_name",
+    [
+        ({"name": "Radiografía de tórax"}, "Radiografía de tórax"),
+        ({"name": None}, None),
+        ({}, None),
+    ],
+)
+def test_accepts_requested_study_with_optional_name(
+    study: dict[str, str | None],
+    expected_name: str | None,
+) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["requested_studies"] = [study]
+
+    response = AIProcessingResponse.model_validate(payload)
+
+    assert response.extracted_data.requested_studies is not None
+    assert response.extracted_data.requested_studies[0].name == expected_name
+
+
+def test_rejects_requested_studies_as_list_of_strings() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["requested_studies"] = [
+        "Radiografía de tórax",
+        "Hemograma completo",
+    ]
+
+    with pytest.raises(ValidationError):
+        AIProcessingResponse.model_validate(payload)
+
+
+def test_round_trips_requested_studies_as_json() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["requested_studies"] = [
+        {"name": "Radiografía de tórax"},
+        {"name": "Hemograma completo"},
+    ]
+
+    response = AIProcessingResponse.model_validate(payload)
+    serialized = response.model_dump_json(by_alias=True)
+    restored = AIProcessingResponse.model_validate_json(serialized)
+
+    assert [
+        study.name for study in restored.extracted_data.requested_studies or []
+    ] == ["Radiografía de tórax", "Hemograma completo"]
