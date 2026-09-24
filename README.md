@@ -75,6 +75,19 @@ flowchart TD
 | LLM | Google Gemini API |
 | Persistencia de archivos | OCI Object Storage (capa Always Free) |
 
+## Documentación por squad
+
+La documentación del proyecto se organiza por ámbito de responsabilidad:
+
+- **Arquitectura y contratos compartidos:** [`docs/architecture/`](./docs/architecture/)
+- **Frontend & UX:** [`docs/frontend-ux/`](./docs/frontend-ux/)
+- **Backend & Cloud:** [`docs/backend-cloud/`](./docs/backend-cloud/)
+- **IA Core:** [`docs/ia-core/`](./docs/ia-core/)
+- **Producto & QA:** [`docs/producto-qa/`](./docs/producto-qa/)
+
+La referencia canónica de arquitectura y contratos compartidos continúa siendo [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+
+---
 ## Cómo ejecutar
 
 > ⚠️ Esta sección se completará con los comandos definitivos a medida que los servicios queden implementados y contenerizados. Los siguientes son de referencia provisional — nombres de carpetas y profiles de Spring Boot pueden cambiar.
