@@ -1,0 +1,38 @@
+{
+  "status": "PROCESSED",
+  "classification": {
+    "document_type": "DISCHARGE_SUMMARY",
+    "priority_level": "ROUTINE"
+  },
+  "confidence": {
+    "global_min": 0.85
+  },
+  "routing_decision": {
+    "primary_destination": "MEDICAL_RECORD",
+    "requires_human_review": false,
+    "audit_reasons": []
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "procesados/rutina/"
+  },
+  "datos_clave_esperados": {
+    "patient": {
+      "name": "Ricardo Morales Díaz",
+      "age": 62
+    },
+    "requesting_doctor": {
+      "name": "Dra. Camila Rojas",
+      "license_number": "MED-67214"
+    },
+    "primary_diagnosis": "Neumonía adquirida en la comunidad",
+    "suggested_icd10": "J18.9"
+  },
+  "must_not_invent": [
+    "medications",
+    "dosage"
+  ]
+}

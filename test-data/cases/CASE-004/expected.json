@@ -1,0 +1,29 @@
+{
+  "status": "NEEDS_AUDIT",
+  "classification": {
+    "document_type": "PRESCRIPTION",
+    "priority_level": "ROUTINE"
+  },
+  "routing_decision": {
+    "primary_destination_allowed": [
+      "PHARMACY",
+      "HUMAN_REVIEW"
+    ],
+    "requires_human_review": true,
+    "audit_reasons_required": [
+      "ILLEGIBLE_DOCUMENT"
+    ],
+    "audit_reasons_allowed_additional": [
+      "LOW_CONFIDENCE",
+      "MISSING_CRITICAL_FIELDS"
+    ]
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "auditoria_humana/"
+  },
+  "visual_condition": "Encabezado RECETA MEDICA legible; cuerpo clinico deliberadamente no confiable para extraccion."
+}

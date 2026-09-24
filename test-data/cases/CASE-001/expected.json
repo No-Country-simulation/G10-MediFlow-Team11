@@ -1,0 +1,38 @@
+{
+  "status": "PROCESSED",
+  "classification": {
+    "document_type": "STUDY_REPORT",
+    "priority_level": "ROUTINE"
+  },
+  "confidence": {
+    "global_min": 0.85
+  },
+  "routing_decision": {
+    "primary_destination": "MEDICAL_RECORD",
+    "requires_human_review": false,
+    "audit_reasons": []
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "procesados/rutina/"
+  },
+  "datos_clave_esperados": {
+    "patient": {
+      "name": "Elisa Navarro Fuentes",
+      "age": 37
+    },
+    "requesting_doctor": {
+      "name": "Dr. Tomas Vega",
+      "license_number": "MED-31007"
+    },
+    "estudio": "Hemograma completo"
+  },
+  "must_not_invent": [
+    "primary_diagnosis",
+    "suggested_icd10",
+    "medications"
+  ]
+}

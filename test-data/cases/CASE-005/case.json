@@ -1,0 +1,13 @@
+{
+  "case_id": "CASE-005",
+  "name": "Campo critico faltante - dosis",
+  "purpose": "Validar MISSING_CRITICAL_FIELDS en una receta legible que identifica el medicamento pero omite la dosis.",
+  "input_type": "FILE/PDF",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.pdf",
+  "content_summary": "Receta clara con medicamento identificado y dosis explicitamente no consignada.",
+  "synthetic_data": true,
+  "notes": [
+    "Se limita la expectativa a dosis, campo expresamente contemplado por el reto y por la estructura comun de medications de la arquitectura."
+  ]
+}
