@@ -1,5 +1,4 @@
-MediFlow_Datos_Prueba_Escenarios_MVP_v1.1.md
-PR_DESCRIPTION.md
+docs/MediFlow_Datos_Prueba_Escenarios_MVP_v1.1.md
 test-data/FILES.txt
 test-data/ISSUE-8-VALIDATION.md
 test-data/QUALITY-GATE.md
