@@ -1,40 +1,83 @@
-import { AccountCircleOutlined } from "@mui/icons-material";
-import { Box, Typography } from "@mui/material";
+import { useState } from "react";
+import { Box, Breadcrumbs, IconButton, Tooltip, Typography } from "@mui/material";
+import { MenuOpenOutlined, MenuOutlined } from "@mui/icons-material";
+import { matchPath, useLocation } from "react-router-dom";
+import { PRIMARY_NAVIGATION } from "../config/navigation";
+import { HEADER_HEIGHT } from "../layouts/layoutConstants";
+import { focusRing } from "../theme/focusRing";
 
-function AppHeader() {
+type AppHeaderProps = {
+  sidebarId: string;
+  sidebarExpanded: boolean;
+  onToggleSidebar: () => void;
+};
+
+function AppHeader({ sidebarId, sidebarExpanded, onToggleSidebar }: AppHeaderProps) {
+  const { pathname } = useLocation();
+
+  const section = PRIMARY_NAVIGATION.find(
+    (item) => item.to && matchPath({ path: item.to, end: false }, pathname),
+  );
+
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  const toggleLabel = sidebarExpanded ? "Ocultar barra lateral" : "Mostrar barra lateral";
+
+  const handleToggle = () => {
+    setTooltipOpen(false);
+    onToggleSidebar();
+  };
+
   return (
     <Box
       component="header"
       sx={{
-        height: 72,
+        height: HEADER_HEIGHT,
         px: 3,
+        display: "flex",
+        alignItems: "center",
+        gap: 1.5,
+        bgcolor: "background.paper",
         borderBottom: 1,
         borderColor: "divider",
-        display: "flex",
-        bgcolor: "background.paper",
-        alignItems: "center",
-        justifyContent: "flex-end",
       }}
     >
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-        }}
+      <Tooltip
+        title={toggleLabel}
+        open={tooltipOpen}
+        onOpen={() => setTooltipOpen(true)}
+        onClose={() => setTooltipOpen(false)}
       >
-        <AccountCircleOutlined />
+        <IconButton
+          edge="start"
+          aria-label={toggleLabel}
+          aria-expanded={sidebarExpanded}
+          aria-controls={sidebarId}
+          onClick={handleToggle}
+          sx={(theme) => ({
+            color: "text.secondary",
+            "&.Mui-focusVisible": focusRing(theme),
+          })}
+        >
+          {sidebarExpanded ? <MenuOpenOutlined /> : <MenuOutlined />}
+        </IconButton>
+      </Tooltip>
 
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Usuario MediFlow
-          </Typography>
+      <Breadcrumbs aria-label="Ubicación actual" sx={{ typography: "body2" }}>
+        <Typography variant="body2" color="text.secondary">
+          MediFlow
+        </Typography>
 
-          <Typography variant="caption" color="text.secondary">
-            Usuario
+        {section && (
+          <Typography
+            variant="body2"
+            aria-current="page"
+            sx={{ color: "text.primary", fontWeight: 500 }}
+          >
+            {section.label}
           </Typography>
-        </Box>
-      </Box>
+        )}
+      </Breadcrumbs>
     </Box>
   );
 }

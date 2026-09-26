@@ -1,10 +1,11 @@
-import { Typography } from "@mui/material";
+import PageHeader from "../components/PageHeader";
 
 function ProcessingPage() {
   return (
-    <Typography variant="h4" component="h1">
-      Procesamiento
-    </Typography>
+    <PageHeader
+      title="Procesamiento de documentos"
+      description="Carga un documento clínico o ingresa texto para iniciar su clasificación, extracción y enrutamiento."
+    />
   );
 }
 
