@@ -1,10 +1,11 @@
-import { Typography } from "@mui/material";
+import PageHeader from "../components/PageHeader";
 
 function AuditPage() {
   return (
-    <Typography variant="h4" component="h1">
-      Auditoría
-    </Typography>
+    <PageHeader
+      title="Auditoría de documentos"
+      description="Revisa los documentos derivados a revisión humana por baja confianza, ambigüedad o inconsistencias."
+    />
   );
 }
 
