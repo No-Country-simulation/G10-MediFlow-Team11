@@ -1,0 +1,11 @@
+{
+  "case_id": "CASE-007",
+  "name": "Rutina adicional - receta",
+  "purpose": "Validar receta clara en formato imagen.",
+  "input_type": "FILE/PNG",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.png",
+  "content_summary": "Receta legible y completa.",
+  "synthetic_data": true,
+  "notes": []
+}

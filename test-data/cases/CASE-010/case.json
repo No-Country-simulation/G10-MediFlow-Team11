@@ -1,0 +1,11 @@
+{
+  "case_id": "CASE-010",
+  "name": "Cobertura semántica adicional - certificado",
+  "purpose": "Ampliar cobertura de tipos documentales con entrada JPG legible.",
+  "input_type": "FILE/JPG",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.jpg",
+  "content_summary": "Certificado médico sintético de rutina.",
+  "synthetic_data": true,
+  "notes": []
+}

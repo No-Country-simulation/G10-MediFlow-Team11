@@ -1,0 +1,30 @@
+{
+  "status": "PROCESSED",
+  "classification": {
+    "document_type": "PRESCRIPTION",
+    "priority_level": "ROUTINE"
+  },
+  "confidence": {
+    "global_min": 0.85
+  },
+  "routing_decision": {
+    "primary_destination": "PHARMACY",
+    "requires_human_review": false,
+    "audit_reasons": []
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "procesados/rutina/"
+  },
+  "datos_clave_esperados": {
+    "medications": [
+      {
+        "name": "Paracetamol",
+        "dosage": "500 mg / 1 comprimido cada 8 horas por 3 dias"
+      }
+    ]
+  }
+}

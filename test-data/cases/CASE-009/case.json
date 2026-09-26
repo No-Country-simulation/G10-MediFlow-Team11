@@ -1,0 +1,13 @@
+{
+  "case_id": "CASE-009",
+  "name": "Cobertura combinada - inconsistencia + campo critico faltante",
+  "purpose": "Validar que un mismo documento pueda acumular multiples audit_reasons semanticos sin inventar reglas fuera del contrato.",
+  "input_type": "FILE/PNG",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.png",
+  "content_summary": "Receta legible con edades contradictorias y medicamento sin dosis.",
+  "synthetic_data": true,
+  "notes": [
+    "La contradiccion de edad sustenta INCONSISTENT_DATA y la dosis ausente sustenta MISSING_CRITICAL_FIELDS."
+  ]
+}

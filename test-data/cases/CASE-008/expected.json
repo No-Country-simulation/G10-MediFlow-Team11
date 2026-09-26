@@ -1,0 +1,26 @@
+{
+  "status": "PROCESSED",
+  "classification": {
+    "document_type": "IMAGING_REPORT",
+    "priority_level": "URGENT"
+  },
+  "confidence": {
+    "global_min": 0.85
+  },
+  "routing_decision": {
+    "primary_destination": "MEDICAL_EMERGENCY",
+    "requires_human_review": false,
+    "audit_reasons": []
+  },
+  "notification": {
+    "generated": true,
+    "type": "MEDICAL_EMERGENCY"
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "procesados/urgentes/"
+  },
+  "datos_clave_esperados": {
+    "primary_diagnosis": "Tromboembolismo pulmonar agudo"
+  }
+}

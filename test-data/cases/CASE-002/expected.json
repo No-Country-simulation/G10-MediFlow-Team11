@@ -1,0 +1,39 @@
+{
+  "status": "PROCESSED",
+  "classification": {
+    "document_type": "STUDY_REPORT",
+    "priority_level": "URGENT"
+  },
+  "confidence": {
+    "global_min": 0.85
+  },
+  "routing_decision": {
+    "primary_destination": "MEDICAL_EMERGENCY",
+    "requires_human_review": false,
+    "audit_reasons": []
+  },
+  "notification": {
+    "generated": true,
+    "type": "MEDICAL_EMERGENCY"
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "procesados/urgentes/"
+  },
+  "datos_clave_esperados": {
+    "patient": {
+      "name": "Valentina Rojas Soto",
+      "age": 64
+    },
+    "requesting_doctor": {
+      "name": "Dr. Martin Espinoza",
+      "license_number": "MED-45821"
+    },
+    "estudio": "Troponina I ultrasensible"
+  },
+  "must_not_invent": [
+    "primary_diagnosis no expresado",
+    "suggested_icd10",
+    "medications"
+  ]
+}

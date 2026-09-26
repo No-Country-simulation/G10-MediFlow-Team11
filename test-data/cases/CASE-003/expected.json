@@ -1,0 +1,33 @@
+{
+  "status": "NEEDS_AUDIT",
+  "classification": {
+    "document_type_allowed": [
+      "STUDY_REPORT",
+      "MEDICAL_CERTIFICATE"
+    ],
+    "priority_level": "ROUTINE",
+    "assertion": "El tipo elegido debe pertenecer al enum permitido; no se exige uno unico por la ambiguedad intencional."
+  },
+  "confidence": {
+    "global_max_exclusive": 0.85
+  },
+  "routing_decision": {
+    "primary_destination_allowed": [
+      "MEDICAL_RECORD",
+      "HUMAN_REVIEW"
+    ],
+    "requires_human_review": true,
+    "audit_reasons_required": [
+      "LOW_CONFIDENCE"
+    ],
+    "audit_reasons_allowed_additional": []
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "auditoria_humana/"
+  },
+  "quality_note": "Caso de calibracion del modelo: el fixture esta diseñado para provocar baja confianza, pero el resultado debe validarse ejecutando el modelo configurado."
+}
