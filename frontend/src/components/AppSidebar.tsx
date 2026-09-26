@@ -1,109 +1,94 @@
+import { Box, Divider, List } from "@mui/material";
+import MediFlowBrand from "./MediFlowBrand";
+import SidebarNavItem from "./SidebarNavItem";
+import { PRIMARY_NAVIGATION, SECONDARY_NAVIGATION } from "../config/navigation";
 import {
-  Box,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Typography,
-} from "@mui/material";
-import {
-  DescriptionOutlined,
-  FactCheckOutlined,
-  MonitorHeart,
-  HelpOutlined,
-  SettingsOutlined,
-} from "@mui/icons-material";
-import { NavLink } from "react-router-dom";
+  HEADER_HEIGHT,
+  SIDEBAR_COLLAPSED_WIDTH,
+  SIDEBAR_WIDTH,
+} from "../layouts/layoutConstants";
 
-const SIDEBAR_WIDTH = 240;
+type AppSidebarProps = {
+  id: string;
+  collapsed: boolean;
+  onNavigate?: () => void;
+};
 
-function AppSidebar() {
+function AppSidebar({ id, collapsed, onNavigate }: AppSidebarProps) {
   return (
     <Box
       component="aside"
-      sx={{
-        width: SIDEBAR_WIDTH,
-        minWidth: SIDEBAR_WIDTH,
+      id={id}
+      sx={(theme) => ({
+        width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+        flexShrink: 0,
         height: "100vh",
-        borderRight: 1,
-        borderColor: "divider",
-        bgcolor: "background.paper",
-        display: "flex",
-        flexDirection: "column",
         position: "sticky",
         top: 0,
-      }}
+        display: "flex",
+        flexDirection: "column",
+        // "clip" (not "hidden") so the clipped labels can never scroll the rail horizontally.
+        overflowX: "clip",
+        bgcolor: "background.sidebar",
+        borderRight: 1,
+        borderColor: "divider",
+        transition: theme.transitions.create("width", {
+          duration: theme.transitions.duration.shorter,
+        }),
+        "@media (prefers-reduced-motion: reduce)": {
+          transition: "none",
+        },
+      })}
     >
+      {/* Mirrors AppHeader's box (content + 1px bottom border) so both share the same vertical center. */}
       <Box
-        sx={{
-          px: 3,
-          py: 3,
+        sx={(theme) => ({
+          height: HEADER_HEIGHT,
+          flexShrink: 0,
           display: "flex",
           alignItems: "center",
-          gap: 1.5,
-        }}
+          borderBottom: "1px solid transparent",
+          pl: collapsed ? 1.25 : 4.25,
+          pr: 2,
+          transition: theme.transitions.create("padding", {
+            duration: theme.transitions.duration.shorter,
+          }),
+          "@media (prefers-reduced-motion: reduce)": {
+            transition: "none",
+          },
+        })}
       >
-        <MonitorHeart
-          sx={{
-            fontSize: 32,
-            color: "primary.main",
-          }}
-        />
-
-        <Typography variant="h5" component="div" sx={{ fontWeight: 700 }}>
-          MediFlow
-        </Typography>
+        <MediFlowBrand collapsed={collapsed} />
       </Box>
-      <List component="nav" sx={{ px: 2 }}>
-        <ListItemButton
-          component={NavLink}
-          to="/processing"
-          sx={{
-            borderRadius: 2,
-            mb: 1,
-            "&.active": {
-              bgcolor: "action.selected",
-            },
-          }}
-        >
-          <ListItemIcon>
-            <DescriptionOutlined />
-          </ListItemIcon>
-          <ListItemText primary="Procesamiento" />
-        </ListItemButton>
 
-        <ListItemButton
-          component={NavLink}
-          to="/audit"
-          sx={{
-            borderRadius: 2,
-            "&.active": {
-              bgcolor: "action.selected",
-            },
-          }}
-        >
-          <ListItemIcon>
-            <FactCheckOutlined />
-          </ListItemIcon>
-          <ListItemText primary="Auditoría" />
-        </ListItemButton>
+      <List
+        component="nav"
+        aria-label="Navegación principal"
+        disablePadding
+        sx={{ display: "flex", flexDirection: "column", pt: 3 }}
+      >
+        {PRIMARY_NAVIGATION.map((item) => (
+          <SidebarNavItem
+            key={item.label}
+            {...item}
+            collapsed={collapsed}
+            onClick={onNavigate}
+          />
+        ))}
       </List>
+
       <Box sx={{ flexGrow: 1 }} />
 
-      <List sx={{ px: 2, pb: 2 }}>
-        <ListItemButton disabled>
-          <ListItemIcon>
-            <HelpOutlined />
-          </ListItemIcon>
-          <ListItemText primary="Centro de ayuda" />
-        </ListItemButton>
+      <Divider sx={{ mx: collapsed ? 2 : 3.5 }} />
 
-        <ListItemButton disabled>
-          <ListItemIcon>
-            <SettingsOutlined />
-          </ListItemIcon>
-          <ListItemText primary="Configuración" />
-        </ListItemButton>
+      <List
+        component="div"
+        disablePadding
+        sx={{ display: "flex", flexDirection: "column", gap: 1.25, pt: 2.75, pb: 10 }}
+      >
+        {SECONDARY_NAVIGATION.map((item) => (
+          <SidebarNavItem key={item.label} {...item} dense disabled collapsed={collapsed} />
+        ))}
       </List>
     </Box>
   );
