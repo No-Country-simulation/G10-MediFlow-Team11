@@ -20,7 +20,10 @@ import {
   FileUpload,
   SettingsOutlined,
 } from "@mui/icons-material";
+import InfoIcon from "@mui/icons-material/Info";
 import { useRef, useState } from "react";
+import { processFile, processText } from "../services/processingService";
+import { useNotification } from "../notifications/useNotification";
 
 type InputMode = "file" | "text";
 const ALLOWED_FILE_TYPES = [
@@ -87,6 +90,47 @@ function ProcessingPage() {
     setFormError(null);
     return true;
   };
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    const resolvedOriginChannel =
+      originChannel === "Otro" ? customOriginChannel.trim() : originChannel;
+
+    setIsProcessing(true);
+
+    try {
+      if (inputMode === "file" && selectedFile) {
+        await processFile({
+          file: selectedFile,
+          origin_channel: resolvedOriginChannel,
+          ...(documentId.trim() && {
+            document_id: documentId.trim(),
+          }),
+        });
+      }
+
+      if (inputMode === "text") {
+        await processText({
+          document_text: documentText.trim(),
+          origin_channel: resolvedOriginChannel,
+          ...(documentId.trim() && {
+            document_id: documentId.trim(),
+          }),
+        });
+      }
+
+      showNotification({
+        message: "Documento procesado correctamente.",
+        severity: "success",
+      });
+    } catch (error) {
+      showError(error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handleClearForm = () => {
     setInputMode("file");
@@ -102,6 +146,9 @@ function ProcessingPage() {
       fileInputRef.current.value = "";
     }
   };
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const { showNotification, showError } = useNotification();
   return (
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
@@ -323,29 +370,43 @@ function ProcessingPage() {
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
-          sx={{ justifyContent: "flex-start" }}
+          sx={{
+            alignItems: { xs: "stretch", sm: "center" },
+            justifyContent: "space-between",
+          }}
         >
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<SettingsOutlined />}
-            onClick={() => {
-              if (!validateForm()) {
-                return;
-              }
-            }}
-          >
-            Procesar documento
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<SettingsOutlined />}
+              onClick={handleSubmit}
+              disabled={isProcessing}
+            >
+              {isProcessing ? "Procesando..." : "Procesar documento"}
+            </Button>
 
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={handleClearForm}
-            startIcon={<DeleteOutlined />}
-          >
-            Limpiar
-          </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={handleClearForm}
+              startIcon={<DeleteOutlined />}
+              disabled={isProcessing}
+            >
+              Limpiar
+            </Button>
+          </Stack>
+          {isProcessing && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textAlign: { xs: "left", sm: "right" } }}
+            >
+              <InfoIcon />
+              El documento será procesado con IA para extraer su información.
+              Este proceso puede tardar unos segundos.
+            </Typography>
+          )}
         </Stack>
         {formError && (
           <Typography color="error" variant="body2">
