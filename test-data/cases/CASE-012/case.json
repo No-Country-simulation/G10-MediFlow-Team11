@@ -1,0 +1,11 @@
+{
+  "case_id": "CASE-012",
+  "name": "Epicrisis / Informe de Alta hacia Historia Clínica",
+  "purpose": "Validar una epicrisis rutinaria con extracción clínica principal y enrutamiento automático a Historia Clínica.",
+  "input_type": "FILE/PDF",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.pdf",
+  "content_summary": "Epicrisis sintética con diagnóstico principal y CIE-10 explícitos.",
+  "synthetic_data": true,
+  "notes": []
+}

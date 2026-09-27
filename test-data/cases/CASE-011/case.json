@@ -1,0 +1,13 @@
+{
+  "case_id": "CASE-011",
+  "name": "Orden de procedimiento para auditoría de autorización",
+  "purpose": "Validar una orden de procedimiento rutinaria con enrutamiento automático a Auditoría de Autorizaciones.",
+  "input_type": "TEXT",
+  "endpoint": "POST /api/v1/documents/process-text",
+  "input_file": "input.txt",
+  "content_summary": "Orden sintética de resonancia magnética de columna lumbar para autorización.",
+  "synthetic_data": true,
+  "notes": [
+    "CASE-011 cubre extracted_data.requested_studies con la estructura contractual aprobada: un array de objetos con name."
+  ]
+}

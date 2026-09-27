@@ -1,3 +1,4 @@
+import PageHeader from "../components/PageHeader";
 import {
   Box,
   Stack,
@@ -150,271 +151,270 @@ function ProcessingPage() {
 
   const { showNotification, showError } = useNotification();
   return (
-    <Box sx={{ maxWidth: 960, mx: "auto" }}>
-      <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
-        Procesamiento de documentos
-      </Typography>
-
-      <Typography color="text.secondary" sx={{ mt: 1 }}>
-        Ingresa un documento clínico para iniciar su procesamiento.
-      </Typography>
-      <Stack
-        spacing={3}
-        sx={{
-          bgcolor: "background.paper",
-          p: 2,
-          borderRadius: 1,
-          boxShadow: 3,
-        }}
-      >
-        <Box
+    <>
+      <PageHeader
+        title="Procesamiento de documentos"
+        description="Carga un documento clínico o ingresa texto para iniciar su clasificación, extracción y enrutamiento."
+      />
+      <Box sx={{ maxWidth: "auto", mx: "auto" }}>
+        <Stack
+          spacing={3}
           sx={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 1,
+            bgcolor: "background.paper",
+            p: 2,
+            borderRadius: 1,
+            boxShadow: 3,
           }}
         >
-          <ToggleButtonGroup
-            value={inputMode}
-            exclusive
-            onChange={(_, value: InputMode | null) => {
-              if (value) {
-                setInputMode(value);
-              }
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 1,
             }}
-            aria-label="Tipo de entrada"
           >
-            <ToggleButton value="file">
-              <FileUpload />
-              Archivo
-            </ToggleButton>
+            <ToggleButtonGroup
+              value={inputMode}
+              exclusive
+              onChange={(_, value: InputMode | null) => {
+                if (value) {
+                  setInputMode(value);
+                }
+              }}
+              aria-label="Tipo de entrada"
+            >
+              <ToggleButton value="file">
+                <FileUpload />
+                Archivo
+              </ToggleButton>
 
-            <ToggleButton value="text">
-              <DescriptionOutlined />
-              Texto
-            </ToggleButton>
-          </ToggleButtonGroup>
-          {inputMode === "file" && (
-            <>
-              <Paper
-                variant="outlined"
-                role="button"
-                tabIndex={0}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
+              <ToggleButton value="text">
+                <DescriptionOutlined />
+                Texto
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {inputMode === "file" && (
+              <>
+                <Paper
+                  variant="outlined"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  onDragOver={(event) => {
                     event.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
 
-                  const file = event.dataTransfer.files[0];
-
-                  if (file) {
-                    handleFile(file);
-                  }
-                }}
-                sx={{
-                  p: 4,
-                  textAlign: "center",
-                  borderStyle: "dashed",
-                  cursor: "pointer",
-                  transition: "border-color 0.2s, background-color 0.2s",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    bgcolor: "action.hover",
-                  },
-                  "&:focus-visible": {
-                    outline: 2,
-                    outlineColor: "primary.main",
-                    outlineOffset: 2,
-                  },
-                }}
-              >
-                <input
-                  ref={fileInputRef}
-                  hidden
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
+                    const file = event.dataTransfer.files[0];
 
                     if (file) {
                       handleFile(file);
                     }
                   }}
-                />
+                  sx={{
+                    p: 4,
+                    textAlign: "center",
+                    borderStyle: "dashed",
+                    cursor: "pointer",
+                    transition: "border-color 0.2s, background-color 0.2s",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      bgcolor: "action.hover",
+                    },
+                    "&:focus-visible": {
+                      outline: 2,
+                      outlineColor: "primary.main",
+                      outlineOffset: 2,
+                    },
+                  }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    hidden
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
 
-                {selectedFile ? (
-                  <Stack spacing={1.5} sx={{ alignItems: "center" }}>
-                    <CheckCircle color="success" sx={{ fontSize: 48 }} />
+                      if (file) {
+                        handleFile(file);
+                      }
+                    }}
+                  />
 
-                    <Typography sx={{ fontWeight: 700 }}>
-                      Archivo listo
-                    </Typography>
+                  {selectedFile ? (
+                    <Stack spacing={1.5} sx={{ alignItems: "center" }}>
+                      <CheckCircle color="success" sx={{ fontSize: 48 }} />
 
-                    <Typography>{selectedFile.name}</Typography>
-
-                    <Typography variant="body2" color="text.secondary">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </Typography>
-
-                    <Button
-                      color="error"
-                      startIcon={<DeleteOutlined />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setSelectedFile(null);
-                        setFileError(null);
-
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = "";
-                        }
-                      }}
-                    >
-                      Remover archivo
-                    </Button>
-                  </Stack>
-                ) : (
-                  <Stack spacing={2} sx={{ alignItems: "center" }}>
-                    <CloudUploadOutlined
-                      sx={{
-                        fontSize: 48,
-                        color: "primary.main",
-                      }}
-                    />
-
-                    <Box>
-                      <Typography sx={{ fontWeight: 600 }}>
-                        Arrastra y suelta un documento aquí
+                      <Typography sx={{ fontWeight: 700 }}>
+                        Archivo listo
                       </Typography>
-                      <Typography>o haz clic para seleccionar</Typography>
 
-                      <Typography
-                        variant="body2"
-                        sx={{ color: "text.secondary", marginTop: "10px" }}
+                      <Typography>{selectedFile.name}</Typography>
+
+                      <Typography variant="body2" color="text.secondary">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </Typography>
+
+                      <Button
+                        color="error"
+                        startIcon={<DeleteOutlined />}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedFile(null);
+                          setFileError(null);
+
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = "";
+                          }
+                        }}
                       >
-                        Formatos aceptados: PDF, JPG, JPEG, PNG, DOC, DOCX, TIFF
-                        | Tamaño máximo: 10 MB
-                      </Typography>
-                    </Box>
-                  </Stack>
+                        Remover archivo
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Stack spacing={2} sx={{ alignItems: "center" }}>
+                      <CloudUploadOutlined
+                        sx={{
+                          fontSize: 48,
+                          color: "primary.main",
+                        }}
+                      />
+
+                      <Box>
+                        <Typography sx={{ fontWeight: 600 }}>
+                          Arrastra y suelta un documento aquí
+                        </Typography>
+                        <Typography>o haz clic para seleccionar</Typography>
+
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "text.secondary", marginTop: "10px" }}
+                        >
+                          Formatos aceptados: PDF, JPG, JPEG, PNG, DOC, DOCX,
+                          TIFF | Tamaño máximo: 10 MB
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  )}
+                </Paper>
+                {fileError && (
+                  <Typography color="error" variant="body2">
+                    {fileError}
+                  </Typography>
                 )}
-              </Paper>
-              {fileError && (
-                <Typography color="error" variant="body2">
-                  {fileError}
-                </Typography>
-              )}
-            </>
-          )}
-          {inputMode === "text" && (
+              </>
+            )}
+            {inputMode === "text" && (
+              <TextField
+                label="Contenido del documento"
+                placeholder="Ingresa o pega aquí el contenido del documento clínico..."
+                value={documentText}
+                onChange={(event) => setDocumentText(event.target.value)}
+                multiline
+                minRows={8}
+                fullWidth
+              />
+            )}
+          </Box>
+          <Stack spacing={2} sx={{ marginTop: "10px" }} direction="row">
+            <FormControl fullWidth required>
+              <InputLabel id="origin-channel-label">Canal de origen</InputLabel>
+
+              <Select
+                labelId="origin-channel-label"
+                value={originChannel}
+                label="Canal de origen"
+                onChange={(event) => {
+                  setOriginChannel(event.target.value);
+
+                  if (event.target.value !== "Otro") {
+                    setCustomOriginChannel("");
+                  }
+                }}
+              >
+                {ORIGIN_CHANNELS.map((channel) => (
+                  <MenuItem key={channel} value={channel}>
+                    {channel}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {originChannel === "Otro" && (
+              <TextField
+                label="Especifica el canal de origen"
+                value={customOriginChannel}
+                onChange={(event) => setCustomOriginChannel(event.target.value)}
+                required
+                fullWidth
+              />
+            )}
+
             <TextField
-              label="Contenido del documento"
-              placeholder="Ingresa o pega aquí el contenido del documento clínico..."
-              value={documentText}
-              onChange={(event) => setDocumentText(event.target.value)}
-              multiline
-              minRows={8}
+              label="Identificador del documento (opcional)"
+              placeholder="Ej. N° de solicitud, folio, ID externo..."
+              value={documentId}
+              onChange={(event) => setDocumentId(event.target.value)}
+              helperText="Identificador del documento (opcional)"
               fullWidth
             />
-          )}
-        </Box>
-        <Stack spacing={2} sx={{ marginTop: "10px" }} direction="row">
-          <FormControl fullWidth required>
-            <InputLabel id="origin-channel-label">Canal de origen</InputLabel>
-
-            <Select
-              labelId="origin-channel-label"
-              value={originChannel}
-              label="Canal de origen"
-              onChange={(event) => {
-                setOriginChannel(event.target.value);
-
-                if (event.target.value !== "Otro") {
-                  setCustomOriginChannel("");
-                }
-              }}
-            >
-              {ORIGIN_CHANNELS.map((channel) => (
-                <MenuItem key={channel} value={channel}>
-                  {channel}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {originChannel === "Otro" && (
-            <TextField
-              label="Especifica el canal de origen"
-              value={customOriginChannel}
-              onChange={(event) => setCustomOriginChannel(event.target.value)}
-              required
-              fullWidth
-            />
-          )}
-
-          <TextField
-            label="Identificador del documento (opcional)"
-            placeholder="Ej. N° de solicitud, folio, ID externo..."
-            value={documentId}
-            onChange={(event) => setDocumentId(event.target.value)}
-            helperText="Identificador del documento (opcional)"
-            fullWidth
-          />
-        </Stack>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          sx={{
-            alignItems: { xs: "stretch", sm: "center" },
-            justifyContent: "space-between",
-          }}
-        >
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<SettingsOutlined />}
-              onClick={handleSubmit}
-              disabled={isProcessing}
-            >
-              {isProcessing ? "Procesando..." : "Procesar documento"}
-            </Button>
-
-            <Button
-              variant="outlined"
-              size="large"
-              onClick={handleClearForm}
-              startIcon={<DeleteOutlined />}
-              disabled={isProcessing}
-            >
-              Limpiar
-            </Button>
           </Stack>
-          {isProcessing && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ textAlign: { xs: "left", sm: "right" } }}
-            >
-              <InfoIcon />
-              El documento será procesado con IA para extraer su información.
-              Este proceso puede tardar unos segundos.
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            sx={{
+              alignItems: { xs: "stretch", sm: "center" },
+              justifyContent: "space-between",
+            }}
+          >
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<SettingsOutlined />}
+                onClick={handleSubmit}
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Procesando..." : "Procesar documento"}
+              </Button>
+
+              <Button
+                variant="outlined"
+                size="large"
+                onClick={handleClearForm}
+                startIcon={<DeleteOutlined />}
+                disabled={isProcessing}
+              >
+                Limpiar
+              </Button>
+            </Stack>
+            {isProcessing && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ textAlign: { xs: "left", sm: "right" } }}
+              >
+                <InfoIcon />
+                El documento será procesado con IA para extraer su información.
+                Este proceso puede tardar unos segundos.
+              </Typography>
+            )}
+          </Stack>
+          {formError && (
+            <Typography color="error" variant="body2">
+              {formError}
             </Typography>
           )}
         </Stack>
-        {formError && (
-          <Typography color="error" variant="body2">
-            {formError}
-          </Typography>
-        )}
-      </Stack>
-    </Box>
+      </Box>
+    </>
   );
 }
 

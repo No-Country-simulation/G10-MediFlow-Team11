@@ -1,0 +1,15 @@
+{
+  "case_id": "CASE-003",
+  "name": "Baja confianza por ambigüedad documental",
+  "purpose": "Validar LOW_CONFIDENCE con entrada legible, estructurable y semánticamente ambigua, sin simular un fallo técnico.",
+  "input_type": "FILE/PDF",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.pdf",
+  "content_summary": "Documento legible con señales contradictorias sobre su tipo documental y sin urgencia.",
+  "synthetic_data": true,
+  "notes": [
+    "La prueba exige una respuesta HTTP 200 estructuralmente valida del servicio IA.",
+    "No se fija un unico document_type ni un unico destino de negocio porque la ambiguedad es el objeto de la prueba.",
+    "El criterio principal es confidence.global < 0.85 y presencia de LOW_CONFIDENCE."
+  ]
+}

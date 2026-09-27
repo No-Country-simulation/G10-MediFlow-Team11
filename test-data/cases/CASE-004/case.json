@@ -1,0 +1,13 @@
+{
+  "case_id": "CASE-004",
+  "name": "Documento parcialmente ilegible",
+  "purpose": "Validar ILLEGIBLE_DOCUMENT con una imagen cuyo tipo documental se reconoce, pero cuyo contenido clinico no puede extraerse de forma confiable.",
+  "input_type": "FILE/JPG",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.jpg",
+  "content_summary": "Receta sintetica con encabezado legible y cuerpo severamente degradado/oculto.",
+  "synthetic_data": true,
+  "notes": [
+    "La degradacion preserva el encabezado RECETA MEDICA y vuelve no confiable la lectura de paciente, profesional y medicacion."
+  ]
+}

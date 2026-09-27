@@ -1,0 +1,16 @@
+CLINICA NUEVO HORIZONTE
+INFORME DE ESTUDIO
+
+Paciente: Nora Castillo Ruiz
+Edad registrada en admision: 44 anos
+Medico solicitante: Dr. Emilio Ferrer
+Matricula: MED-60211
+
+Estudio: Perfil metabolico
+Glucosa: 104 mg/dL
+Creatinina: 0.9 mg/dL
+
+Descripcion del informe: paciente de 64 anos en control ambulatorio.
+Prioridad: rutina.
+
+Nota: la edad consignada en el cuerpo del informe no coincide con la edad de admision.

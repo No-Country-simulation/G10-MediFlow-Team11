@@ -1,0 +1,22 @@
+{
+  "status": "PROCESSED",
+  "classification": {
+    "document_type": "MEDICAL_CERTIFICATE",
+    "priority_level": "ROUTINE"
+  },
+  "confidence": {
+    "global_min": 0.85
+  },
+  "routing_decision": {
+    "primary_destination": "MEDICAL_RECORD",
+    "requires_human_review": false,
+    "audit_reasons": []
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "procesados/rutina/"
+  }
+}
