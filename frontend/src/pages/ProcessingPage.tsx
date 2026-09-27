@@ -12,6 +12,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  styled,
 } from "@mui/material";
 import {
   CloudUploadOutlined,
@@ -33,6 +34,8 @@ const ALLOWED_FILE_TYPES = [
   "image/png",
 ] as const;
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 const ORIGIN_CHANNELS = [
   "Guardia / Emergencias",
   "Consultorio Externo",
@@ -41,6 +44,38 @@ const ORIGIN_CHANNELS = [
   "Laboratorio",
   "Otro",
 ] as const;
+
+const CustomToggleButton = styled(ToggleButton)(({ theme }) => ({
+  textTransform: "none",
+  border: "none",
+  borderRadius: 0,
+  padding: "8px 16px",
+  color: theme.palette.text.secondary,
+  fontWeight: 500,
+  fontSize: "0.95rem",
+  backgroundColor: "transparent",
+  gap: theme.spacing(1),
+
+  "& .MuiSvgIcon-root": {
+    fontSize: "1.3rem",
+  },
+
+  "&:hover": {
+    backgroundColor: "rgba(0, 0, 0, 0.04)",
+    border: "none",
+  },
+
+  "&.Mui-selected": {
+    color: theme.palette.primary.main,
+    backgroundColor: "transparent",
+    fontWeight: 600,
+    borderBottom: `3px solid ${theme.palette.primary.main}`,
+
+    "&:hover": {
+      backgroundColor: "rgba(25, 118, 210, 0.04)",
+    },
+  },
+}));
 
 function ProcessingPage() {
   const [inputMode, setInputMode] = useState<InputMode>("file");
@@ -56,6 +91,12 @@ function ProcessingPage() {
       setFileError(
         "Formato no admitido. Selecciona un archivo PDF, JPG o PNG.",
       );
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setSelectedFile(null);
+      setFileError("El archivo no puede superar los 10 MB.");
       return;
     }
 
@@ -182,16 +223,31 @@ function ProcessingPage() {
                 }
               }}
               aria-label="Tipo de entrada"
+              sx={{
+                gap: 2,
+                borderBottom: "1px solid #e0e0e0",
+                width: "fit-content",
+                "& .MuiToggleButtonGroup-grouped": {
+                  border: 0,
+                  "&:not(:first-of-type)": {
+                    borderRadius: 0,
+                    marginLeft: 0,
+                  },
+                  "&:first-of-type": {
+                    borderRadius: 0,
+                  },
+                },
+              }}
             >
-              <ToggleButton value="file">
+              <CustomToggleButton value="file">
                 <FileUpload />
                 Archivo
-              </ToggleButton>
+              </CustomToggleButton>
 
-              <ToggleButton value="text">
+              <CustomToggleButton value="text">
                 <DescriptionOutlined />
                 Texto
-              </ToggleButton>
+              </CustomToggleButton>
             </ToggleButtonGroup>
             {inputMode === "file" && (
               <>
@@ -298,8 +354,8 @@ function ProcessingPage() {
                           variant="body2"
                           sx={{ color: "text.secondary", marginTop: "10px" }}
                         >
-                          Formatos aceptados: PDF, JPG, JPEG, PNG, DOC, DOCX,
-                          TIFF | Tamaño máximo: 10 MB
+                          Formatos aceptados: PDF, JPG, JPEG, PNG | Tamaño
+                          máximo: 10 MB
                         </Typography>
                       </Box>
                     </Stack>
@@ -396,15 +452,28 @@ function ProcessingPage() {
               </Button>
             </Stack>
             {isProcessing && (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ textAlign: { xs: "left", sm: "right" } }}
-              >
-                <InfoIcon />
-                El documento será procesado con IA para extraer su información.
-                Este proceso puede tardar unos segundos.
-              </Typography>
+              <Stack direction="row" spacing={2}>
+                <InfoIcon
+                  sx={{
+                    color: "text.secondary",
+                    alignItems: "flex-start",
+                    opacity: "0.4",
+                  }}
+                />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    textAlign: "left",
+                    opacity: 0.6,
+                  }}
+                >
+                  El documento será procesado con IA para extraer su
+                  información.
+                  <br />
+                  Este proceso puede tardar unos segundos.
+                </Typography>
+              </Stack>
             )}
           </Stack>
           {formError && (
