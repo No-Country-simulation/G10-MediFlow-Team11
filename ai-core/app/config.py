@@ -10,7 +10,8 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     gemini_api_key: str | None = None
-    gemini_model: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
+    audit_confidence_threshold: float = 0.85
 
 
 settings = Settings()
