@@ -28,6 +28,7 @@ export const successfulProcessingResponse = {
     primary_diagnosis: "Possible pneumonia",
     suggested_icd10: "J18.9",
     medications: [],
+    requested_studies: [{ name: "Radiografía de tórax" }],
   },
 
   validation: {
@@ -47,6 +48,32 @@ export const successfulProcessingResponse = {
     generated: true,
     type: "MEDICAL_EMERGENCY",
     message: "Critical finding detected. Immediate medical evaluation is recommended.",
+  },
+
+  storage: {
+    provider: "OCI_OBJECT_STORAGE",
+    state: "SUCCESS",
+  },
+} satisfies ProcessingResponse;
+
+export const aiTimeoutProcessingResponse = {
+  document_id: "DOC-2026-0003",
+  status: "NEEDS_AUDIT",
+
+  classification: null,
+  confidence: null,
+  extracted_data: null,
+  validation: null,
+
+  routing_decision: {
+    primary_destination: "HUMAN_REVIEW",
+    requires_human_review: true,
+    audit_reasons: ["AI_TIMEOUT"],
+    justification: "No se obtuvo una respuesta de IA dentro del tiempo esperado.",
+  },
+
+  notification: {
+    generated: false,
   },
 
   storage: {

@@ -62,12 +62,17 @@ export interface Medication {
   dosage?: string | null;
 }
 
+export interface RequestedStudy {
+  name?: string | null;
+}
+
 export interface ExtractedData {
   patient?: PatientData | null;
   requesting_doctor?: RequestingDoctor | null;
   primary_diagnosis?: string | null;
   suggested_icd10?: string | null;
   medications?: Medication[];
+  requested_studies?: RequestedStudy[] | null;
   [key: string]: unknown;
 }
 
