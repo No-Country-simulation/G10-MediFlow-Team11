@@ -49,7 +49,7 @@ const CustomToggleButton = styled(ToggleButton)(({ theme }) => ({
   textTransform: "none",
   border: "none",
   borderRadius: 0,
-  padding: "8px 16px",
+  padding: "6px 14px",
   color: theme.palette.text.secondary,
   fontWeight: 500,
   fontSize: "0.95rem",
@@ -107,6 +107,7 @@ function ProcessingPage() {
   const [originChannel, setOriginChannel] = useState("");
   const [customOriginChannel, setCustomOriginChannel] = useState("");
   const [documentId, setDocumentId] = useState("");
+  const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const validateForm = (): boolean => {
     if (!originChannel.trim()) {
@@ -183,6 +184,7 @@ function ProcessingPage() {
     setDocumentId("");
     setFileError(null);
     setFormError(null);
+    setNotes("");
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -380,46 +382,60 @@ function ProcessingPage() {
               />
             )}
           </Box>
-          <Stack spacing={2} sx={{ marginTop: "10px" }} direction="row">
-            <FormControl fullWidth required>
-              <InputLabel id="origin-channel-label">Canal de origen</InputLabel>
+          <Stack spacing={2} direction="column">
+            <Stack spacing={2} direction={{ xs: "column", md: "row" }}>
+              <FormControl fullWidth required>
+                <InputLabel id="origin-channel-label">
+                  Canal de origen
+                </InputLabel>
 
-              <Select
-                labelId="origin-channel-label"
-                value={originChannel}
-                label="Canal de origen"
-                onChange={(event) => {
-                  setOriginChannel(event.target.value);
+                <Select
+                  labelId="origin-channel-label"
+                  value={originChannel}
+                  label="Canal de origen"
+                  onChange={(event) => {
+                    setOriginChannel(event.target.value);
 
-                  if (event.target.value !== "Otro") {
-                    setCustomOriginChannel("");
+                    if (event.target.value !== "Otro") {
+                      setCustomOriginChannel("");
+                    }
+                  }}
+                >
+                  {ORIGIN_CHANNELS.map((channel) => (
+                    <MenuItem key={channel} value={channel}>
+                      {channel}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {originChannel === "Otro" && (
+                <TextField
+                  label="Especifica el canal de origen"
+                  value={customOriginChannel}
+                  onChange={(event) =>
+                    setCustomOriginChannel(event.target.value)
                   }
-                }}
-              >
-                {ORIGIN_CHANNELS.map((channel) => (
-                  <MenuItem key={channel} value={channel}>
-                    {channel}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {originChannel === "Otro" && (
+                  required
+                  fullWidth
+                />
+              )}
               <TextField
-                label="Especifica el canal de origen"
-                value={customOriginChannel}
-                onChange={(event) => setCustomOriginChannel(event.target.value)}
-                required
+                label="Identificador del documento (opcional)"
+                placeholder="Ej. N° de solicitud, folio, ID externo..."
+                value={documentId}
+                onChange={(event) => setDocumentId(event.target.value)}
                 fullWidth
               />
-            )}
-
+            </Stack>
             <TextField
-              label="Identificador del documento (opcional)"
-              placeholder="Ej. N° de solicitud, folio, ID externo..."
-              value={documentId}
-              onChange={(event) => setDocumentId(event.target.value)}
-              helperText="Identificador del documento (opcional)"
+              label="Notas u observaciones"
+              placeholder="Agrega información adicional sobre el documento"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              multiline
+              minRows={2}
               fullWidth
+              helperText="Opcional"
             />
           </Stack>
           <Stack
