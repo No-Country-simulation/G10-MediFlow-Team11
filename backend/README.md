@@ -131,8 +131,9 @@ spring:
         format_sql: true
     open-in-view: false
   jackson:
-    serialization:
-      write-dates-as-timestamps: false
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
 
 management:
   endpoints:
