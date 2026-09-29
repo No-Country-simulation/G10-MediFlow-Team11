@@ -4,6 +4,10 @@ import com.mediflow.backend.enums.InputType;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * DTO interno Backend → IA Core (arquitectura §4).
+ * FILE exige content_base64; TEXT exige document_text.
+ */
 @Getter
 @Setter
 public class ProcessingRequest {
@@ -16,7 +20,6 @@ public class ProcessingRequest {
     private String documentText;
     private String originChannel;
 
-    /** Regla de validación de la arquitectura §4: FILE exige contentBase64; TEXT exige documentText.*/
     public boolean isValid() {
         if (inputType == InputType.FILE) {
             return contentBase64 != null && !contentBase64.isBlank();

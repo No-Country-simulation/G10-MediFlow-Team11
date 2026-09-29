@@ -1,3 +1,6 @@
 package com.mediflow.backend.enums;
 
-public enum InputType { FILE, TEXT }
+public enum InputType {
+    FILE,
+    TEXT
+}

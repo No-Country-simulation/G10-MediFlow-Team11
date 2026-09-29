@@ -1,4 +1,4 @@
-package com.mediflow.backend.dto.response;
+package com.mediflow.backend.dto.shared;
 
 import com.mediflow.backend.enums.DocumentType;
 import com.mediflow.backend.enums.PriorityLevel;
@@ -9,6 +9,6 @@ import lombok.Setter;
 @Setter
 public class Classification {
     private DocumentType documentType;
-    private String specialty; //string o null
+    private String specialty;
     private PriorityLevel priorityLevel;
 }

@@ -1,3 +1,6 @@
 package com.mediflow.backend.enums;
 
-public enum HumanDecision  { APPROVE, REJECT }
+public enum HumanDecision {
+    APPROVE,
+    REJECT
+}

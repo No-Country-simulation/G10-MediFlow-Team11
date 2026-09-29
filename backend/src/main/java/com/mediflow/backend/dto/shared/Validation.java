@@ -1,7 +1,8 @@
-package com.mediflow.backend.dto.response;
+package com.mediflow.backend.dto.shared;
 
 import lombok.Getter;
 import lombok.Setter;
+
 import java.util.List;
 
 @Getter

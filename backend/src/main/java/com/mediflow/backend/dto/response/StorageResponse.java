@@ -7,6 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class StorageResponse {
+
     private String provider = "OCI_OBJECT_STORAGE";
     private StorageState state;
 }

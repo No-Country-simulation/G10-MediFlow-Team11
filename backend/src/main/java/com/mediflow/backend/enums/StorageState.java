@@ -1,3 +1,7 @@
 package com.mediflow.backend.enums;
 
-public enum StorageState  { PENDING, SUCCESS, ERROR }
+public enum StorageState {
+    PENDING,
+    SUCCESS,
+    ERROR
+}

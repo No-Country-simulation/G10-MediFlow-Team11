@@ -8,10 +8,14 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration
 public class JacksonConfig {
 
-    @Bean
-    public JsonMapper jsonMapper() {
+    public static JsonMapper createJsonMapper() {
         return JsonMapper.builder()
                 .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
                 .build();
+    }
+
+    @Bean
+    public JsonMapper jsonMapper() {
+        return createJsonMapper();
     }
 }
