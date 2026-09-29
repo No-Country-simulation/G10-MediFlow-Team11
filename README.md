@@ -90,14 +90,60 @@ La referencia canónica de arquitectura y contratos compartidos continúa siendo
 ---
 ## Cómo ejecutar
 
-> ⚠️ Esta sección se completará con los comandos definitivos a medida que los servicios queden implementados y contenerizados. Los siguientes son de referencia provisional — nombres de carpetas y profiles de Spring Boot pueden cambiar.
+### Clonar el repositorio
 
 ```bash
-# Clonar el repositorio
 git clone https://github.com/No-Country-simulation/G10-MediFlow-Team11.git
 cd G10-MediFlow-Team11
+```
 
-# Backend (Spring Boot)
+### Base de datos PostgreSQL
+
+MediFlow utiliza PostgreSQL como motor de persistencia. En el entorno de desarrollo, el servicio se ejecuta mediante Docker Compose con almacenamiento persistente y verificación de disponibilidad.
+
+#### Configuración
+
+Desde la raíz del repositorio, crea el archivo local de variables de entorno:
+
+```bash
+cp .env.example .env
+```
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Define un valor seguro para `DB_PASSWORD` en `.env` antes de iniciar el servicio.
+
+#### Iniciar PostgreSQL
+
+```bash
+docker compose up -d postgres
+```
+
+Verifica el estado:
+
+```bash
+docker compose ps
+```
+
+PostgreSQL estará disponible cuando el servicio aparezca con estado `healthy`.
+
+Para detener los servicios conservando los datos:
+
+```bash
+docker compose down
+```
+
+La configuración detallada del entorno, persistencia, resolución de conflictos de puerto y conexión con el Backend se encuentra en [`docs/backend-cloud/postgresql-docker.md`](./docs/backend-cloud/postgresql-docker.md).
+
+### Servicios
+
+```bash
+# Backend (Spring Boot) — requiere PostgreSQL en ejecución y las variables de .env
+# disponibles en la sesión (ver la guía de PostgreSQL)
 cd backend
 ./mvnw spring-boot:run
 
@@ -112,14 +158,23 @@ npm install
 npm run dev
 ```
 
-### Variables de entorno previstas
+### Variables de entorno
 
-> Los nombres definitivos se documentarán cuando los servicios queden configurados.
+PostgreSQL y la conexión del Backend utilizan las variables definidas en la plantilla [`.env.example`](./.env.example), en la raíz del repositorio. El archivo `.env` es local, no se versiona y debe definir `DB_PASSWORD`:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=mediflow
+DB_USER=mediflow_user
+DB_PASSWORD=
+```
+
+Variables de referencia para la integración con OCI e IA Core:
 
 ```env
 OCI_BUCKET_NAME=mediflow-documentos-clinicos
 OCI_NAMESPACE=<namespace>
-DATABASE_URL=<postgresql-url>
 AI_SERVICE_URL=<url-del-servicio-python>
 AUDIT_CONFIDENCE_THRESHOLD=0.85
 GEMINI_API_KEY=<api-key>
