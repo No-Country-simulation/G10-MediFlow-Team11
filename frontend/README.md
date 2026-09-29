@@ -279,6 +279,56 @@ La normalización de errores HTTP permanece en la capa de servicios. La interfaz
 
 `Centro de ayuda` y `Configuración` se mantienen visibles en la parte inferior del sidebar como elementos reservados de la interfaz. Actualmente se encuentran deshabilitados y no representan funcionalidades activas del MVP.
 
+## Formulario de procesamiento de documentos
+
+La vista `/processing` permite iniciar el procesamiento de un documento clínico mediante archivo o texto.
+
+La implementación principal se encuentra en:
+
+```text
+src/pages/ProcessingPage.tsx
+```
+
+### Modos de entrada
+
+El formulario admite dos modos:
+
+-   **Archivo:** permite seleccionar un archivo mediante el selector del sistema o arrastrarlo al área de carga.
+-   **Texto:** permite ingresar directamente el contenido clínico en un campo de texto.
+
+Los formatos de archivo admitidos actualmente son:
+
+-   PDF;
+-   JPG/JPEG;
+-   PNG.
+
+El tamaño máximo permitido por archivo es de **10 MB**. La validación de formato y tamaño se realiza antes de enviar el documento a la capa de servicios.
+
+### Datos del procesamiento
+
+Además del contenido, el formulario permite indicar:
+
+-   **Canal de origen:** obligatorio. Incluye los canales más comunes y una opción `Otro` que habilita un campo de texto libre.
+-   **ID del documento:** opcional.
+
+`origin_channel` se mantiene como `string` en el contrato enviado al Backend.
+
+### Envío y validación
+
+Antes de procesar el documento, la vista valida los campos requeridos según el modo de entrada seleccionado.
+
+Una vez validado el formulario:
+
+-   los archivos se procesan mediante `processFile()`;
+-   el texto se procesa mediante `processText()`;
+-   los controles de acción se deshabilitan mientras la solicitud está en curso;
+-   la interfaz informa al usuario que el documento está siendo procesado;
+-   el resultado de la operación se comunica mediante el sistema global de notificaciones.
+
+Los errores provenientes de la capa de servicios se presentan mediante `showError()` para evitar exponer detalles técnicos del Backend.
+
+El botón `Limpiar` restablece el contenido y los estados del formulario.
+
 ## Documentación por ticket
 
 Este `README.md` es la documentación técnica principal del escuadrón Frontend.
