@@ -24,8 +24,9 @@ spring:
 
   # Formato de respuestas JSON
   jackson:
-    serialization:
-      write-dates-as-timestamps: false # Formatea fechas a estándar ISO-8601 (2026-09-19T14:30:00Z)
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false # Formatea fechas a estándar ISO-8601 (2026-09-19T14:30:00Z)
 
 # Endpoints de monitoreo y salud
 management:
