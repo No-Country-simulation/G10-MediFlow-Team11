@@ -91,8 +91,10 @@ class DocumentPersistenceIT {
                 HumanDecision.APPROVE,
                 canonicalSnapshot("DOC-HIST-0001", "APPROVED")
         );
+        documentRepository.flush();
 
         List<DocumentTriageHistory> history = persistenceService.listHistory("DOC-HIST-0001");
+        DocumentRecord afterHistory = persistenceService.getDocument("DOC-HIST-0001");
         assertEquals(2, history.size());
         assertEquals(1, history.get(0).getId().getSequence());
         assertEquals(2, history.get(1).getId().getSequence());
@@ -101,6 +103,7 @@ class DocumentPersistenceIT {
         assertEquals(TriageEventType.HUMAN_REVIEW, history.get(1).getEventType());
         assertEquals(HumanDecision.APPROVE, history.get(1).getDecision());
         assertEquals("APPROVED", history.get(1).getResult().get("status"));
+        assertEquals(afterHistory.getUpdatedAt(), history.get(1).getOccurredAt());
         assertTrue(history.get(1).getOccurredAt().compareTo(history.get(0).getOccurredAt()) >= 0);
         assertEquals("jsonb", columnUdt("document_triage_history", "result"));
         assertEquals(2, historyRepository.findMaxSequence("DOC-HIST-0001"));

@@ -76,16 +76,19 @@ public class DocumentPersistenceService {
         entityManager.lock(document, LockModeType.PESSIMISTIC_WRITE);
 
         int nextSequence = historyRepository.findMaxSequence(documentId) + 1;
-        Instant occurredAt = Instant.now();
-        document.touchUpdatedAt(occurredAt);
+        Instant tentativeOccurredAt = Instant.now();
+        document.touchUpdatedAt(tentativeOccurredAt);
         documentRepository.save(document);
+        historyRepository.flush();
+        entityManager.refresh(document);
+        Instant persistedUpdatedAt = document.getUpdatedAt();
 
         DocumentTriageHistory entry = new DocumentTriageHistory();
         entry.setId(new DocumentTriageHistoryId(documentId, nextSequence));
         entry.setDocument(document);
         entry.setEventType(eventType);
         entry.setDecision(decision);
-        entry.setOccurredAt(occurredAt);
+        entry.setOccurredAt(persistedUpdatedAt);
         entry.setResult(resultSnapshot);
         return historyRepository.save(entry);
     }
