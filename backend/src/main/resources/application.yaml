@@ -20,6 +20,8 @@ spring:
     properties:
       hibernate:
         format_sql: true # Formatea las consultas SQL en consola
+        jdbc:
+          time_zone: UTC
     open-in-view: false # Libera conexiones a la BD rápidamente (evita saturación en HikariCP)
 
   # Formato de respuestas JSON

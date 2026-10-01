@@ -16,6 +16,8 @@ Proyecto desarrollado para el **Hackathon ONE — Grupo 10** (Oracle Next Educat
   - [Backend — Inicialización del servicio (Issue #1)](#backend--inicialización-del-servicio-issue-1)
   - [Infraestructura Cloud — Aprovisionamiento en OCI (Issue #9)](#infraestructura-cloud--aprovisionamiento-en-oci-issue-9)
   - [PostgreSQL — Configuración del servicio](#postgresql--configuración-del-servicio)
+  - [Contratos DTO de procesamiento (Issue #5)](#contratos-dto-de-procesamiento-issue-5)
+  - [Persistencia de documentos e historial (PostgreSQL)](#persistencia-de-documentos-e-historial-postgresql)
 - [Requisitos previos](#requisitos-previos)
 - [Configuración y ejecución local](#configuración-y-ejecución-local)
 - [Variables de entorno](#variables-de-entorno)
@@ -78,7 +80,7 @@ La definición completa de contratos, DTOs, códigos de error y reglas de enruta
 
 ```
 mediflow/
-├── backend/     → Spring Boot 3+, Java 21 (este servicio)
+├── backend/     → Spring Boot 4.1.1, Java 21 (este servicio)
 ├── frontend/    → React, TypeScript, Vite
 ├── ai-core/     → Python, FastAPI
 ├── docs/        → Arquitectura, contratos, diagramas, reportes técnicos
@@ -130,6 +132,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: UTC
     open-in-view: false
   jackson:
     datatype:
@@ -173,6 +177,72 @@ Las mismas variables `DB_*` las utilizan Docker Compose (para crear la base y pu
 Docker Compose carga automáticamente el `.env` de la raíz; Spring Boot, en cambio, no lee archivos `.env`, por lo que las variables deben estar disponibles en el entorno del proceso que ejecuta el Backend.
 
 Guía técnica completa, incluida la configuración inicial para quienes no hayan trabajado con Docker: [`docs/backend-cloud/postgresql-docker.md`](../docs/backend-cloud/postgresql-docker.md).
+
+### Contratos DTO de procesamiento (Issue #5)
+
+Se implementaron los contratos de transporte de procesamiento definidos en `docs/ARCHITECTURE.md`, **separados de las entidades JPA**. El JSON usa `snake_case` mediante `JacksonConfig` (`PropertyNamingStrategies.SNAKE_CASE`).
+
+**Enums** (`com.mediflow.backend.enums`), valores en inglés según arquitectura:
+
+| Enum | Valores |
+|---|---|
+| `InputType` | `FILE`, `TEXT` |
+| `DocumentType` | `PRESCRIPTION`, `IMAGING_REPORT`, `STUDY_REPORT`, `PROCEDURE_ORDER`, `DISCHARGE_SUMMARY`, `MEDICAL_CERTIFICATE` |
+| `PriorityLevel` | `ROUTINE`, `URGENT` |
+| `PrimaryDestination` | `MEDICAL_EMERGENCY`, `PHARMACY`, `AUTHORIZATION_AUDIT`, `MEDICAL_RECORD`, `HUMAN_REVIEW` |
+| `DocumentStatus` | `RECEIVED`, `PROCESSING`, `NEEDS_AUDIT`, `PROCESSED`, `APPROVED`, `REJECTED`, `FAILED` |
+| `AuditReason` | semánticos: `LOW_CONFIDENCE`, `ILLEGIBLE_DOCUMENT`, `MISSING_CRITICAL_FIELDS`, `INCONSISTENT_DATA`; técnicos: `INVALID_AI_RESPONSE`, `AI_TIMEOUT`, `AI_UNAVAILABLE` |
+| `StorageState` | `PENDING`, `SUCCESS`, `ERROR` |
+| `HumanDecision` | `APPROVE`, `REJECT` |
+| `TriageEventType` | `INITIAL_TRIAGE`, `HUMAN_REVIEW` (historial §10) |
+| `BackendErrorCode` | códigos HTTP mínimos §14 |
+
+**Entradas externas**
+
+- `ProcessTextRequest` — JSON de `POST /api/v1/documents/process-text`; `document_id` opcional.
+- `ProcessFileRequest` — multipart de `POST /api/v1/documents/process-file`: `document_id` opcional, `file`, `origin_channel`.
+
+**Interno Backend → IA Core**
+
+- `ProcessingRequest` — `input_type = FILE` exige `content_base64`; `TEXT` exige `document_text` (`isValid()`).
+
+**IA Core → Backend**
+
+- `AiProcessResponse` + bloques compartidos (`Classification`, `Confidence`, `ExtractedData`, `Validation`) y `RoutingDecisionAi` (`List<AuditReason>`). No incluye `status`, OCI ni `requires_human_review`.
+- `AiErrorResponse` — sobre `{ error: { code, message } }` (p. ej. `AI_OUTPUT_INVALID`).
+
+**Backend → Frontend**
+
+- `DocumentoCanonicoResponse` — respuesta canónica §6; `classification`, `confidence`, `extracted_data` y `validation` nullable.
+- `RoutingDecisionResponse` — incluye `requires_human_review` (responsabilidad del Backend).
+- `NotificationResponse`, `StorageResponse` (sin bucket/object_key).
+- `ApiErrorResponse` — errores HTTP del Backend §14, distinto de `AiErrorResponse`.
+
+Bloques reutilizables en `com.mediflow.backend.dto.shared`.
+
+**Pruebas:** `DtoSerializationTest` serializa/deserializa los contratos principales con el `JsonMapper` de `JacksonConfig`.
+
+### Persistencia de documentos e historial (PostgreSQL)
+
+Modelo mínimo §10, con Hibernate `ddl-auto: update` en desarrollo. Las entidades **no** sustituyen a los DTO.
+
+| Tabla | Entidad | Notas |
+|---|---|---|
+| `documents` | `DocumentRecord` | PK pública `id` (`document_id`). Columnas consultables + JSONB `extracted_data`, `validation`, `notification`. `audit_reasons` como `text[]`. `priority` mapea `PriorityLevel`. No hay columna `needs_audit` (se deriva de `status`). |
+| `document_triage_history` | `DocumentTriageHistory` | PK (`document_id`, `sequence`). `@Immutable` (append-only). `result` JSONB (snapshot canónico, sin rutas OCI). `event_type` + `decision` nullable solo en `INITIAL_TRIAGE`. |
+
+`DocumentPersistenceService` guarda/recupera documentos y **solo inserta** historial: `sequence` = `max + 1` bajo `SELECT … FOR UPDATE` de la fila del documento; `occurred_at` se alinea con `documents.updated_at`.
+
+Repositorios Spring Data: `DocumentRepository`, `DocumentTriageHistoryRepository` (consulta por `document_id` ordenada por `sequence`).
+
+**Pruebas:** `DocumentPersistenceIT` usa Testcontainers (`postgres:17-alpine`) y comprueba round-trip, JSONB real en PostgreSQL, varias entradas de historial y `sequence` creciente. Se omiten si Docker no está disponible (`disabledWithoutDocker`). Con Docker Desktop abierto:
+
+```bash
+cd backend
+./mvnw -Dtest=DocumentPersistenceIT,DtoSerializationTest test
+```
+
+El arranque local con esquema persistente sigue el flujo de [Configuración y ejecución local](#configuración-y-ejecución-local): Hibernate crea/actualiza las tablas al iniciar contra el Postgres de Compose.
 
 ---
 
@@ -244,4 +314,20 @@ Definidas en la plantilla [`/.env.example`](../.env.example), en la raíz del re
 | `SERVER_PORT` | No | `8080` | Puerto de escucha del servicio |
 
 `.env` está excluido del control de versiones mediante `.gitignore`; solo `.env.example` se versiona.
+
+---
+
+## Flujo de contribución
+
+Los cambios del Backend se integran por pull request contra la rama acordada del squad. Vincular el issue con Development, no incluir secretos y respetar los contratos de `docs/ARCHITECTURE.md`.
+
+Plantilla: [`.github/PULL_REQUEST_TEMPLATE.MD`](../.github/PULL_REQUEST_TEMPLATE.MD).
+
+---
+
+## Próximos pasos
+
+- Endpoints de procesamiento, orquestación con IA Core y reconstrucción de la respuesta canónica a partir de `DocumentRecord`.
+- Integración OCI Object Storage y compensación PostgreSQL ↔ OCI (secciones 11–12).
+- Revisión humana `PATCH /api/v1/documents/{id}/review` usando el historial append-only.
 
