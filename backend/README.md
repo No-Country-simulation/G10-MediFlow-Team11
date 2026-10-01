@@ -15,6 +15,7 @@ Proyecto desarrollado para el **Hackathon ONE — Grupo 10** (Oracle Next Educat
 - [Estado actual de implementación](#estado-actual-de-implementación)
   - [Backend — Inicialización del servicio (Issue #1)](#backend--inicialización-del-servicio-issue-1)
   - [Infraestructura Cloud — Aprovisionamiento en OCI (Issue #9)](#infraestructura-cloud--aprovisionamiento-en-oci-issue-9)
+  - [PostgreSQL — Configuración del servicio](#postgresql--configuración-del-servicio)
 - [Requisitos previos](#requisitos-previos)
 - [Configuración y ejecución local](#configuración-y-ejecución-local)
 - [Variables de entorno](#variables-de-entorno)
@@ -131,8 +132,9 @@ spring:
         format_sql: true
     open-in-view: false
   jackson:
-    serialization:
-      write-dates-as-timestamps: false
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
 
 management:
   endpoints:
@@ -150,8 +152,27 @@ Puntos clave:
 **Verificación realizada**
 
 - `./mvnw clean compile` → `BUILD SUCCESS`.
-- El arranque completo y la disponibilidad de `GET /actuator/health` con PostgreSQL se validarán al integrar el servicio de base de datos del Issue #13.
-- Test de contexto (`BackendApplicationTests`) incluido; queda condicionado a la disponibilidad de PostgreSQL (Issue #13, pendiente).
+- El arranque completo y `GET /actuator/health` requieren PostgreSQL en ejecución (ver [PostgreSQL — Configuración del servicio](#postgresql--configuración-del-servicio)).
+- Test de contexto (`BackendApplicationTests`) incluido; requiere PostgreSQL en ejecución.
+
+### PostgreSQL — Configuración del servicio
+
+PostgreSQL 17 se ejecuta en el entorno de desarrollo mediante **Docker Compose**, con el servicio `postgres` definido en [`compose.yaml`](../compose.yaml) en la raíz del repositorio.
+
+| Aspecto | Configuración |
+|---|---|
+| Imagen | `postgres:17-alpine` (imagen oficial) |
+| Base / usuario por defecto | `mediflow` / `mediflow_user` |
+| Credenciales | Variables externas (`DB_NAME`, `DB_USER`, `DB_PASSWORD`) leídas desde el `.env` de la raíz; `DB_PASSWORD` es obligatoria y no tiene valor por defecto |
+| Persistencia | Named volume `postgres_data`; los datos sobreviven a `docker compose down` |
+| Healthcheck | `pg_isready` cada 5 s; el servicio se reporta como `healthy` cuando acepta conexiones |
+| Puerto | Publicado solo en loopback: `127.0.0.1:${DB_PORT}` → `5432` del contenedor |
+
+Las mismas variables `DB_*` las utilizan Docker Compose (para crear la base y publicar el puerto) y el Backend (para conectarse), por lo que existe una única plantilla: [`/.env.example`](../.env.example). El archivo `.env` local se crea en la raíz del repositorio.
+
+Docker Compose carga automáticamente el `.env` de la raíz; Spring Boot, en cambio, no lee archivos `.env`, por lo que las variables deben estar disponibles en el entorno del proceso que ejecuta el Backend.
+
+Guía técnica completa, incluida la configuración inicial para quienes no hayan trabajado con Docker: [`docs/backend-cloud/postgresql-docker.md`](../docs/backend-cloud/postgresql-docker.md).
 
 ---
 
@@ -162,41 +183,46 @@ Puntos clave:
 | JDK 21 | `java -version` | Eclipse Temurin recomendado |
 | Maven Wrapper (`./mvnw`) | incluido en el repo | no requiere instalación de Maven |
 | Git | `git --version` | |
-| PostgreSQL accesible | — | requerido para arrancar completamente el servicio (ver [Próximos pasos](#próximos-pasos)) |
+| Docker | `docker --version` | ejecuta PostgreSQL; en Windows/macOS normalmente mediante Docker Desktop |
+| Docker Compose | `docker compose version` | levanta el servicio `postgres` definido en `compose.yaml` |
 
 ---
 
 ## Configuración y ejecución local
 
-1. Clonar el repositorio y ubicarse en la carpeta del backend:
+1. Clonar el repositorio y ubicarse en su **raíz** (donde están `compose.yaml` y `.env.example`).
 
-   ```bash
-   cd backend
-   ```
-
-2. Copiar el archivo de ejemplo de variables de entorno y completar los valores locales:
+2. Crear el `.env` **en la raíz del repositorio** a partir de la plantilla y definir `DB_PASSWORD` con un valor local:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Definir las variables de entorno (por ejemplo, en la Run Configuration de tu IDE o exportándolas en la terminal) antes de ejecutar la aplicación. Ver la tabla de la siguiente sección.
+   En PowerShell: `Copy-Item .env.example .env`.
 
-4. Compilar el proyecto:
+3. Levantar PostgreSQL y esperar a que `docker compose ps` muestre `healthy`:
 
    ```bash
+   docker compose up -d postgres
+   docker compose ps
+   ```
+
+4. Cargar las variables del `.env` en el entorno del proceso que ejecutará Maven. Spring Boot **no** lee archivos `.env` automáticamente: las variables deben estar presentes en su proceso (por ejemplo, cargándolas en la sesión de la terminal o en la Run Configuration de tu IDE). La guía de PostgreSQL incluye comandos para PowerShell y Bash: [Conectar el Backend](../docs/backend-cloud/postgresql-docker.md#conectar-el-backend).
+
+5. Compilar el proyecto:
+
+   ```bash
+   cd backend
    ./mvnw clean compile
    ```
 
-5. Ejecutar la aplicación:
+6. Ejecutar la aplicación:
 
    ```bash
    ./mvnw spring-boot:run
    ```
 
-   > Sin una instancia de PostgreSQL accesible con las credenciales configuradas, el arranque fallará al inicializar JPA. Esto es esperado hasta completar la configuración de base de datos (Issue #13).
-
-6. Verificar el estado del servicio una vez levantado:
+7. Verificar el estado del servicio una vez levantado:
 
    ```bash
    curl http://localhost:8080/actuator/health
@@ -206,12 +232,12 @@ Puntos clave:
 
 ## Variables de entorno
 
-Definidas en `backend/.env.example` (sin valores reales):
+Definidas en la plantilla [`/.env.example`](../.env.example), en la raíz del repositorio (sin valores reales). El `.env` local se crea también en la raíz; lo leen Docker Compose y, una vez cargadas las variables en su proceso, el Backend:
 
 | Variable | Obligatoria | Valor por defecto | Descripción |
 |---|---|---|---|
 | `DB_HOST` | No | `localhost` | Host de PostgreSQL |
-| `DB_PORT` | No | `5432` | Puerto de PostgreSQL |
+| `DB_PORT` | No | `5432` | Puerto del host en el que se publica PostgreSQL (dentro del contenedor siempre es `5432`) |
 | `DB_NAME` | No | `mediflow` | Nombre de la base de datos |
 | `DB_USER` | No | `mediflow_user` | Usuario de la base de datos |
 | `DB_PASSWORD` | **Sí** | — (sin fallback) | Contraseña de la base de datos; el arranque falla si no se define |
