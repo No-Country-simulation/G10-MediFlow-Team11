@@ -8,8 +8,8 @@ Este documento resume la infraestructura OCI base del MVP de MediFlow y enlaza l
 
 ### Región
 
-- Colombia Central (Bogotá)
-- `sa-bogota-1`
+- US East (Ashburn)
+- `us-ashburn-1`
 
 ### Compartment
 
@@ -57,15 +57,29 @@ auditoria_humana/
 
 El contrato completo de almacenamiento, la convención de nombres de objeto y el movimiento entre prefijos se definen en [`docs/ARCHITECTURE.md` — sección 11](../ARCHITECTURE.md#11-oci-object-storage).
 
-### Capacidad Compute verificada
+### Compute
 
+- Instancia: `MediFlow_Core_VM`
+- Estado: `Running`
+- Availability Domain: `AD-2`
+- Imagen: Canonical Ubuntu 22.04 Minimal `aarch64`
 - Shape: `VM.Standard.A1.Flex`
-- Arquitectura: Ampere/ARM
+- Arquitectura: Ampere ARM (`aarch64`)
 - 2 OCPU
 - 12 GB RAM
 - `Always Free-eligible`
+- Acceso SSH validado
+- Docker Engine y Docker Compose operativos
 
-No se identificaron limitaciones que impidan continuar con el aprovisionamiento de `MediFlow_Core_VM`. La disponibilidad real de Compute puede variar al momento de crear la instancia.
+#### Verificaciones realizadas
+
+- Arquitectura `aarch64` verificada.
+- Ejecución correcta de `hello-world` con Docker.
+- Acceso al bucket `mediflow-documentos-clinicos` mediante Instance Principals.
+- Prueba de `put`, `list` y `delete` completada correctamente.
+- Ausencia de `~/.oci`: sin credenciales OCI estáticas en la VM.
+
+El despliegue de PostgreSQL, Backend, IA Core y demás servicios queda fuera de esta etapa y se realizará en tickets posteriores.
 
 ## Guías relacionadas
 
