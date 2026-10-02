@@ -36,3 +36,10 @@ management:
     web:
       exposure:
         include: health,info # Expone /actuator/health y /actuator/info para Docker/OCI
+
+mediflow:
+  oci:
+    bucket-name: ${OCI_BUCKET_NAME:mediflow-documentos-clinicos}
+    namespace: ${OCI_NAMESPACE:}
+    region: ${OCI_REGION:us-ashburn-1}
+    auth-mode: ${OCI_AUTH_MODE:instance_principal}
