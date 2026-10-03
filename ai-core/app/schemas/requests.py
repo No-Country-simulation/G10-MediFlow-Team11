@@ -1,3 +1,6 @@
+import base64
+import binascii
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.enums import InputType
@@ -16,6 +19,16 @@ class ProcessingRequest(BaseModel):
     content_base64: str | None = None
     document_text: str | None = None
     origin_channel: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_base64_content(self) -> "ProcessingRequest":
+        if self.input_type == InputType.FILE and self.content_base64:
+            try:
+                base64.b64decode(self.content_base64, validate=True)
+            except (binascii.Error, ValueError) as error:
+                raise ValueError("content_base64 must be valid base64") from error
+
+        return self
 
     @model_validator(mode="after")
     def validate_content_by_input_type(self) -> "ProcessingRequest":
