@@ -31,15 +31,15 @@ Los modelos de `app.schemas` representan el contrato Backend -> IA de
 ## Procesamiento con Gemini
 
 El servicio `app.services.gemini_processor.GeminiProcessor` recibe un
-`ProcessingRequest` y devuelve un `AIProcessingResponse` validado sin depender
-del endpoint HTTP. Para habilitarlo, configura `GEMINI_API_KEY` y
+`ProcessingRequest` y devuelve un `AIProcessingResponse` validado de forma
+independiente del endpoint HTTP. Para habilitarlo, configura `GEMINI_API_KEY` y
 `GEMINI_MODEL`; no hay credenciales ni nombre de modelo por defecto en el
 código. Los documentos FILE se envían a Gemini como contenido binario con su
-MIME type y los documentos TEXT como texto.
+MIME type y los documentos TEXT como texto. El servicio rechaza las respuestas
+que no cumplen el contrato o que contienen un `document_id` distinto al de la
+solicitud.
 
-`POST /api/v1/ai/process` utiliza el mismo servicio y responde con
-`AI_OUTPUT_INVALID` si el resultado no cumple el contrato o si Gemini devuelve
-un `document_id` distinto. Los estudios solicitados se devuelven como
+Los estudios solicitados se devuelven como
 `extracted_data.requested_studies`, un array de objetos `{ "name": "..." }`;
 solo se incluyen solicitudes explícitas y se devuelve `[]` cuando no se
 identifican. Para cumplir con las restricciones de Gemini Developer API, el
@@ -58,8 +58,8 @@ Copy-Item .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Completa `GEMINI_API_KEY` y `GEMINI_MODEL` en `.env` antes de llamar al endpoint
-de procesamiento.
+Completa `GEMINI_API_KEY` y `GEMINI_MODEL` en `.env` antes de utilizar el
+servicio de procesamiento.
 
 La API queda disponible en `http://localhost:8000` y su estado se puede consultar en `GET /health`.
 
@@ -69,4 +69,4 @@ La API queda disponible en `http://localhost:8000` y su estado se puede consulta
 python -m pytest -q
 ```
 
-Desde `ai-core/`, el resultado esperado de la suite actual es `59 passed`.
+Desde `ai-core/`, el resultado esperado de la suite actual es `56 passed`.

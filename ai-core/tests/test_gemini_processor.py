@@ -3,14 +3,12 @@ import sys
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from google.genai.errors import APIError
 from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from app.config import Settings
-from app.main import app, get_gemini_processor
 from app.schemas.requests import ProcessingRequest
 from app.schemas.responses import AIProcessingResponse
 from app.services.gemini_processor import (
@@ -247,82 +245,6 @@ def test_requires_api_key_when_creating_gemini_client() -> None:
 
     with pytest.raises(GeminiConfigurationError, match="GEMINI_API_KEY"):
         GeminiProcessor(config=config)
-
-
-def test_endpoint_returns_contract_error_for_invalid_model_output() -> None:
-    payload = valid_response_payload()
-    payload["classification"]["document_type"] = "UNKNOWN"
-    processor, _ = processor_for(FakeResponse(parsed=payload))
-    app.dependency_overrides[get_gemini_processor] = lambda: lambda: processor
-    client = TestClient(app)
-
-    try:
-        response = client.post(
-            "/api/v1/ai/process",
-            json={
-                "document_id": "DOC-CLIN-001",
-                "input_type": "TEXT",
-                "mime_type": "text/plain",
-                "document_text": "Solicito hemograma.",
-                "origin_channel": "Guardia",
-            },
-        )
-    finally:
-        app.dependency_overrides.clear()
-
-    assert response.status_code == 502
-    assert response.json() == {
-        "error": {
-            "code": "AI_OUTPUT_INVALID",
-            "message": "No se pudo producir una respuesta estructurada válida.",
-        }
-    }
-
-
-def test_endpoint_returns_validated_response() -> None:
-    processor, _ = processor_for(
-        FakeResponse(parsed=valid_response_payload())
-    )
-    app.dependency_overrides[get_gemini_processor] = lambda: lambda: processor
-    client = TestClient(app)
-
-    try:
-        response = client.post(
-            "/api/v1/ai/process",
-            json={
-                "document_id": "DOC-CLIN-001",
-                "input_type": "TEXT",
-                "mime_type": "text/plain",
-                "document_text": "Solicito hemograma.",
-                "origin_channel": "Guardia",
-            },
-        )
-    finally:
-        app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    assert response.json()["confidence"]["global"] == 0.92
-    assert response.json()["extracted_data"]["requested_studies"] == [
-        {"name": "Hemograma"}
-    ]
-
-
-def test_endpoint_maps_invalid_request_to_contract_error() -> None:
-    client = TestClient(app)
-
-    response = client.post(
-        "/api/v1/ai/process",
-        json={
-            "document_id": "DOC-CLIN-001",
-            "input_type": "FILE",
-            "mime_type": "application/pdf",
-            "content_base64": "not-base64",
-            "origin_channel": "Guardia",
-        },
-    )
-
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "INVALID_REQUEST"
 
 
 def test_rejects_malformed_file_base64() -> None:
