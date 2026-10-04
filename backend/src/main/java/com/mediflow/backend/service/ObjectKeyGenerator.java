@@ -12,7 +12,26 @@ public class ObjectKeyGenerator {
     public static final String PREFIJO_AUDITORIA = "auditoria_humana";
 
     public String encodeId(String documentId) {
-        return URLEncoder.encode(documentId, StandardCharsets.UTF_8);
+        StringBuilder encoded = new StringBuilder();
+
+        for (byte rawByte : documentId.getBytes(StandardCharsets.UTF_8)) {
+            int value = rawByte & 0xFF;
+
+            boolean unreserved =
+                    (value >= 'A' && value <= 'Z')
+                    || (value >= 'a' && value <= 'z')
+                    || (value >= '0' && value <= '9')
+                    || value == '-'
+                    || value == '_';
+
+            if (unreserved) {
+                encoded.append((char) value);
+            } else {
+                encoded.append(String.format("%%%02X", value));
+            }
+        }
+
+        return encoded.toString();
     }
 
     public String originalKey(String prefijo, String documentId, String extension) {
