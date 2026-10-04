@@ -61,6 +61,10 @@ uvicorn app.main:app --reload
 Completa `GEMINI_API_KEY` y `GEMINI_MODEL` en `.env` antes de utilizar el
 servicio de procesamiento.
 
+`AUDIT_CONFIDENCE_THRESHOLD` configura el umbral de confianza global que agrega
+`LOW_CONFIDENCE` y deriva el documento a revisión humana; su valor por defecto
+es `0.85` y acepta valores entre `0` y `1`.
+
 La API queda disponible en `http://localhost:8000` y su estado se puede consultar en `GET /health`.
 
 ## Pruebas
