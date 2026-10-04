@@ -23,7 +23,16 @@ public class ObjectStorageConfig {
     }
 
     @Bean
-    public ObjectStorageClient objectStorageClient(BasicAuthenticationDetailsProvider provider) {
-        return ObjectStorageClient.builder().build(provider);
+    public ObjectStorageClient objectStorageClient(
+            BasicAuthenticationDetailsProvider provider,
+            OciProperties properties
+    ) {
+        return ObjectStorageClient.builder()
+                .region(
+                        com.oracle.bmc.Region.fromRegionId(
+                                properties.getRegion()
+                        )
+                )
+                .build(provider);
     }
 }

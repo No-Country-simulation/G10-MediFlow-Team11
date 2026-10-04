@@ -1,26 +1,49 @@
 package com.mediflow.backend.service;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 @SpringBootTest
-@Disabled("Habilitar manualmente solo con ~/.oci/config (OCI_AUTH_MODE=config_file) o desde la VM con InstancePrincipals")
+@EnabledIfEnvironmentVariable(
+        named = "RUN_OCI_IT",
+        matches = "true"
+)
 class ObjectStorageServiceIT {
 
     @Autowired
     private ObjectStorageService service;
 
     @Test
-    void subeYRecuperaUnObjetoDePrueba() {
-        byte[] contenido = "contenido de prueba".getBytes();
-        service.putRawBytes("recibidos/test-key/original.json", contenido, "application/json");
+    void subeRecuperaYEliminaObjetoDePrueba() {
 
-        byte[] recuperado = service.getObject("recibidos/test-key/original.json");
+        String objectKey = "recibidos/oci-it-"
+                + UUID.randomUUID()
+                + "/original.json";
 
-        assertArrayEquals(contenido, recuperado);
+        byte[] contenido =
+                "{\"test\":\"MediFlow OCI integration\"}"
+                        .getBytes(StandardCharsets.UTF_8);
+
+        try {
+            service.putRawBytes(
+                    objectKey,
+                    contenido,
+                    "application/json"
+            );
+
+            byte[] recuperado = service.getObject(objectKey);
+
+            assertArrayEquals(contenido, recuperado);
+
+        } finally {
+            service.deleteObject(objectKey);
+        }
     }
 }
