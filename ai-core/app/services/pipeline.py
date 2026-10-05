@@ -64,11 +64,12 @@ class AIProcessingPipeline:
 
     def _score(self, result: AIProcessingResponse) -> AIProcessingResponse:
         decision = result.routing_decision
-        reasons = list(decision.audit_reasons)
-        if (
-            result.confidence.global_ < self._confidence_threshold
-            and SemanticAuditReason.LOW_CONFIDENCE not in reasons
-        ):
+        reasons = [
+            reason
+            for reason in decision.audit_reasons
+            if reason != SemanticAuditReason.LOW_CONFIDENCE
+        ]
+        if result.confidence.global_ < self._confidence_threshold:
             reasons.append(SemanticAuditReason.LOW_CONFIDENCE)
 
         if reasons == decision.audit_reasons:

@@ -88,6 +88,32 @@ def test_environment_threshold_controls_low_confidence_reason(monkeypatch) -> No
 	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
 
 
+@pytest.mark.parametrize("confidence", [0.7, 0.75, 0.9])
+def test_removes_model_low_confidence_when_score_meets_threshold(
+	confidence: float,
+) -> None:
+	payload = response_payload()
+	payload["confidence"]["global"] = confidence
+	payload["routing_decision"]["audit_reasons"] = ["LOW_CONFIDENCE"]
+
+	result = pipeline_for(payload, threshold=0.7).process(request())
+
+	assert SemanticAuditReason.LOW_CONFIDENCE not in result.routing_decision.audit_reasons
+	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
+
+
+def test_adds_low_confidence_below_threshold_when_model_omits_it() -> None:
+	payload = response_payload()
+	payload["confidence"]["global"] = 0.69
+
+	result = pipeline_for(payload, threshold=0.7).process(request())
+
+	assert result.routing_decision.audit_reasons == [
+		SemanticAuditReason.LOW_CONFIDENCE
+	]
+	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
+
+
 def test_applies_configured_low_confidence_threshold_without_changing_destination() -> None:
 	payload = response_payload()
 	payload["confidence"]["global"] = 0.84
@@ -120,6 +146,8 @@ def test_preserves_semantic_reasons_without_changing_destination(
 	audit_reason: SemanticAuditReason,
 ) -> None:
 	payload = response_payload()
+	if audit_reason == SemanticAuditReason.LOW_CONFIDENCE:
+		payload["confidence"]["global"] = 0.84
 	payload["routing_decision"]["audit_reasons"] = [audit_reason.value]
 
 	result = pipeline_for(payload).process(request())
