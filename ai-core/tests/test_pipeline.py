@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from app.config import Settings
@@ -66,7 +68,27 @@ def test_reads_confidence_threshold_from_environment(monkeypatch) -> None:
 	assert Settings(_env_file=None).audit_confidence_threshold == 0.7
 
 
-def test_applies_configured_low_confidence_threshold_and_routes_to_review() -> None:
+def test_environment_threshold_controls_low_confidence_reason(monkeypatch) -> None:
+	monkeypatch.setenv("AUDIT_CONFIDENCE_THRESHOLD", "0.7")
+	payload = response_payload()
+	payload["confidence"]["global"] = 0.75
+	config = Settings(_env_file=None)
+
+	result = AIProcessingPipeline(FakeProcessor(payload), config).process(request())
+
+	assert result.routing_decision.audit_reasons == []
+	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
+
+	payload["confidence"]["global"] = 0.69
+	result = AIProcessingPipeline(FakeProcessor(payload), config).process(request())
+
+	assert result.routing_decision.audit_reasons == [
+		SemanticAuditReason.LOW_CONFIDENCE
+	]
+	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
+
+
+def test_applies_configured_low_confidence_threshold_without_changing_destination() -> None:
 	payload = response_payload()
 	payload["confidence"]["global"] = 0.84
 
@@ -75,10 +97,7 @@ def test_applies_configured_low_confidence_threshold_and_routes_to_review() -> N
 	assert result.routing_decision.audit_reasons == [
 		SemanticAuditReason.LOW_CONFIDENCE
 	]
-	assert (
-		result.routing_decision.primary_destination
-		== RoutingDestination.HUMAN_REVIEW
-	)
+	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
 
 
 def test_does_not_flag_confidence_at_or_above_threshold() -> None:
@@ -88,19 +107,27 @@ def test_does_not_flag_confidence_at_or_above_threshold() -> None:
 	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
 
 
-def test_preserves_semantic_reasons_and_routes_to_human_review() -> None:
+@pytest.mark.parametrize(
+	"audit_reason",
+	[
+		SemanticAuditReason.LOW_CONFIDENCE,
+		SemanticAuditReason.ILLEGIBLE_DOCUMENT,
+		SemanticAuditReason.MISSING_CRITICAL_FIELDS,
+		SemanticAuditReason.INCONSISTENT_DATA,
+	],
+)
+def test_preserves_semantic_reasons_without_changing_destination(
+	audit_reason: SemanticAuditReason,
+) -> None:
 	payload = response_payload()
-	payload["routing_decision"]["audit_reasons"] = ["INCONSISTENT_DATA"]
+	payload["routing_decision"]["audit_reasons"] = [audit_reason.value]
 
 	result = pipeline_for(payload).process(request())
 
 	assert result.routing_decision.audit_reasons == [
-		SemanticAuditReason.INCONSISTENT_DATA
+		audit_reason
 	]
-	assert (
-		result.routing_decision.primary_destination
-		== RoutingDestination.HUMAN_REVIEW
-	)
+	assert result.routing_decision.primary_destination == RoutingDestination.PHARMACY
 
 
 def test_normalizes_missing_requested_studies_to_empty_array() -> None:

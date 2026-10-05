@@ -1,7 +1,7 @@
 from typing import Protocol
 
 from app.config import Settings, settings
-from app.schemas.enums import RoutingDestination, SemanticAuditReason
+from app.schemas.enums import SemanticAuditReason
 from app.schemas.requests import ProcessingRequest
 from app.schemas.responses import AIProcessingResponse
 from app.services.gemini_processor import GeminiProcessor
@@ -84,14 +84,4 @@ class AIProcessingPipeline:
 
     @staticmethod
     def _route(result: AIProcessingResponse) -> AIProcessingResponse:
-        decision = result.routing_decision
-        if not decision.audit_reasons:
-            return result
-
-        return result.model_copy(
-            update={
-                "routing_decision": decision.model_copy(
-                    update={"primary_destination": RoutingDestination.HUMAN_REVIEW}
-                )
-            }
-        )
+        return result
