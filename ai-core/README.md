@@ -61,6 +61,11 @@ uvicorn app.main:app --reload
 Completa `GEMINI_API_KEY` y `GEMINI_MODEL` en `.env` antes de utilizar el
 servicio de procesamiento.
 
+`AUDIT_CONFIDENCE_THRESHOLD` configura el umbral de confianza global que agrega
+el motivo semántico `LOW_CONFIDENCE`; su valor por defecto es `0.85` y acepta
+valores entre `0` y `1`. IA Core conserva el destino de negocio sugerido incluso
+cuando devuelve motivos de auditoría; el Backend decide el estado de revisión.
+
 La API queda disponible en `http://localhost:8000` y su estado se puede consultar en `GET /health`.
 
 ## Pruebas
@@ -69,4 +74,4 @@ La API queda disponible en `http://localhost:8000` y su estado se puede consulta
 python -m pytest -q
 ```
 
-Desde `ai-core/`, el resultado esperado de la suite actual es `56 passed`.
+Desde `ai-core/`, ejecuta la suite completa con `python -m pytest -q`.

@@ -21,6 +21,20 @@ Devuelve exclusivamente datos que cumplan el esquema de respuesta proporcionado.
 Usa únicamente los valores permitidos por los enums del esquema. document_id debe
 ser idéntico al recibido. No inventes datos; deja como null u omite los valores
 desconocidos y refleja las carencias en validation.
+Asigna audit_reasons solo cuando el documento aporte evidencia concreta:
+- ILLEGIBLE_DOCUMENT: el contenido o una parte clínica necesaria no puede leerse
+    con fiabilidad; no lo uses solo porque falten datos.
+- MISSING_CRITICAL_FIELDS: falta un dato clínico esencial para interpretar o
+    actuar de forma segura sobre el documento; enumera el dato en
+    validation.missing_fields.
+- INCONSISTENT_DATA: dos o más datos explícitos del documento se contradicen;
+    describe la contradicción en validation.inconsistencies. No infieras una
+    contradicción a partir de un dato desconocido.
+La aplicación calcula LOW_CONFIDENCE a partir de confidence.global y de la
+configuración AUDIT_CONFIDENCE_THRESHOLD; no lo agregues por una regla fija
+distinta de ese umbral. Conserva primary_destination como destino de negocio
+sugerido aunque haya motivos de auditoría; el Backend determina el estado de
+revisión. Nunca devuelvas motivos técnicos en audit_reasons.
 requested_studies debe ser siempre un array de objetos con la clave name, por
 ejemplo [{"name": "Hemograma"}]. Incluye solo estudios solicitados explícitamente
 en el documento; no infieras ni sugieras estudios. Si no hay estudios solicitados

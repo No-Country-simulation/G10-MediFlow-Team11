@@ -118,7 +118,38 @@ def test_processes_text_and_requests_contract_schema() -> None:
     assert "no infieras ni sugieras estudios" in (
         client.models.arguments["config"].system_instruction
     )
+    instruction = client.models.arguments["config"].system_instruction
+    assert "ILLEGIBLE_DOCUMENT" in instruction
+    assert "MISSING_CRITICAL_FIELDS" in instruction
+    assert "INCONSISTENT_DATA" in instruction
+    assert "no puede leerse" in instruction
+    assert "dato clínico esencial" in instruction
+    assert "datos explícitos del documento se contradicen" in instruction
+    assert "AUDIT_CONFIDENCE_THRESHOLD" in instruction
+    assert "Conserva primary_destination" in instruction
     assert client.models.arguments["contents"][1] == "Solicito hemograma."
+
+
+@pytest.mark.parametrize(
+    "audit_reason",
+    [
+        "LOW_CONFIDENCE",
+        "ILLEGIBLE_DOCUMENT",
+        "MISSING_CRITICAL_FIELDS",
+        "INCONSISTENT_DATA",
+    ],
+)
+def test_accepts_each_semantic_audit_reason(audit_reason: str) -> None:
+    payload = valid_response_payload()
+    payload["routing_decision"]["audit_reasons"] = [audit_reason]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert [reason.value for reason in result.routing_decision.audit_reasons] == [
+        audit_reason
+    ]
+    assert result.routing_decision.primary_destination.value == "PHARMACY"
 
 
 def test_sdk_can_convert_gemini_response_schema() -> None:
