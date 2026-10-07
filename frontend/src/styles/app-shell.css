@@ -349,6 +349,7 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .app-shell__nav-item.app-shell__nav-item:hover {
