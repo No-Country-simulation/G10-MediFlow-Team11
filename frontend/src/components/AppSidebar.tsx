@@ -17,7 +17,7 @@ type AppSidebarProps = {
   collapsed: boolean
   mobile?: boolean
   pinned?: boolean
-  onTogglePin?: () => void
+  onTogglePin?: (wasPinned: boolean, preserveFocus: boolean) => void
   onNavigate?: () => void
   onPointerEnter?: PointerEventHandler<HTMLElement>
   onPointerLeave?: PointerEventHandler<HTMLElement>
@@ -111,13 +111,16 @@ function AppSidebar({
             aria-label={pinLabel}
             aria-pressed={pinned}
             onClick={(event) => {
-              onTogglePin?.()
+              const preserveFocus = pinned && event.detail === 0
+              onTogglePin?.(pinned, preserveFocus)
 
-              if (pinned) {
+              if (preserveFocus) {
                 event.currentTarget
                   .closest("aside")
                   ?.querySelector<HTMLAnchorElement>("a")
                   ?.focus()
+              } else if (pinned) {
+                event.currentTarget.blur()
               }
             }}
             className="app-shell__pin-button"

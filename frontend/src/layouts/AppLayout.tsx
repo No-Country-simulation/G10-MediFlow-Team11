@@ -71,6 +71,7 @@ function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigationButtonRef = useRef<HTMLButtonElement>(null)
   const drawerWasOpen = useRef(false)
+  const skipNextSidebarFocusExpansion = useRef(false)
   const sidebarId = useId()
 
   useEffect(() => {
@@ -146,19 +147,38 @@ function AppLayout() {
               id={sidebarId}
               collapsed={!sidebarExpanded}
               pinned={sidebarPinned}
-              onTogglePin={() => {
+              onTogglePin={(wasPinned, preserveFocus) => {
                 setSidebarPinned((pinned) => !pinned)
-                if (sidebarPinned) setSuppressTransientExpansion(true)
-                else setSuppressTransientExpansion(false)
+                if (wasPinned) {
+                  skipNextSidebarFocusExpansion.current = preserveFocus
+                  if (!preserveFocus) setSidebarFocused(false)
+                  setSuppressTransientExpansion(true)
+                } else {
+                  skipNextSidebarFocusExpansion.current = false
+                  setSuppressTransientExpansion(false)
+                }
               }}
               onPointerEnter={(event) => {
-                if (event.pointerType !== "touch") setSidebarHovered(true)
+                if (event.pointerType !== "touch") {
+                  setSidebarHovered(true)
+                  setSuppressTransientExpansion(false)
+                }
               }}
               onPointerLeave={() => {
                 setSidebarHovered(false)
                 if (!sidebarFocused) setSuppressTransientExpansion(false)
               }}
-              onFocusCapture={() => setSidebarFocused(true)}
+              onFocusCapture={(event) => {
+                if (skipNextSidebarFocusExpansion.current) {
+                  skipNextSidebarFocusExpansion.current = false
+                  setSidebarFocused(true)
+                  return
+                }
+                const focusVisible = event.target.matches(":focus-visible")
+                setSidebarFocused(focusVisible)
+                if (focusVisible)
+                  setSuppressTransientExpansion(false)
+              }}
               onBlurCapture={(event) => {
                 if (
                   !(event.relatedTarget instanceof Node) ||
