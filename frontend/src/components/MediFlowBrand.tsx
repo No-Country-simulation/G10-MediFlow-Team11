@@ -1,65 +1,36 @@
-import { Box, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material"
 
-const SYMBOL_SIZE = 52;
-const SYMBOL_SRC = `${import.meta.env.BASE_URL}brand/mediflow-symbol.svg`;
+const SYMBOL_SRC = `${import.meta.env.BASE_URL}brand/mediflow-symbol.svg`
 
-type MediFlowBrandProps = {
-  collapsed?: boolean;
-};
-
-function MediFlowBrand({ collapsed = false }: MediFlowBrandProps) {
+function MediFlowBrand() {
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        px: 1,
+        height: 40,
+        borderRadius: 1,
+        bgcolor: "action.hover",
+      }}
+    >
       <Box
         component="img"
         src={SYMBOL_SRC}
         alt=""
-        width={SYMBOL_SIZE}
-        height={SYMBOL_SIZE}
+        width={28}
+        height={28}
         sx={{ display: "block", flexShrink: 0 }}
       />
-
-      <Box
-        sx={(theme) => ({
-          flexShrink: 0,
-          opacity: collapsed ? 0 : 1,
-          transition: theme.transitions.create("opacity", {
-            duration: theme.transitions.duration.shorter,
-          }),
-          "@media (prefers-reduced-motion: reduce)": {
-            transition: "none",
-          },
-        })}
+      <Typography
+        component="span"
+        sx={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }}
       >
-        <Typography
-          component="span"
-          sx={{
-            display: "block",
-            fontSize: "1.5rem",
-            fontWeight: 700,
-            lineHeight: 1.1,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          MediFlow
-        </Typography>
-
-        <Typography
-          variant="caption"
-          component="span"
-          noWrap
-          sx={{
-            display: "block",
-            lineHeight: 1.4,
-            fontWeight: 500,
-            color: "text.secondary",
-          }}
-        >
-          IA al servicio de la salud
-        </Typography>
-      </Box>
+        MediFlow
+      </Typography>
     </Box>
-  );
+  )
 }
 
-export default MediFlowBrand;
+export default MediFlowBrand

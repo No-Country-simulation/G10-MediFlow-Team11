@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from "react"
 import {
   Box,
   ListItemButton,
@@ -7,135 +7,97 @@ import {
   Tooltip,
   type SxProps,
   type Theme,
-} from "@mui/material";
-import { alpha } from "@mui/material/styles";
-import { NavLink } from "react-router-dom";
-import { focusRing } from "../theme/focusRing";
-
-const ACCENT_WIDTH = 5;
+} from "@mui/material"
+import { alpha } from "@mui/material/styles"
+import { NavLink } from "react-router-dom"
+import { focusRing } from "../theme/focusRing"
 
 type SidebarNavItemProps = {
-  icon: ReactNode;
-  label: string;
-  to?: string;
-  disabled?: boolean;
-  dense?: boolean;
-  collapsed?: boolean;
-  onClick?: () => void;
-};
+  icon: ReactNode
+  label: string
+  description: string
+  to?: string
+  disabled?: boolean
+  collapsed?: boolean
+  onClick?: () => void
+}
 
 const getNavItemSx = (collapsed: boolean): SxProps<Theme> => (theme) => ({
-  position: "relative",
+  width: collapsed ? 40 : "100%",
   minHeight: 46,
-  py: 0.875,
-  mr: collapsed ? 1 : 1.75,
-  pl: collapsed ? 3 : 4.25,
-  pr: 2,
-  overflow: "hidden",
+  px: collapsed ? 1 : 1.5,
+  py: 1,
+  mx: "auto",
+  gap: 1.5,
   color: "text.primary",
-  borderRadius: 2.5,
-  borderTopLeftRadius: 0,
-  borderBottomLeftRadius: 0,
-  transition: theme.transitions.create(["padding", "margin", "background-color"], {
-    duration: theme.transitions.duration.shorter,
+  borderRadius: 1,
+  transition: theme.transitions.create(["padding", "background-color"], {
+    duration: 200,
   }),
-  "@media (prefers-reduced-motion: reduce)": {
-    transition: "none",
-    "& .MuiListItemText-root": {
-      transition: "none",
-    },
-  },
-  "& .MuiListItemIcon-root": {
-    minWidth: 0,
-    mr: 3,
-    color: "text.secondary",
-  },
-  "& .MuiListItemText-root": {
-    whiteSpace: "nowrap",
-    opacity: collapsed ? 0 : 1,
-    transition: theme.transitions.create("opacity", {
-      duration: theme.transitions.duration.shorter,
-    }),
-  },
-  "& .MuiListItemText-primary": {
-    fontWeight: 500,
-  },
-  "&:hover": {
-    bgcolor: "action.hover",
-  },
+  "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+  "& .MuiListItemIcon-root": { minWidth: 0, color: "inherit", flexShrink: 0 },
+  "& .MuiListItemText-root": { m: 0, minWidth: 0 },
+  "& .MuiListItemText-primary": { fontSize: 14, fontWeight: 500 },
+  "& .MuiListItemText-secondary": { fontSize: 12, lineHeight: "16px", mt: 0.5 },
+  "&:hover": { bgcolor: "action.hover" },
   "&.Mui-focusVisible": focusRing(theme),
   "&.active": {
-    bgcolor: alpha(theme.palette.primary.main, 0.14),
-    "&::before": {
-      content: '""',
-      position: "absolute",
-      inset: "0 auto 0 0",
-      width: ACCENT_WIDTH,
-      bgcolor: "primary.main",
-    },
-    "& .MuiListItemIcon-root": {
-      color: "primary.main",
-    },
-    "& .MuiListItemText-primary": {
-      fontWeight: 600,
-    },
+    bgcolor: alpha(theme.palette.primary.main, 0.12),
+    color: "primary.main",
+    "& .MuiListItemText-primary": { fontWeight: 600 },
   },
-  "&.MuiListItemButton-dense": {
-    minHeight: 40,
-    py: 0.5,
-  },
-  "&.Mui-disabled": {
-    opacity: 1,
-    color: "text.secondary",
-  },
-});
+  "&.Mui-disabled": { opacity: 0.5 },
+})
 
 function SidebarNavItem({
   icon,
   label,
+  description,
   to,
   disabled = false,
-  dense = false,
   collapsed = false,
   onClick,
 }: SidebarNavItemProps) {
-  const linkTo = disabled ? undefined : to;
-  const sx = getNavItemSx(collapsed);
-
+  const linkTo = disabled ? undefined : to
   const content = (
     <>
       <ListItemIcon>{icon}</ListItemIcon>
-      <ListItemText
-        primary={label}
-        slotProps={{ primary: { variant: dense ? "body2" : "body1" } }}
-      />
+      {!collapsed && <ListItemText primary={label} secondary={description} />}
     </>
-  );
-
+  )
   const item = linkTo ? (
-    <ListItemButton component={NavLink} to={linkTo} dense={dense} onClick={onClick} sx={sx}>
+    <ListItemButton
+      component={NavLink}
+      to={linkTo}
+      aria-label={label}
+      onClick={onClick}
+      sx={getNavItemSx(collapsed)}
+    >
       {content}
     </ListItemButton>
   ) : (
-    <Box>
-      <ListItemButton disabled dense={dense} sx={sx}>
+    <Box sx={{ width: collapsed ? 40 : "100%", mx: "auto" }}>
+      <ListItemButton
+        component="button"
+        disabled
+        aria-label={label}
+        sx={getNavItemSx(collapsed)}
+      >
         {content}
       </ListItemButton>
     </Box>
-  );
-
+  )
   return (
     <Tooltip
-      title={label}
+      title={collapsed ? label : ""}
       placement="right"
-      describeChild={!linkTo}
       disableHoverListener={!collapsed}
       disableFocusListener={!collapsed}
       disableTouchListener={!collapsed}
     >
       {item}
     </Tooltip>
-  );
+  )
 }
 
-export default SidebarNavItem;
+export default SidebarNavItem
