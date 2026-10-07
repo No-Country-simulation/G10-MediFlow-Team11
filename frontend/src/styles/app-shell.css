@@ -19,6 +19,9 @@
   --mediflow-shell-control-hover-background: rgba(26, 95, 208, 0.12);
   --mediflow-shell-sidebar-collapsed-width: 65px;
   --mediflow-shell-sidebar-expanded-width: 240px;
+  --mediflow-shell-drawer-width: 210px;
+  --mediflow-shell-drawer-padding: 10.5px;
+  --mediflow-shell-drawer-backdrop: rgba(0, 0, 0, 0.2);
   --mediflow-shell-radius: 8px;
   --mediflow-shell-transition-duration: 200ms;
   --mediflow-shell-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
@@ -122,8 +125,16 @@
 }
 
 .app-shell__drawer .app-shell__drawer-paper {
-  width: var(--mediflow-shell-sidebar-expanded-width);
+  bottom: 0;
+  width: var(--mediflow-shell-drawer-width);
   height: calc(100dvh - var(--mediflow-shell-header-height));
+  overflow: hidden;
+  background: var(--mediflow-shell-surface);
+}
+
+.app-shell__drawer .app-shell__drawer-backdrop {
+  bottom: 0;
+  background: var(--mediflow-shell-drawer-backdrop);
 }
 
 .app-shell__desktop-rail {
@@ -170,7 +181,9 @@
 
 .app-shell__sidebar[data-mobile="true"] {
   position: relative;
+  width: 100%;
   height: 100%;
+  border-color: var(--mediflow-shell-desktop-border);
 }
 
 .app-shell__sidebar[data-mobile="false"] {
@@ -189,6 +202,10 @@
 
 .app-shell__sidebar[data-mobile="false"] .app-shell__sidebar-scroll {
   padding: 22px 0 0;
+}
+
+.app-shell__sidebar[data-mobile="true"] .app-shell__sidebar-scroll {
+  padding: var(--mediflow-shell-drawer-padding);
 }
 
 .app-shell__sidebar[data-collapsed="true"] .app-shell__sidebar-scroll {
@@ -217,6 +234,12 @@
   margin-bottom: 3.5px;
 }
 
+.app-shell__sidebar[data-mobile="true"]
+  .app-shell__section-heading.app-shell__section-heading {
+  padding-inline: 10.5px;
+  margin-bottom: 3.5px;
+}
+
 .app-shell__divider.app-shell__divider {
   margin-block: 8px;
 }
@@ -240,6 +263,25 @@
   margin-bottom: 7px;
 }
 
+.app-shell__sidebar[data-mobile="true"]
+  .app-shell__divider.app-shell__divider {
+  width: 100%;
+  margin-inline: 0;
+  border-color: var(--mediflow-shell-desktop-border);
+}
+
+.app-shell__sidebar[data-mobile="true"]
+  .app-shell__divider--group.app-shell__divider--group {
+  margin-top: 7px;
+  margin-bottom: 7px;
+}
+
+.app-shell__sidebar[data-mobile="true"]
+  .app-shell__divider--settings.app-shell__divider--settings {
+  margin-top: 0;
+  margin-bottom: 7px;
+}
+
 .app-shell__sidebar-spacer {
   flex-grow: 1;
   min-height: 16px;
@@ -252,6 +294,11 @@
 }
 
 .app-shell__sidebar[data-mobile="false"]
+  .app-shell__secondary-nav.app-shell__secondary-nav {
+  gap: 7px;
+}
+
+.app-shell__sidebar[data-mobile="true"]
   .app-shell__secondary-nav.app-shell__secondary-nav {
   gap: 7px;
 }
@@ -312,6 +359,14 @@
   gap: 10.5px;
 }
 
+.app-shell__sidebar[data-mobile="true"]
+  .app-shell__nav-item.app-shell__nav-item {
+  width: 100%;
+  min-height: 52px;
+  padding: 7px 10.5px;
+  gap: 10.5px;
+}
+
 .app-shell__nav-item.app-shell__nav-item .MuiListItemIcon-root {
   flex-shrink: 0;
   min-width: 0;
@@ -352,6 +407,17 @@
   line-clamp: 2;
 }
 
+.app-shell__sidebar[data-mobile="true"]
+  .app-shell__nav-item.app-shell__nav-item
+  .MuiListItemText-secondary {
+  display: -webkit-box;
+  margin-top: 1.75px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 .app-shell__nav-item.app-shell__nav-item:hover {
   color: var(--mediflow-shell-primary);
   background: var(--mediflow-shell-hover-background);
@@ -365,6 +431,13 @@
 .app-shell__sidebar[data-mobile="false"]
   .app-shell__nav-item.app-shell__nav-item:hover,
 .app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item.app-shell__nav-item.active {
+  background: var(--mediflow-shell-desktop-state-background);
+}
+
+.app-shell__sidebar[data-mobile="true"]
+  .app-shell__nav-item.app-shell__nav-item:hover,
+.app-shell__sidebar[data-mobile="true"]
   .app-shell__nav-item.app-shell__nav-item.active {
   background: var(--mediflow-shell-desktop-state-background);
 }
