@@ -28,6 +28,7 @@ export const successfulProcessingResponse = {
     primary_diagnosis: "Possible pneumonia",
     suggested_icd10: "J18.9",
     medications: [],
+    requested_studies: [],
   },
 
   validation: {
@@ -83,6 +84,7 @@ export const auditRequiredProcessingResponse = {
     primary_diagnosis: null,
     suggested_icd10: null,
     medications: [],
+    requested_studies: [],
   },
 
   validation: {

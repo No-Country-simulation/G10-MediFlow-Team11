@@ -25,7 +25,10 @@ export async function processText(
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      document_text: request.document_text,
+      origin_channel: request.origin_channel,
+    }),
   });
 
   if (!response.ok) {
@@ -46,10 +49,6 @@ export async function processFile(
 
   formData.append("file", request.file);
   formData.append("origin_channel", request.origin_channel);
-
-  if (request.document_id) {
-    formData.append("document_id", request.document_id);
-  }
 
   const response = await fetch(`${env.apiBaseUrl}${PROCESS_FILE_ENDPOINT}`, {
     method: "POST",

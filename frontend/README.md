@@ -81,11 +81,14 @@ Antes de enviar cambios, ejecutar:
 ```bash
 npm run build
 npm run lint
+npm test
 ```
 
 `npm run build` valida la compilación de TypeScript y genera el build de producción.
 
 `npm run lint` ejecuta ESLint sobre el proyecto.
+
+`npm test` ejecuta las pruebas de Vitest.
 
 ## Estructura principal
 
@@ -95,7 +98,9 @@ src/
 ├── config/
 ├── layouts/
 ├── mocks/
+├── notifications/
 ├── pages/
+├── processing/
 ├── routes/
 ├── services/
 ├── theme/
@@ -296,22 +301,23 @@ El formulario admite dos modos:
 -   **Archivo:** permite seleccionar un archivo mediante el selector del sistema o arrastrarlo al área de carga.
 -   **Texto:** permite ingresar directamente el contenido clínico en un campo de texto.
 
-Los formatos de archivo admitidos actualmente son:
+Los formatos de archivo admitidos son:
 
 -   PDF;
--   JPG/JPEG;
+-   JPG;
 -   PNG.
 
-El tamaño máximo permitido por archivo es de **10 MB**. La validación de formato y tamaño se realiza antes de enviar el documento a la capa de servicios.
+El tamaño máximo permitido por archivo es de **10 MB**. La validación de formato y tamaño se realiza antes de enviar el documento a la capa de servicios. El archivo seleccionado se previsualiza con el `DocumentViewer` compartido (`src/components/DocumentViewer.tsx`). En escritorio el visor queda a la derecha del formulario; en anchos menores las columnas se apilan.
 
 ### Datos del procesamiento
 
-Además del contenido, el formulario permite indicar:
+Además del contenido, el formulario exige:
 
--   **Canal de origen:** obligatorio. Incluye los canales más comunes y una opción `Otro` que habilita un campo de texto libre.
--   **ID del documento:** opcional.
+-   **Canal de origen:** obligatorio.
 
-`origin_channel` se mantiene como `string` en el contrato enviado al Backend.
+El Frontend **no** solicita, genera ni envía `document_id` en el flujo normal de creación. El Backend asigna el identificador canónico.
+
+`origin_channel` se mantiene como `string` en el contrato enviado al Backend. `processFile()` envía `file` y `origin_channel`. `processText()` envía `document_text` y `origin_channel`.
 
 ### Envío y validación
 
@@ -322,10 +328,11 @@ Una vez validado el formulario:
 -   los archivos se procesan mediante `processFile()`;
 -   el texto se procesa mediante `processText()`;
 -   los controles de acción se deshabilitan mientras la solicitud está en curso;
--   la interfaz informa al usuario que el documento está siendo procesado;
--   el resultado de la operación se comunica mediante el sistema global de notificaciones.
+-   la interfaz informa el estado de procesamiento (`Procesando documento…` / `Procesando texto…`);
+-   si la solicitud es exitosa, navega a `/result/:documentId` con la respuesta en `location.state`.
+-   la visualización detallada de Resultado corresponde a un ticket posterior; esta ruta solo es el destino de navegación.
 
-Los errores provenientes de la capa de servicios se presentan mediante `showError()` para evitar exponer detalles técnicos del Backend.
+Los errores provenientes de la capa de servicios se presentan mediante `showError()` para evitar exponer detalles técnicos del Backend. Un error **no** limpia el archivo, el texto ni el canal, para permitir reintentar.
 
 El botón `Limpiar` restablece el contenido y los estados del formulario.
 

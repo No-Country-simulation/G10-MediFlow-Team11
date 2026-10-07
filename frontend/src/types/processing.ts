@@ -62,12 +62,17 @@ export interface Medication {
   dosage?: string | null;
 }
 
+export interface RequestedStudy {
+  name?: string | null;
+}
+
 export interface ExtractedData {
   patient?: PatientData | null;
   requesting_doctor?: RequestingDoctor | null;
   primary_diagnosis?: string | null;
   suggested_icd10?: string | null;
   medications?: Medication[];
+  requested_studies?: RequestedStudy[];
   [key: string]: unknown;
 }
 
@@ -114,7 +119,6 @@ export interface ProcessingResponse {
 }
 
 export interface ProcessTextRequest {
-  document_id?: string;
   document_text: string;
   origin_channel: string;
 }
@@ -122,7 +126,6 @@ export interface ProcessTextRequest {
 export interface ProcessFileRequest {
   file: File;
   origin_channel: string;
-  document_id?: string;
 }
 
 export interface ApiErrorDetail {
