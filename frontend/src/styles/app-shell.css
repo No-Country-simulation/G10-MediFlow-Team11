@@ -1,0 +1,428 @@
+:where(.app-shell, .app-shell__drawer, .app-shell__tooltip) {
+  --mediflow-shell-font: "Plus Jakarta Sans", system-ui, sans-serif;
+  --mediflow-shell-text: #1a1a1a;
+  --mediflow-shell-muted: #737373;
+  --mediflow-shell-disabled: #a9a9a9;
+  --mediflow-shell-primary: #1a5fd0;
+  --mediflow-shell-focus: #1570ef;
+  --mediflow-shell-active-background: rgba(21, 112, 239, 0.12);
+  --mediflow-shell-desktop-state-background: rgba(26, 95, 208, 0.12);
+  --mediflow-shell-border: rgba(15, 26, 61, 0.09);
+  --mediflow-shell-desktop-border: #e5e5e5;
+  --mediflow-shell-surface: #ffffff;
+  --mediflow-shell-page-background: #fafafa;
+  --mediflow-shell-hover-background: rgba(0, 0, 0, 0.04);
+  --mediflow-shell-header-height: 49px;
+  --mediflow-shell-header-padding-inline: 10.5px;
+  --mediflow-shell-header-control-size: 31.5px;
+  --mediflow-shell-header-border: #e5e5e5;
+  --mediflow-shell-control-hover-background: rgba(26, 95, 208, 0.12);
+  --mediflow-shell-sidebar-collapsed-width: 65px;
+  --mediflow-shell-sidebar-expanded-width: 240px;
+  --mediflow-shell-radius: 8px;
+  --mediflow-shell-transition-duration: 200ms;
+  --mediflow-shell-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --mediflow-shell-color-transition-duration: 150ms;
+  --mediflow-shell-color-transition-easing: ease-out;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100dvh;
+}
+
+.app-shell__body {
+  display: flex;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.app-shell__header {
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: var(--mediflow-shell-header-height);
+  padding-block: 0;
+  padding-inline: var(--mediflow-shell-header-padding-inline);
+  background: var(--mediflow-shell-surface);
+  border-bottom: 1px solid var(--mediflow-shell-header-border);
+}
+
+.app-shell__brand,
+.app-shell__brand-image {
+  display: block;
+  flex-shrink: 0;
+}
+
+.app-shell__brand {
+  display: flex;
+  align-items: center;
+}
+
+.app-shell__brand-image {
+  width: auto;
+  height: 35px;
+}
+
+.app-shell__drawer-button.app-shell__drawer-button {
+  width: var(--mediflow-shell-header-control-size);
+  height: var(--mediflow-shell-header-control-size);
+  padding: 0;
+  color: var(--mediflow-shell-text);
+  background: transparent;
+  border-radius: var(--mediflow-shell-radius);
+}
+
+.app-shell__drawer-button.app-shell__drawer-button:hover {
+  color: var(--mediflow-shell-primary);
+  background: var(--mediflow-shell-control-hover-background);
+}
+
+.app-shell__pin-button.app-shell__pin-button:hover {
+  background: var(--mediflow-shell-desktop-state-background);
+  color: var(--mediflow-shell-primary);
+}
+
+.app-shell__drawer-button.app-shell__drawer-button[data-hidden="true"] {
+  visibility: hidden;
+}
+
+.app-shell__drawer-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.app-shell__modal-dialog {
+  outline: none;
+}
+
+.app-shell__modal-close {
+  position: fixed;
+  top: calc(
+    (
+        var(--mediflow-shell-header-height) - 1px -
+          var(--mediflow-shell-header-control-size)
+      ) /
+      2
+  );
+  left: var(--mediflow-shell-header-padding-inline);
+}
+
+.app-shell__drawer.app-shell__drawer,
+.app-shell__drawer .app-shell__drawer-backdrop,
+.app-shell__drawer .app-shell__drawer-paper {
+  top: var(--mediflow-shell-header-height);
+}
+
+.app-shell__drawer .app-shell__drawer-paper {
+  width: var(--mediflow-shell-sidebar-expanded-width);
+  height: calc(100dvh - var(--mediflow-shell-header-height));
+}
+
+.app-shell__desktop-rail {
+  position: sticky;
+  top: var(--mediflow-shell-header-height);
+  align-self: flex-start;
+  flex-shrink: 0;
+  width: var(--mediflow-shell-sidebar-collapsed-width);
+  height: calc(100dvh - var(--mediflow-shell-header-height));
+  transition: width var(--mediflow-shell-transition-duration)
+    var(--mediflow-shell-transition-easing);
+}
+
+.app-shell__desktop-rail[data-expanded="true"] {
+  width: var(--mediflow-shell-sidebar-expanded-width);
+}
+
+.app-shell__main {
+  flex-grow: 1;
+  min-width: 0;
+  padding: 24px;
+  overflow-x: auto;
+  background: var(--mediflow-shell-page-background);
+}
+
+.app-shell__sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: var(--mediflow-shell-sidebar-expanded-width);
+  height: calc(100dvh - var(--mediflow-shell-header-height));
+  background: var(--mediflow-shell-surface);
+  border-right: 1px solid var(--mediflow-shell-border);
+  transition: width var(--mediflow-shell-transition-duration)
+    var(--mediflow-shell-transition-easing);
+}
+
+.app-shell__sidebar[data-collapsed="true"] {
+  width: var(--mediflow-shell-sidebar-collapsed-width);
+}
+
+.app-shell__sidebar[data-mobile="true"] {
+  position: relative;
+  height: 100%;
+}
+
+.app-shell__sidebar[data-mobile="false"] {
+  border-color: var(--mediflow-shell-desktop-border);
+}
+
+.app-shell__sidebar-scroll {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+  padding: 22px 12px 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.app-shell__sidebar[data-mobile="false"] .app-shell__sidebar-scroll {
+  padding: 22px 0 0;
+}
+
+.app-shell__sidebar[data-collapsed="true"] .app-shell__sidebar-scroll {
+  padding-inline: 0;
+}
+
+.app-shell__section-heading.app-shell__section-heading {
+  padding-inline: 12px;
+  margin-bottom: 4px;
+  color: var(--mediflow-shell-muted);
+  font-family: var(--mediflow-shell-font);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15.7143px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__section-heading.app-shell__section-heading {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 216px;
+  padding-inline: 10.5px;
+  margin-inline: auto;
+  margin-bottom: 3.5px;
+}
+
+.app-shell__divider.app-shell__divider {
+  margin-block: 8px;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__divider.app-shell__divider {
+  width: calc(100% - 24px);
+  margin-inline: auto;
+  border-color: var(--mediflow-shell-desktop-border);
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__divider--group.app-shell__divider--group {
+  margin-top: 7px;
+  margin-bottom: 7px;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__divider--settings.app-shell__divider--settings {
+  margin-top: 0;
+  margin-bottom: 7px;
+}
+
+.app-shell__sidebar-spacer {
+  flex-grow: 1;
+  min-height: 16px;
+}
+
+.app-shell__secondary-nav.app-shell__secondary-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__secondary-nav.app-shell__secondary-nav {
+  gap: 7px;
+}
+
+.app-shell__pin-button.app-shell__pin-button {
+  flex-shrink: 0;
+  width: 100%;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  color: var(--mediflow-shell-text);
+  border-top: 1px solid var(--mediflow-shell-desktop-border);
+  border-radius: 0;
+}
+
+.app-shell__pin-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.app-shell__nav-item.app-shell__nav-item {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 12px;
+  margin-inline: auto;
+  gap: 12px;
+  color: var(--mediflow-shell-text);
+  border-radius: var(--mediflow-shell-radius);
+  transition:
+    padding var(--mediflow-shell-transition-duration),
+    background-color var(--mediflow-shell-transition-duration);
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item.app-shell__nav-item {
+  transition:
+    padding var(--mediflow-shell-transition-duration),
+    color var(--mediflow-shell-color-transition-duration)
+      var(--mediflow-shell-color-transition-easing),
+    background-color var(--mediflow-shell-color-transition-duration)
+      var(--mediflow-shell-color-transition-easing);
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item.app-shell__nav-item[data-collapsed="true"] {
+  justify-content: center;
+  width: 35px;
+  height: 46px;
+  min-height: 46px;
+  padding: 0 6.5px;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item.app-shell__nav-item[data-collapsed="false"] {
+  width: 216px;
+  min-height: 0;
+  padding: 8.75px 7px;
+  gap: 10.5px;
+}
+
+.app-shell__nav-item.app-shell__nav-item .MuiListItemIcon-root {
+  flex-shrink: 0;
+  min-width: 0;
+  color: inherit;
+}
+
+.app-shell__nav-item.app-shell__nav-item .MuiListItemText-root {
+  min-width: 0;
+  margin: 0;
+}
+
+.app-shell__nav-item.app-shell__nav-item .MuiListItemText-primary {
+  font-family: var(--mediflow-shell-font);
+  font-size: 12.25px;
+  font-weight: 500;
+  line-height: 17.5px;
+  letter-spacing: normal;
+}
+
+.app-shell__nav-item.app-shell__nav-item .MuiListItemText-secondary {
+  margin-top: 4px;
+  color: var(--mediflow-shell-muted);
+  font-family: var(--mediflow-shell-font);
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 14px;
+  letter-spacing: normal;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item.app-shell__nav-item
+  .MuiListItemText-secondary {
+  display: -webkit-box;
+  margin-top: 1.75px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.app-shell__nav-item.app-shell__nav-item:hover {
+  color: var(--mediflow-shell-primary);
+  background: var(--mediflow-shell-hover-background);
+}
+
+.app-shell__nav-item.app-shell__nav-item.active {
+  color: var(--mediflow-shell-primary);
+  background: var(--mediflow-shell-active-background);
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item.app-shell__nav-item:hover,
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item.app-shell__nav-item.active {
+  background: var(--mediflow-shell-desktop-state-background);
+}
+
+.app-shell__nav-item.app-shell__nav-item.Mui-disabled {
+  color: var(--mediflow-shell-disabled);
+  cursor: default;
+  opacity: 1;
+}
+
+.app-shell__nav-item.app-shell__nav-item.Mui-disabled:hover {
+  color: var(--mediflow-shell-disabled);
+  background: transparent;
+}
+
+.app-shell__nav-item-wrapper {
+  width: 100%;
+  margin-inline: auto;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item-wrapper[data-collapsed="true"] {
+  width: 35px;
+}
+
+.app-shell__sidebar[data-mobile="false"]
+  .app-shell__nav-item-wrapper[data-collapsed="false"] {
+  width: 216px;
+}
+
+.app-shell__nav-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.app-shell__tooltip.app-shell__tooltip {
+  padding: 5.25px 8.75px;
+  color: #ffffff;
+  white-space: nowrap;
+  background: var(--mediflow-shell-text);
+  border-radius: 6px;
+  font-family: var(--mediflow-shell-font);
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 14px;
+  letter-spacing: normal;
+}
+
+.app-shell__drawer-button.app-shell__drawer-button.Mui-focusVisible,
+.app-shell__pin-button.app-shell__pin-button.Mui-focusVisible,
+.app-shell__nav-item.app-shell__nav-item.Mui-focusVisible {
+  outline: 2px solid var(--mediflow-shell-focus);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell__desktop-rail,
+  .app-shell__sidebar,
+  .app-shell__nav-item {
+    transition: none;
+  }
+}

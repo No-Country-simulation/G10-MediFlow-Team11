@@ -10,12 +10,8 @@ import {
 import { Outlet } from "react-router-dom"
 import AppSidebar from "../components/AppSidebar"
 import AppHeader, { DrawerNavigationButton } from "../components/AppHeader"
-import {
-  DRAWER_BREAKPOINT,
-  HEADER_HEIGHT,
-  SIDEBAR_COLLAPSED_WIDTH,
-  SIDEBAR_WIDTH,
-} from "./layoutConstants"
+import { DRAWER_BREAKPOINT } from "./layoutConstants"
+import "../styles/app-shell.css"
 
 const DRAWER_MEDIA_QUERY = `(width < ${DRAWER_BREAKPOINT}px)`
 
@@ -42,20 +38,14 @@ const NavigationModal = forwardRef<HTMLDivElement, NavigationModalProps>(
     return (
       <Modal {...props} ref={ref} closeAfterTransition={false}>
         <Box
+          className="app-shell__modal-dialog"
           role="dialog"
           aria-modal="true"
           aria-label="Navegación"
           tabIndex={-1}
-          sx={{ outline: "none" }}
         >
           {(ownerState?.open ?? props.open) && (
-            <Box
-              sx={{
-                position: "fixed",
-                top: (HEADER_HEIGHT - 40) / 2,
-                left: 12,
-              }}
-            >
+            <Box className="app-shell__modal-close">
               <DrawerNavigationButton
                 sidebarId={sidebarId}
                 open
@@ -111,14 +101,7 @@ function AppLayout() {
   const toggleDrawer = () => setDrawerOpen((open) => !open)
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        minHeight: "100dvh",
-        minWidth: 0,
-      }}
-    >
+    <Box className="app-shell">
       <AppHeader
         sidebarId={sidebarId}
         mobile={isMobile}
@@ -126,9 +109,10 @@ function AppLayout() {
         onToggleDrawer={toggleDrawer}
         navigationButtonRef={navigationButtonRef}
       />
-      <Box sx={{ display: "flex", flexGrow: 1, minWidth: 0 }}>
+      <Box className="app-shell__body">
         {isMobile ? (
           <Drawer
+            className="app-shell__drawer"
             variant="temporary"
             open={drawerOpen}
             onClose={closeDrawer}
@@ -138,17 +122,12 @@ function AppLayout() {
             slotProps={{
               root: { sidebarId, onToggle: toggleDrawer },
               paper: {
+                className: "app-shell__drawer-paper",
                 role: "presentation",
                 "aria-modal": undefined,
-                sx: {
-                  top: HEADER_HEIGHT,
-                  height: `calc(100dvh - ${HEADER_HEIGHT}px)`,
-                  width: SIDEBAR_WIDTH,
-                },
               },
-              backdrop: { sx: { top: HEADER_HEIGHT } },
+              backdrop: { className: "app-shell__drawer-backdrop" },
             }}
-            sx={{ top: HEADER_HEIGHT }}
           >
             <AppSidebar
               id={sidebarId}
@@ -159,15 +138,9 @@ function AppLayout() {
           </Drawer>
         ) : (
           <Box
-            sx={{
-              width: sidebarPinned ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH,
-              flexShrink: 0,
-              position: "sticky",
-              zIndex: "drawer",
-              top: HEADER_HEIGHT,
-              height: `calc(100dvh - ${HEADER_HEIGHT}px)`,
-              alignSelf: "flex-start",
-            }}
+            className="app-shell__desktop-rail"
+            data-expanded={sidebarExpanded}
+            sx={{ zIndex: "drawer" }}
           >
             <AppSidebar
               id={sidebarId}
@@ -200,13 +173,7 @@ function AppLayout() {
         )}
         <Box
           component="main"
-          sx={{
-            flexGrow: 1,
-            minWidth: 0,
-            overflowX: "auto",
-            p: 3,
-            bgcolor: "background.default",
-          }}
+          className="app-shell__main"
         >
           <Outlet />
         </Box>

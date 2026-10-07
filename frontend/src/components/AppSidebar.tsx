@@ -2,23 +2,15 @@ import type { FocusEventHandler, PointerEventHandler } from "react"
 import {
   Box,
   Divider,
+  Fade,
   IconButton,
   List,
   Tooltip,
   Typography,
 } from "@mui/material"
-import {
-  KeyboardDoubleArrowLeftOutlined,
-  KeyboardDoubleArrowRightOutlined,
-} from "@mui/icons-material"
+import { ChevronsLeft, ChevronsRight } from "lucide-react"
 import SidebarNavItem from "./SidebarNavItem"
 import { PRIMARY_NAVIGATION, SECONDARY_NAVIGATION } from "../config/navigation"
-import {
-  HEADER_HEIGHT,
-  SIDEBAR_COLLAPSED_WIDTH,
-  SIDEBAR_WIDTH,
-} from "../layouts/layoutConstants"
-import { focusRing } from "../theme/focusRing"
 
 type AppSidebarProps = {
   id: string
@@ -32,16 +24,6 @@ type AppSidebarProps = {
   onFocusCapture?: FocusEventHandler<HTMLElement>
   onBlurCapture?: FocusEventHandler<HTMLElement>
 }
-
-const sectionSx = {
-  px: 1.5,
-  mb: 0.5,
-  fontSize: 11,
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  color: "text.secondary",
-} as const
 
 function AppSidebar({
   id,
@@ -58,42 +40,22 @@ function AppSidebar({
       component="aside"
       id={id}
       {...events}
-      sx={(theme) => ({
-        width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
-        height: mobile ? "100%" : `calc(100dvh - ${HEADER_HEIGHT}px)`,
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: 0,
-        position: mobile ? "relative" : "absolute",
-        top: 0,
-        left: 0,
-        bgcolor: "background.paper",
-        borderRight: 1,
-        borderColor: "divider",
-        zIndex: theme.zIndex.drawer,
-        transition: theme.transitions.create("width", { duration: 200 }),
-        "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-      })}
+      className="app-shell__sidebar"
+      data-collapsed={collapsed}
+      data-mobile={mobile}
+      sx={(theme) => ({ zIndex: theme.zIndex.drawer })}
     >
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          overflowX: "hidden",
-          px: collapsed ? 0 : 1.5,
-          pt: 2.75,
-          pb: 1,
-        }}
-      >
+      <Box className="app-shell__sidebar-scroll">
         <List component="nav" aria-label="Navegación principal" disablePadding>
           {PRIMARY_NAVIGATION.map((item, index) => (
             <Box key={item.label}>
-              {index > 0 && <Divider sx={{ my: 1, mx: collapsed ? 1.5 : 0 }} />}
+              {index > 0 && (
+                <Divider className="app-shell__divider app-shell__divider--group" />
+              )}
               {!collapsed && (
-                <Typography sx={sectionSx}>{item.section}</Typography>
+                <Typography className="app-shell__section-heading">
+                  {item.section}
+                </Typography>
               )}
               <SidebarNavItem
                 {...item}
@@ -103,13 +65,17 @@ function AppSidebar({
             </Box>
           ))}
         </List>
-        <Box sx={{ flexGrow: 1, minHeight: 2 }} />
-        <Divider sx={{ my: 1, mx: collapsed ? 1.5 : 0 }} />
-        {!collapsed && <Typography sx={sectionSx}>Ajustes</Typography>}
+        <Box className="app-shell__sidebar-spacer" />
+        <Divider className="app-shell__divider app-shell__divider--settings" />
+        {!collapsed && (
+          <Typography className="app-shell__section-heading">
+            Ajustes
+          </Typography>
+        )}
         <List
           component="div"
           disablePadding
-          sx={{ display: "flex", flexDirection: "column", gap: 1 }}
+          className="app-shell__secondary-nav"
         >
           {SECONDARY_NAVIGATION.map((item) => (
             <SidebarNavItem
@@ -122,7 +88,25 @@ function AppSidebar({
         </List>
       </Box>
       {!mobile && !collapsed && (
-        <Tooltip title={pinLabel}>
+        <Tooltip
+          title={pinLabel}
+          placement="top"
+          slots={{ transition: Fade }}
+          slotProps={{
+            popper: {
+              modifiers: [
+                {
+                  name: "offset",
+                  options: { offset: [0, -7] },
+                },
+              ],
+            },
+            transition: { timeout: 150 },
+            tooltip: {
+              className: "app-shell__tooltip",
+            },
+          }}
+        >
           <IconButton
             aria-label={pinLabel}
             aria-pressed={pinned}
@@ -136,21 +120,20 @@ function AppSidebar({
                   ?.focus()
               }
             }}
-            sx={(theme) => ({
-              width: "100%",
-              height: 32,
-              flexShrink: 0,
-              borderRadius: 0,
-              borderTop: 1,
-              borderColor: "divider",
-              color: "text.primary",
-              "&.Mui-focusVisible": focusRing(theme),
-            })}
+            className="app-shell__pin-button"
           >
             {pinned ? (
-              <KeyboardDoubleArrowLeftOutlined fontSize="small" />
+              <ChevronsLeft
+                className="app-shell__pin-icon"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
             ) : (
-              <KeyboardDoubleArrowRightOutlined fontSize="small" />
+              <ChevronsRight
+                className="app-shell__pin-icon"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
             )}
           </IconButton>
         </Tooltip>

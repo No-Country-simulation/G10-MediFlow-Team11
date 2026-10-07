@@ -1,9 +1,7 @@
 import { Box, IconButton, Tooltip } from "@mui/material"
-import { CloseOutlined, MenuOutlined } from "@mui/icons-material"
+import { Menu, X } from "lucide-react"
 import type { Ref } from "react"
 import MediFlowBrand from "./MediFlowBrand"
-import { HEADER_HEIGHT } from "../layouts/layoutConstants"
-import { focusRing } from "../theme/focusRing"
 
 export type DrawerNavigationButtonProps = {
   sidebarId: string
@@ -22,7 +20,14 @@ export function DrawerNavigationButton({
 }: DrawerNavigationButtonProps) {
   const label = open ? "Cerrar navegación" : "Abrir navegación"
   return (
-    <Tooltip title={hidden ? "" : label}>
+    <Tooltip
+      title={hidden ? "" : label}
+      slotProps={{
+        tooltip: {
+          className: "app-shell__tooltip",
+        },
+      }}
+    >
       <IconButton
         ref={buttonRef}
         aria-label={label}
@@ -31,16 +36,22 @@ export function DrawerNavigationButton({
         aria-hidden={hidden || undefined}
         tabIndex={hidden ? -1 : 0}
         onClick={onToggle}
-        sx={(theme) => ({
-          width: 40,
-          height: 40,
-          borderRadius: 1,
-          visibility: hidden ? "hidden" : "visible",
-          color: "text.primary",
-          "&.Mui-focusVisible": focusRing(theme),
-        })}
+        className="app-shell__drawer-button"
+        data-hidden={hidden}
       >
-        {open ? <CloseOutlined /> : <MenuOutlined />}
+        {open ? (
+          <X
+            className="app-shell__drawer-icon"
+            strokeWidth={1.25}
+            aria-hidden="true"
+          />
+        ) : (
+          <Menu
+            className="app-shell__drawer-icon"
+            strokeWidth={1.25}
+            aria-hidden="true"
+          />
+        )}
       </IconButton>
     </Tooltip>
   )
@@ -64,20 +75,8 @@ function AppHeader({
   return (
     <Box
       component="header"
-      sx={(theme) => ({
-        height: HEADER_HEIGHT,
-        flexShrink: 0,
-        px: 1.5,
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        bgcolor: "background.paper",
-        borderBottom: 1,
-        borderColor: "divider",
-        position: "sticky",
-        top: 0,
-        zIndex: theme.zIndex.drawer + 1,
-      })}
+      className="app-shell__header"
+      sx={(theme) => ({ zIndex: theme.zIndex.drawer + 1 })}
     >
       {mobile && (
         <DrawerNavigationButton
