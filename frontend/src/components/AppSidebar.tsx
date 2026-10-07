@@ -1,97 +1,148 @@
-import { Box, Divider, List } from "@mui/material";
-import MediFlowBrand from "./MediFlowBrand";
-import SidebarNavItem from "./SidebarNavItem";
-import { PRIMARY_NAVIGATION, SECONDARY_NAVIGATION } from "../config/navigation";
+import type { FocusEventHandler, PointerEventHandler } from "react"
 import {
-  HEADER_HEIGHT,
-  SIDEBAR_COLLAPSED_WIDTH,
-  SIDEBAR_WIDTH,
-} from "../layouts/layoutConstants";
+  Box,
+  Divider,
+  Fade,
+  IconButton,
+  List,
+  Tooltip,
+  Typography,
+} from "@mui/material"
+import { ChevronsLeft, ChevronsRight } from "lucide-react"
+import SidebarNavItem from "./SidebarNavItem"
+import { PRIMARY_NAVIGATION, SECONDARY_NAVIGATION } from "../config/navigation"
 
 type AppSidebarProps = {
-  id: string;
-  collapsed: boolean;
-  onNavigate?: () => void;
-};
+  id: string
+  collapsed: boolean
+  mobile?: boolean
+  pinned?: boolean
+  onTogglePin?: (wasPinned: boolean, preserveFocus: boolean) => void
+  onNavigate?: () => void
+  onPointerEnter?: PointerEventHandler<HTMLElement>
+  onPointerLeave?: PointerEventHandler<HTMLElement>
+  onFocusCapture?: FocusEventHandler<HTMLElement>
+  onBlurCapture?: FocusEventHandler<HTMLElement>
+}
 
-function AppSidebar({ id, collapsed, onNavigate }: AppSidebarProps) {
+function AppSidebar({
+  id,
+  collapsed,
+  mobile = false,
+  pinned = false,
+  onTogglePin,
+  onNavigate,
+  ...events
+}: AppSidebarProps) {
+  const pinLabel = pinned ? "Contraer barra lateral" : "Fijar barra lateral"
   return (
     <Box
       component="aside"
       id={id}
-      sx={(theme) => ({
-        width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
-        flexShrink: 0,
-        height: "100vh",
-        position: "sticky",
-        top: 0,
-        display: "flex",
-        flexDirection: "column",
-        // "clip" (not "hidden") so the clipped labels can never scroll the rail horizontally.
-        overflowX: "clip",
-        bgcolor: "background.sidebar",
-        borderRight: 1,
-        borderColor: "divider",
-        transition: theme.transitions.create("width", {
-          duration: theme.transitions.duration.shorter,
-        }),
-        "@media (prefers-reduced-motion: reduce)": {
-          transition: "none",
-        },
-      })}
+      {...events}
+      className="app-shell__sidebar"
+      data-collapsed={collapsed}
+      data-mobile={mobile}
+      sx={(theme) => ({ zIndex: theme.zIndex.drawer })}
     >
-      {/* Mirrors AppHeader's box (content + 1px bottom border) so both share the same vertical center. */}
-      <Box
-        sx={(theme) => ({
-          height: HEADER_HEIGHT,
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          borderBottom: "1px solid transparent",
-          pl: collapsed ? 1.25 : 4.25,
-          pr: 2,
-          transition: theme.transitions.create("padding", {
-            duration: theme.transitions.duration.shorter,
-          }),
-          "@media (prefers-reduced-motion: reduce)": {
-            transition: "none",
-          },
-        })}
-      >
-        <MediFlowBrand collapsed={collapsed} />
+      <Box className="app-shell__sidebar-scroll">
+        <List component="nav" aria-label="Navegación principal" disablePadding>
+          {PRIMARY_NAVIGATION.map((item, index) => (
+            <Box key={item.label}>
+              {index > 0 && (
+                <Divider className="app-shell__divider app-shell__divider--group" />
+              )}
+              {!collapsed && (
+                <Typography className="app-shell__section-heading">
+                  {item.section}
+                </Typography>
+              )}
+              <SidebarNavItem
+                {...item}
+                collapsed={collapsed}
+                onClick={onNavigate}
+              />
+            </Box>
+          ))}
+        </List>
+        <Box className="app-shell__sidebar-spacer" />
+        <Divider className="app-shell__divider app-shell__divider--settings" />
+        {!collapsed && (
+          <Typography className="app-shell__section-heading">
+            Ajustes
+          </Typography>
+        )}
+        <List
+          component="div"
+          disablePadding
+          className="app-shell__secondary-nav"
+        >
+          {SECONDARY_NAVIGATION.map((item) => (
+            <SidebarNavItem
+              key={item.label}
+              {...item}
+              disabled
+              collapsed={collapsed}
+            />
+          ))}
+        </List>
       </Box>
+      {!mobile && !collapsed && (
+        <Tooltip
+          title={pinLabel}
+          placement="top"
+          slots={{ transition: Fade }}
+          slotProps={{
+            popper: {
+              modifiers: [
+                {
+                  name: "offset",
+                  options: { offset: [0, -7] },
+                },
+              ],
+            },
+            transition: { timeout: 150 },
+            tooltip: {
+              className: "app-shell__tooltip",
+            },
+          }}
+        >
+          <IconButton
+            aria-label={pinLabel}
+            aria-pressed={pinned}
+            onClick={(event) => {
+              const preserveFocus = pinned && event.detail === 0
+              onTogglePin?.(pinned, preserveFocus)
 
-      <List
-        component="nav"
-        aria-label="Navegación principal"
-        disablePadding
-        sx={{ display: "flex", flexDirection: "column", pt: 3 }}
-      >
-        {PRIMARY_NAVIGATION.map((item) => (
-          <SidebarNavItem
-            key={item.label}
-            {...item}
-            collapsed={collapsed}
-            onClick={onNavigate}
-          />
-        ))}
-      </List>
-
-      <Box sx={{ flexGrow: 1 }} />
-
-      <Divider sx={{ mx: collapsed ? 2 : 3.5 }} />
-
-      <List
-        component="div"
-        disablePadding
-        sx={{ display: "flex", flexDirection: "column", gap: 1.25, pt: 2.75, pb: 10 }}
-      >
-        {SECONDARY_NAVIGATION.map((item) => (
-          <SidebarNavItem key={item.label} {...item} dense disabled collapsed={collapsed} />
-        ))}
-      </List>
+              if (preserveFocus) {
+                event.currentTarget
+                  .closest("aside")
+                  ?.querySelector<HTMLAnchorElement>("a")
+                  ?.focus()
+              } else if (pinned) {
+                event.currentTarget.blur()
+              }
+            }}
+            className="app-shell__pin-button"
+          >
+            {pinned ? (
+              <ChevronsLeft
+                className="app-shell__pin-icon"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+            ) : (
+              <ChevronsRight
+                className="app-shell__pin-icon"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+            )}
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
-  );
+  )
 }
 
-export default AppSidebar;
+export default AppSidebar
