@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class DocumentPersistenceIT {
 
+    @SuppressWarnings("resource")
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine")

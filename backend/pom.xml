@@ -33,9 +33,7 @@
             <groupId>com.oracle.oci.sdk</groupId>
             <artifactId>oci-java-sdk-common</artifactId>
             <version>3.97.0</version>
-        </dependency>
-        </dependency>
-        </dependency>
+        </dependency>              
 
         <dependency>
             <groupId>com.oracle.oci.sdk</groupId>
