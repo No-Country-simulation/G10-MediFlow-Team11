@@ -24,6 +24,10 @@ import {
 } from "@mui/icons-material";
 import InfoIcon from "@mui/icons-material/Info";
 import { useRef, useState } from "react";
+import DocumentViewer, {
+  type DocumentViewerState,
+  type ViewerMimeType,
+} from "../components/DocumentViewer/DocumentViewer";
 import { processFile, processText } from "../services/processingService";
 import { useNotification } from "../notifications/useNotification";
 
@@ -33,6 +37,10 @@ const ALLOWED_FILE_TYPES = [
   "image/jpeg",
   "image/png",
 ] as const;
+
+function isViewerMimeType(value: string): value is ViewerMimeType {
+  return value === "application/pdf" || value === "image/jpeg" || value === "image/png";
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -81,6 +89,15 @@ function ProcessingPage() {
   const [inputMode, setInputMode] = useState<InputMode>("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const previewDocument: DocumentViewerState | null = selectedFile && isViewerMimeType(selectedFile.type)
+    ? {
+        status: "ready",
+        documentKey: selectedFile.name + selectedFile.lastModified + selectedFile.size,
+        blob: selectedFile,
+        mimeType: selectedFile.type,
+        fileName: selectedFile.name,
+      }
+    : null;
   const handleFile = (file: File) => {
     if (
       !ALLOWED_FILE_TYPES.includes(
@@ -369,6 +386,11 @@ function ProcessingPage() {
                   </Typography>
                 )}
               </>
+            )}
+            {inputMode === "file" && previewDocument && (
+              <Box sx={{ mt: 2, width: "100%", maxWidth: "100%", height: 480, minWidth: 0, overflow: "hidden" }}>
+                <DocumentViewer document={previewDocument} ariaLabel="Vista previa del documento seleccionado" />
+              </Box>
             )}
             {inputMode === "text" && (
               <TextField
