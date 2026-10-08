@@ -17,5 +17,22 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  ai-core:
+    build:
+      context: ./ai-core
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      AUDIT_CONFIDENCE_THRESHOLD: ${AUDIT_CONFIDENCE_THRESHOLD:-0.85}
+    ports:
+      - "127.0.0.1:${AI_CORE_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
 volumes:
   postgres_data:
