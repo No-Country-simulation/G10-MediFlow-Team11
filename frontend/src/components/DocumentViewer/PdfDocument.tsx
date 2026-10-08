@@ -23,7 +23,7 @@ type MenuAction = { key: string; label: string; icon: ComponentType; disabled?: 
 const zoomSteps = [50, 75, 100, 125, 130, 150, 200, 300, 400];
 const zoomOptions = [
   ["actual", "Tamaño real"], ["page", "Ajustar a la página"],
-  ["width", "Ajustar al ancho"], ...zoomSteps.filter((step) => step !== 130)
+  ["width", "Ajustar al ancho"], ...zoomSteps
     .map((step) => [String(step), String(step) + " %"]),
 ];
 
@@ -114,6 +114,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
   const [renderError, setRenderError] = useState(false);
   const handleRenderError = useCallback(() => setRenderError(true), []);
   const [userZoomed, setUserZoomed] = useState(false);
+  const [actualSizeSelected, setActualSizeSelected] = useState(false);
   const status = load.blob === blob ? load.status : "loading";
   const pdf = load.blob === blob && load.status === "ready" ? load.pdf : null;
   const pages = load.blob === blob && load.status === "ready" ? load.pages : [];
@@ -150,6 +151,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
         setMatchIndex(0);
         setThumbnailsOpen(false);
         setUserZoomed(false);
+        setActualSizeSelected(false);
         setZoomMode("fixed");
         setZoomPercent(130);
         setRenderError(false);
@@ -267,6 +269,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
       ? [...zoomSteps].reverse().find((value) => value < effectiveZoom) ?? zoomSteps[0]
       : zoomSteps.find((value) => value > effectiveZoom) ?? zoomSteps[zoomSteps.length - 1];
     setUserZoomed(true); setZoomMode("fixed"); setZoomPercent(next);
+    setActualSizeSelected(false);
   };
   const onCanvasScroll = () => {
     const canvas = canvasRef.current;
@@ -282,6 +285,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
   };
   const selectZoom = (value: string) => {
     setUserZoomed(true);
+    setActualSizeSelected(value === "actual");
     if (value === "page") setZoomMode("fit-page");
     else if (value === "width") setZoomMode("fit-width");
     else { setZoomMode("fixed"); setZoomPercent(value === "actual" ? 100 : Number(value)); }
@@ -315,8 +319,8 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
     if (key === "thumbnails") setThumbnailsOpen((open) => !open);
     if (key === "theme") setDark((value) => !value);
     if (key === "fullscreen") {
-      if (document.fullscreenElement) void document.exitFullscreen();
-      else void viewerRef.current?.requestFullscreen();
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+      else void viewerRef.current?.requestFullscreen().catch(() => undefined);
     }
     if (key === "download" && sourceUrlRef.current) {
       const link = document.createElement("a");
@@ -325,7 +329,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
     if (key === "print" && sourceUrlRef.current) window.open(sourceUrlRef.current, "_blank", "noopener,noreferrer");
   };
 
-  if (status === "loading") return <div className="document-viewer__message" role="status"><CircularProgress size={24} />Cargando PDF…</div>;
+  if (status === "loading" && blob.size > 0) return <div className="document-viewer__message" role="status"><CircularProgress size={24} />Cargando PDF…</div>;
   if (status === "error" || blob.size === 0 || renderError || !pdf) return <Alert severity="error">No se pudo mostrar el PDF.</Alert>;
   return <div ref={viewerRef} className={"document-viewer__pdf-viewer" + (dark ? " document-viewer__pdf-viewer--dark" : "")} aria-label={title}>
     <div className="document-viewer__toolbar">
@@ -348,13 +352,13 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
         {overflowActions.length > 0 && <ToolButton label="Más acciones" icon={MoreViewerIcon} buttonRef={moreTriggerRef} expanded={moreMenuOpen} controls={moreMenuOpen ? moreMenuId : undefined} onClick={() => setMoreMenuOpen((open) => !open)} />}
       </div>
       {zoomMenuOpen && <div ref={zoomMenuRef} id={zoomMenuId} className="document-viewer__zoom-menu" role="group" aria-label="Escala del documento">
-        {zoomOptions.map(([value, label]) => <button key={value} type="button" aria-pressed={(value === "page" && zoomMode === "fit-page") || (value === "width" && zoomMode === "fit-width") || (zoomMode === "fixed" && userZoomed && Number(value) === Math.round(effectiveZoom))} onClick={() => { selectZoom(value); requestAnimationFrame(() => zoomTriggerRef.current?.focus()); }}>{label}</button>)}
+        {zoomOptions.map(([value, label]) => <button key={value} type="button" aria-pressed={(value === "page" && zoomMode === "fit-page") || (value === "width" && zoomMode === "fit-width") || (value === "actual" && zoomMode === "fixed" && actualSizeSelected) || (zoomMode === "fixed" && !actualSizeSelected && (userZoomed || fitWidth >= 130) && value === String(zoomPercent))} onClick={() => { selectZoom(value); requestAnimationFrame(() => zoomTriggerRef.current?.focus()); }}>{label}</button>)}
       </div>}
       {moreMenuOpen && <div ref={moreMenuRef} id={moreMenuId} className="document-viewer__more-menu" role="group" aria-label="Más acciones">
         {overflowActions.map((action) => { const Icon = action.icon; return <button key={action.key} type="button" disabled={action.disabled} onClick={() => { handleAction(action.key); setMoreMenuOpen(false); if (action.key !== "search") requestAnimationFrame(() => moreTriggerRef.current?.focus()); }}><Icon />{action.label}</button>; })}
       </div>}
       {searchOpen && <div id={searchPopoverId} className="document-viewer__search-popover" role="group" aria-label="Buscar en el documento">
-        <div className="document-viewer__search-input"><input ref={searchRef} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setMatches([]); setMatchIndex(0); }} placeholder="Escribir para buscar" aria-label="Buscar en el documento" onKeyDown={(event) => { if (event.key === "Enter") nextMatch(); }} /><span>{matches.length ? String(matchIndex) + "/" + String(matches.length) : "0/0"}</span></div>
+        <div className="document-viewer__search-input"><input ref={searchRef} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setMatches([]); setMatchIndex(0); }} placeholder="Escribir para buscar" aria-label="Buscar en el documento" onKeyDown={(event) => { if (event.key === "Enter") nextMatch(); }} /><span className="document-viewer__search-count">{matchIndex ? String(matchIndex) + "/" + String(matches.length) : String(matches.length) + (matches.length === 1 ? " resultado" : " resultados")}</span></div>
         <label><input type="checkbox" checked={matchCase} onChange={(event) => { setMatchCase(event.target.checked); setMatches([]); setMatchIndex(0); }} />Coincidir mayúsculas</label>
         <label><input type="checkbox" checked={wholeWords} onChange={(event) => { setWholeWords(event.target.checked); setMatches([]); setMatchIndex(0); }} />Palabras completas</label>
         <button type="button" disabled={!searchQuery.trim() || !matches.length} onClick={nextMatch}>Buscar</button>
