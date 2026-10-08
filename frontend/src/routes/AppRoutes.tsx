@@ -3,6 +3,7 @@ import AppLayout from "../layouts/AppLayout";
 import AuditPage from "../pages/AuditPage";
 import LoginPage from "../pages/LoginPage";
 import ProcessingPage from "../pages/ProcessingPage";
+import ResultPage from "../pages/ResultPage";
 
 function AppRoutes() {
   return (
@@ -13,6 +14,7 @@ function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/processing" replace />} />
           <Route path="processing" element={<ProcessingPage />} />
+          <Route path="results/:documentId" element={<ResultPage />} />
           <Route path="audit" element={<AuditPage />} />
         </Route>
       </Routes>
