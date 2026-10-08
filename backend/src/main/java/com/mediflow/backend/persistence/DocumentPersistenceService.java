@@ -3,6 +3,7 @@ package com.mediflow.backend.persistence;
 import com.mediflow.backend.entity.DocumentRecord;
 import com.mediflow.backend.entity.DocumentTriageHistory;
 import com.mediflow.backend.entity.DocumentTriageHistoryId;
+import com.mediflow.backend.enums.DocumentStatus;
 import com.mediflow.backend.enums.HumanDecision;
 import com.mediflow.backend.enums.TriageEventType;
 import com.mediflow.backend.repository.DocumentRepository;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Persistencia de documentos e historial. El historial solo se inserta (append-only);
@@ -46,6 +48,16 @@ public class DocumentPersistenceService {
     public DocumentRecord getDocument(String documentId) {
         return documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Documento no encontrado: " + documentId));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<DocumentRecord> findDocument(String documentId) {
+        return documentRepository.findById(documentId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentRecord> listAuditDocuments() {
+        return documentRepository.findByStatusOrderByCreatedAtAscIdAsc(DocumentStatus.NEEDS_AUDIT);
     }
 
     @Transactional(readOnly = true)
