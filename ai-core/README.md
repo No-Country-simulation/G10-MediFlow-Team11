@@ -47,6 +47,33 @@ esquema enviado al modelo omite `additionalProperties`; la respuesta resultante
 se valida después con los modelos Pydantic completos, que preservan los campos
 adicionales permitidos en `extracted_data`.
 
+## Dependencias y reproducibilidad
+
+`requirements.txt` contiene solo las dependencias directas. El archivo
+`requirements.lock.txt` es generado y fija todas las dependencias, incluidas las
+transitivas, con hashes. No lo edites a mano: es el archivo que instala el
+Dockerfile.
+
+### Regenerar el lock
+
+Desde la raíz del repositorio, en PowerShell:
+
+```powershell
+docker run --rm -v "${PWD}/ai-core:/work" -w /work python:3.12.15-slim-trixie@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f sh -c "pip install -q pip-tools && pip-compile --generate-hashes --output-file=requirements.lock.txt requirements.txt"
+```
+
+### Actualizar el digest de la imagen base
+
+Obtén el digest del índice multi-arquitectura, que debe incluir `linux/amd64` y
+`linux/arm64`:
+
+```powershell
+docker buildx imagetools inspect python:3.12.15-slim-trixie
+```
+
+Reemplaza el digest en `ai-core/Dockerfile` y en el comando de regeneración del
+lock, y vuelve a generarlo.
+
 ## Desarrollo local
 
 ```powershell
