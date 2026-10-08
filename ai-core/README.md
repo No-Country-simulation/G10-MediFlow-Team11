@@ -84,6 +84,8 @@ Las versiones de las dependencias directas están fijadas en `requirements.txt`.
 Uvicorn conserva el extra `standard`, con dependencias opcionales resueltas según
 la plataforma.
 
+Desde la raíz del repositorio:
+
 ```bash
 docker build -t mediflow-ai-core ./ai-core
 ```
