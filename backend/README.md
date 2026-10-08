@@ -14,6 +14,7 @@ Proyecto desarrollado para el **Hackathon ONE — Grupo 10** (Oracle Next Educat
 - [Estructura del repositorio](#estructura-del-repositorio)
 - [Estado actual de implementación](#estado-actual-de-implementación)
   - [Backend — Inicialización del servicio (Issue #1)](#backend--inicialización-del-servicio-issue-1)
+  - [Contenerización del Backend (Issue #53)](#contenerización-del-backend-issue-53)
   - [Infraestructura Cloud — Aprovisionamiento en OCI (Issue #9)](#infraestructura-cloud--aprovisionamiento-en-oci-issue-9)
   - [PostgreSQL — Configuración del servicio](#postgresql--configuración-del-servicio)
   - [Contratos DTO de procesamiento (Issue #5)](#contratos-dto-de-procesamiento-issue-5)
@@ -158,6 +159,66 @@ Puntos clave:
 - `./mvnw clean compile` → `BUILD SUCCESS`.
 - El arranque completo y `GET /actuator/health` requieren PostgreSQL en ejecución (ver [PostgreSQL — Configuración del servicio](#postgresql--configuración-del-servicio)).
 - Test de contexto (`BackendApplicationTests`) incluido; requiere PostgreSQL en ejecución.
+
+### Contenerización del Backend (Issue #53)
+
+El Backend se construye con un Dockerfile multi-stage basado en Java 21 y se ejecuta con el usuario no root `appuser`. El servicio `backend` se integra en `compose.yaml`, reutiliza PostgreSQL y se comunica con él por la red interna de Docker.
+
+#### Ejecución con Docker
+
+Desde la raíz del repositorio:
+
+```powershell
+docker compose build backend
+docker compose up -d postgres backend
+```
+
+#### Verificar
+
+Desde la raíz del repositorio:
+
+```powershell
+docker compose ps
+curl.exe -sS http://localhost:8080/actuator/health
+```
+
+PostgreSQL y Backend deben aparecer como `healthy`; la respuesta de health esperada es `{"status":"UP"}`. En Bash, usa `curl -sS http://localhost:8080/actuator/health`. Si `BACKEND_PORT` tiene un valor distinto de `8080`, sustituye `8080` por ese puerto publicado en ambos comandos curl.
+
+#### Logs y detención
+
+Desde la raíz del repositorio:
+
+```powershell
+docker compose logs -f backend
+docker compose stop backend
+docker compose down
+```
+
+`docker compose down` conserva los datos del volumen de PostgreSQL. **No uses `docker compose down -v` salvo que quieras borrar también esos datos.**
+
+#### Variables de entorno
+
+Compose carga las variables del `.env` situado en la raíz del repositorio y las entrega al contenedor Backend. Dentro de Docker, el Backend usa `DB_HOST=postgres` y `DB_PORT=5432` (puerto interno); Compose fija esos valores independientemente de `DB_PORT` del `.env`, que corresponde al puerto publicado en el host.
+
+| Variable | Valor por defecto en Compose | Descripción |
+|---|---|---|
+| `BACKEND_PORT` | `8080` | Puerto del host publicado en loopback para el Backend. |
+| `BACKEND_LAZY_INIT` | `false` | Valor de `SPRING_MAIN_LAZY_INITIALIZATION`. En `.env.example` se establece en `true` para desarrollo local fuera de OCI; en OCI debe dejarse en `false`. |
+
+#### Notas importantes
+
+- La VM OCI usa Ampere ARM (`aarch64`). Construye la imagen en esa VM o publica una imagen multi-arquitectura que incluya `linux/arm64`.
+- Las imágenes base de Java están fijadas por versión y digest del índice multi-arquitectura. Para consultar índices actualizados y sus plataformas:
+
+  Desde la raíz del repositorio:
+
+  ```powershell
+  docker buildx imagetools inspect eclipse-temurin:21.0.12.1_1-jdk
+  docker buildx imagetools inspect eclipse-temurin:21.0.12.1_1-jre
+  ```
+
+  Actualiza los digests fijados en `backend/Dockerfile` usando el campo `Digest:` del índice, no el digest de un manifiesto de plataforma.
+- Limitación conocida: fuera de OCI, sin `BACKEND_LAZY_INIT=true`, el contenedor no llega a `healthy` porque `ObjectStorageConfig` inicializa Instance Principals durante el arranque. El interruptor de inicialización perezosa es un parche de configuración; la corrección de fondo corresponde al squad Backend en un ticket aparte. Con inicialización perezosa, los errores de OCI podrían aparecer en el primer uso de Object Storage.
 
 ### PostgreSQL — Configuración del servicio
 
@@ -312,6 +373,8 @@ Definidas en la plantilla [`/.env.example`](../.env.example), en la raíz del re
 | `DB_USER` | No | `mediflow_user` | Usuario de la base de datos |
 | `DB_PASSWORD` | **Sí** | — (sin fallback) | Contraseña de la base de datos; el arranque falla si no se define |
 | `SERVER_PORT` | No | `8080` | Puerto de escucha del servicio |
+| `BACKEND_PORT` | No | `8080` | Puerto del host publicado por Docker Compose para el Backend |
+| `BACKEND_LAZY_INIT` | No | `false` en Compose; `true` en `.env.example` | Habilita la inicialización perezosa para desarrollo local fuera de OCI |
 
 `.env` está excluido del control de versiones mediante `.gitignore`; solo `.env.example` se versiona.
 
@@ -330,4 +393,3 @@ Plantilla: [`.github/PULL_REQUEST_TEMPLATE.MD`](../.github/PULL_REQUEST_TEMPLATE
 - Endpoints de procesamiento, orquestación con IA Core y reconstrucción de la respuesta canónica a partir de `DocumentRecord`.
 - Integración OCI Object Storage y compensación PostgreSQL ↔ OCI (secciones 11–12).
 - Revisión humana `PATCH /api/v1/documents/{id}/review` usando el historial append-only.
-
