@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
@@ -28,16 +28,31 @@ function ResultPage() {
 
   const [result, setResult] = useState<ProcessingResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
 
     async function loadResult() {
+      setLoading(true);
+      setResult(null);
+      setError(null);
+
       try {
         const data = documentId ? await getDocumentResult(documentId) : null;
 
         if (active) {
           setResult(data);
+        }
+      } catch (error: unknown) {
+        if (active) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Ocurrió un error al consultar el documento.",
+          );
         }
       } finally {
         if (active) {
@@ -62,6 +77,8 @@ function ResultPage() {
 
       {loading ? (
         <CircularProgress />
+      ) : error ? (
+        <Alert severity="error">{error}</Alert>
       ) : !result ? (
         <Alert severity="warning">
           No se encontró el documento solicitado.
@@ -95,7 +112,11 @@ function ResultPage() {
                 <Button
                   size="small"
                   startIcon={<HistoryOutlinedIcon />}
-                  disabled
+                  onClick={() =>
+                    navigate(
+                      `/history?documentId=${encodeURIComponent(result.document_id)}`,
+                    )
+                  }
                 >
                   Ver historial
                 </Button>
@@ -151,6 +172,20 @@ function ResultPage() {
                 <ValidationCard validation={result.validation} />
               )}
               <RoutingCard routing={result.routing_decision} />
+              {result.status === "NEEDS_AUDIT" && (
+                <Button
+                  variant="contained"
+                  color="warning"
+                  onClick={() =>
+                    navigate(
+                      `/audit?documentId=${encodeURIComponent(result.document_id)}`,
+                    )
+                  }
+                >
+                  Continuar a auditoría
+                </Button>
+              )}
+
               <NotificationCard notification={result.notification} />
 
               <StorageCard storage={result.storage} />

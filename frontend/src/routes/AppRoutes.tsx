@@ -4,6 +4,7 @@ import AuditPage from "../pages/AuditPage";
 import LoginPage from "../pages/LoginPage";
 import ProcessingPage from "../pages/ProcessingPage";
 import ResultPage from "../pages/ResultPage";
+import HistoryPage from "../pages/HistoryPage";
 
 function AppRoutes() {
   return (
@@ -16,6 +17,7 @@ function AppRoutes() {
           <Route path="processing" element={<ProcessingPage />} />
           <Route path="results/:documentId" element={<ResultPage />} />
           <Route path="audit" element={<AuditPage />} />
+          <Route path="history" element={<HistoryPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

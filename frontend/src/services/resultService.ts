@@ -1,8 +1,10 @@
-import type { ProcessingResponse } from "../types/processing";
+import { env } from "../config/env";
 import {
-  successfulProcessingResponse,
   auditRequiredProcessingResponse,
+  successfulProcessingResponse,
 } from "../mocks/processingMocks";
+import type { ProcessingResponse } from "../types/processing";
+import { ApiError } from "./processingService";
 
 const mockResults: ProcessingResponse[] = [
   successfulProcessingResponse,
@@ -22,9 +24,34 @@ const mockResults: ProcessingResponse[] = [
 export async function getDocumentResult(
   documentId: string,
 ): Promise<ProcessingResponse | null> {
-  const result = mockResults.find(
-    (document) => document.document_id === documentId,
-  );
+  if (env.useMocks) {
+    const result = mockResults.find(
+      (document) => document.document_id === documentId,
+    );
 
-  return result ?? null;
+    return result ?? null;
+  }
+
+  const endpoint = `/api/v1/documents/${encodeURIComponent(documentId)}`;
+
+  const response = await fetch(`${env.apiBaseUrl}${endpoint}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      "DOCUMENT_FETCH_ERROR",
+      "No fue posible consultar el resultado del documento.",
+    );
+  }
+
+  return (await response.json()) as ProcessingResponse;
 }
