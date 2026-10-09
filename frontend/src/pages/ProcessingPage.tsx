@@ -4,12 +4,14 @@ import { Box, CircularProgress } from "@mui/material";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DocumentViewer, {
   type DocumentViewerState,
   type ViewerMimeType,
 } from "../components/DocumentViewer/DocumentViewer";
 import { processFile, processText } from "../services/processingService";
 import { useNotification } from "../notifications/useNotification";
+import type { ProcessingResponse } from "../types/processing";
 
 type InputMode = "file" | "text";
 
@@ -179,12 +181,8 @@ function OriginFields({
 
   return (
     <div className="processing-page__origin-wrap--inline">
-      <label
-        htmlFor={originId}
-        className="processing-page__field-label"
-      >
-        Canal de origen{" "}
-        <span className="processing-page__required">*</span>
+      <label htmlFor={originId} className="processing-page__field-label">
+        Canal de origen <span className="processing-page__required">*</span>
       </label>
       <select
         id={originId}
@@ -214,11 +212,11 @@ function OriginFields({
         </p>
       )}
       {isOtro && (
-        <div className="processing-page__origin-wrap--inline" style={{ marginTop: 8 }}>
-          <label
-            htmlFor={otroId}
-            className="processing-page__field-label"
-          >
+        <div
+          className="processing-page__origin-wrap--inline"
+          style={{ marginTop: 8 }}
+        >
+          <label htmlFor={otroId} className="processing-page__field-label">
             Especifique el canal{" "}
             <span className="processing-page__required">*</span>
           </label>
@@ -247,6 +245,7 @@ function ProcessingPage() {
   const originIdText = useId();
 
   const { showNotification, showError } = useNotification();
+  const navigate = useNavigate();
 
   const [inputMode, setInputMode] = useState<InputMode>("file");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -278,7 +277,9 @@ function ProcessingPage() {
   const handleFile = useCallback((file: File) => {
     if (!isValidFile(file)) {
       setSelectedFile(null);
-      setFileError("Formato no admitido. Seleccione un archivo PDF, JPG o PNG.");
+      setFileError(
+        "Formato no admitido. Seleccione un archivo PDF, JPG o PNG.",
+      );
       return;
     }
 
@@ -352,15 +353,16 @@ function ProcessingPage() {
     setProcessingError(false);
 
     try {
+      let result: ProcessingResponse | null = null;
       if (inputMode === "file" && selectedFile) {
-        await processFile({
+        result = await processFile({
           file: selectedFile,
           origin_channel: resolvedOriginChannel,
         });
       }
 
       if (inputMode === "text") {
-        await processText({
+        result = await processText({
           document_text: documentText.trim(),
           origin_channel: resolvedOriginChannel,
         });
@@ -369,6 +371,15 @@ function ProcessingPage() {
       showNotification({
         message: "Documento procesado correctamente.",
         severity: "success",
+      });
+      navigate("/result", {
+        state: {
+          result,
+          sourceKind: inputMode,
+          sourceFile: inputMode === "file" ? selectedFile : null,
+          sourceText: inputMode === "text" ? documentText : null,
+          originChannel: resolvedOriginChannel,
+        },
       });
     } catch (error) {
       showError(error);
@@ -425,7 +436,14 @@ function ProcessingPage() {
       return selectedFile !== null && hasOrigin && !fileError;
     }
     return documentText.trim().length > 0 && hasOrigin && !textFieldError;
-  }, [inputMode, selectedFile, hasOrigin, fileError, documentText, textFieldError]);
+  }, [
+    inputMode,
+    selectedFile,
+    hasOrigin,
+    fileError,
+    documentText,
+    textFieldError,
+  ]);
 
   const submitLabel = useMemo(() => {
     if (isProcessing) {
@@ -437,21 +455,24 @@ function ProcessingPage() {
     return inputMode === "text" ? "Procesar texto" : "Procesar documento";
   }, [isProcessing, processingError, inputMode]);
 
-  const changeMode = useCallback((next: InputMode) => {
-    if (isProcessing) return;
-    setInputMode(next);
-    setProcessingError(false);
-    setOriginFieldError(null);
-    setTextFieldError(null);
+  const changeMode = useCallback(
+    (next: InputMode) => {
+      if (isProcessing) return;
+      setInputMode(next);
+      setProcessingError(false);
+      setOriginFieldError(null);
+      setTextFieldError(null);
 
-    requestAnimationFrame(() => {
-      if (next === "text") {
-        textareaRef.current?.focus();
-      } else {
-        uploadPickerRef.current?.focus();
-      }
-    });
-  }, [isProcessing]);
+      requestAnimationFrame(() => {
+        if (next === "text") {
+          textareaRef.current?.focus();
+        } else {
+          uploadPickerRef.current?.focus();
+        }
+      });
+    },
+    [isProcessing],
+  );
 
   const handleDrop = (event: React.DragEvent<HTMLElement>) => {
     event.preventDefault();
@@ -516,11 +537,19 @@ function ProcessingPage() {
           }}
         />
 
-        <div className="processing-page__tablist" role="tablist" aria-label="Tipo de entrada">
-          {([
+        <div
+          className="processing-page__tablist"
+          role="tablist"
+          aria-label="Tipo de entrada"
+        >
+          {[
             { mode: "file" as const, label: "Archivo", Icon: FileUploadIcon },
-            { mode: "text" as const, label: "Texto", Icon: DescriptionOutlinedIcon },
-          ]).map(({ mode, label, Icon }) => {
+            {
+              mode: "text" as const,
+              label: "Texto",
+              Icon: DescriptionOutlinedIcon,
+            },
+          ].map(({ mode, label, Icon }) => {
             const isActive = inputMode === mode;
             return (
               <button
@@ -541,7 +570,10 @@ function ProcessingPage() {
                 <Icon sx={{ fontSize: 16 }} aria-hidden="true" />
                 {label}
                 {isActive && (
-                  <span className="processing-page__tab-underline" aria-hidden="true" />
+                  <span
+                    className="processing-page__tab-underline"
+                    aria-hidden="true"
+                  />
                 )}
               </button>
             );
@@ -559,8 +591,7 @@ function ProcessingPage() {
           >
             <div>
               <span className="processing-page__field-label--inline">
-                Documento{" "}
-                <span className="processing-page__required">*</span>
+                Documento <span className="processing-page__required">*</span>
               </span>
             </div>
             <div
@@ -631,7 +662,11 @@ function ProcessingPage() {
             <div className="processing-page__divider--actions">
               {actionsBlock}
               {formError && (
-                <p className="processing-page__file-field-error" role="alert" style={{ marginTop: 10 }}>
+                <p
+                  className="processing-page__file-field-error"
+                  role="alert"
+                  style={{ marginTop: 10 }}
+                >
                   {formError}
                 </p>
               )}
@@ -659,7 +694,14 @@ function ProcessingPage() {
                 </div>
                 <div className="processing-page__config-body">
                   <div>
-                    <p style={{ margin: "0 0 12px 0", fontSize: 14, lineHeight: "22px", color: "var(--proc-text)" }}>
+                    <p
+                      style={{
+                        margin: "0 0 12px 0",
+                        fontSize: 14,
+                        lineHeight: "22px",
+                        color: "var(--proc-text)",
+                      }}
+                    >
                       Archivo seleccionado
                     </p>
                     <div className="processing-page__file-info-card">
@@ -672,7 +714,8 @@ function ProcessingPage() {
                             {selectedFile.name}
                           </p>
                           <p className="processing-page__file-info-sub">
-                            {fileType(selectedFile)} · {formatBytes(selectedFile.size)}
+                            {fileType(selectedFile)} ·{" "}
+                            {formatBytes(selectedFile.size)}
                           </p>
                         </div>
                       </div>
@@ -727,7 +770,9 @@ function ProcessingPage() {
 
                   {selectedFile && hasOrigin && !processingError && (
                     <div className="processing-page__status-chip">
-                      <span className="processing-page__status-chip-label">Estado</span>
+                      <span className="processing-page__status-chip-label">
+                        Estado
+                      </span>
                       <span className="processing-page__status-chip-value">
                         <span className="processing-page__status-dot" />
                         Listo para procesar
@@ -743,7 +788,8 @@ function ProcessingPage() {
                           No fue posible procesar el documento
                         </p>
                         <p className="processing-page__inline-error-body">
-                          Conservamos la información ingresada. Intente nuevamente.
+                          Conservamos la información ingresada. Intente
+                          nuevamente.
                         </p>
                       </div>
                     </div>
@@ -759,7 +805,10 @@ function ProcessingPage() {
               <section className="processing-page__viewer-panel">
                 <div className="processing-page__viewer-header">
                   <h2 className="processing-page__viewer-title">Documento</h2>
-                  <span className="processing-page__viewer-filename" title={selectedFile.name}>
+                  <span
+                    className="processing-page__viewer-filename"
+                    title={selectedFile.name}
+                  >
                     {selectedFile.name}
                   </span>
                 </div>
@@ -819,7 +868,9 @@ function ProcessingPage() {
                 placeholder="Ingrese o pegue el contenido clínico aquí."
                 disabled={isProcessing}
                 aria-invalid={Boolean(textFieldError)}
-                aria-describedby={textFieldError ? `${textareaId}-err` : undefined}
+                aria-describedby={
+                  textFieldError ? `${textareaId}-err` : undefined
+                }
                 className="processing-page__textarea"
               />
               {textFieldError && (
@@ -854,16 +905,35 @@ function ProcessingPage() {
               />
             </div>
 
+            {documentText.trim().length > 0 &&
+              hasOrigin &&
+              !processingError && (
+                <div className="processing-page__status-chip">
+                  <span className="processing-page__status-chip-label">
+                    Estado
+                  </span>
+                  <span className="processing-page__status-chip-value">
+                    <span className="processing-page__status-dot" />
+                    Listo para procesar
+                  </span>
+                </div>
+              )}
+
             {processingError && (
               <div className="processing-page__inline-error--text" role="alert">
-                No fue posible procesar el texto. La información ingresada se ha conservado.
+                No fue posible procesar el texto. La información ingresada se ha
+                conservado.
               </div>
             )}
 
             <div className="processing-page__divider--actions">
               {actionsBlock}
               {formError && (
-                <p className="processing-page__file-field-error" role="alert" style={{ marginTop: 10 }}>
+                <p
+                  className="processing-page__file-field-error"
+                  role="alert"
+                  style={{ marginTop: 10 }}
+                >
                   {formError}
                 </p>
               )}
