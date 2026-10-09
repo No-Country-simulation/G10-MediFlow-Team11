@@ -38,6 +38,8 @@ management:
         include: health,info # Expone /actuator/health y /actuator/info para Docker/OCI
 
 mediflow:
+  ai:
+    service-url: ${MEDIFLOW_AI_SERVICE_URL:http://localhost:8000}
   oci:
     bucket-name: ${OCI_BUCKET_NAME:mediflow-documentos-clinicos}
     namespace: ${OCI_NAMESPACE:}
