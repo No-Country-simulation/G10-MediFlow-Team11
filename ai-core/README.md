@@ -47,6 +47,33 @@ esquema enviado al modelo omite `additionalProperties`; la respuesta resultante
 se valida después con los modelos Pydantic completos, que preservan los campos
 adicionales permitidos en `extracted_data`.
 
+## Dependencias y reproducibilidad
+
+`requirements.txt` contiene solo las dependencias directas. El archivo
+`requirements.lock.txt` es generado y fija todas las dependencias, incluidas las
+transitivas, con hashes. No lo edites a mano: es el archivo que instala el
+Dockerfile.
+
+### Regenerar el lock
+
+Desde la raíz del repositorio, en PowerShell:
+
+```powershell
+docker run --rm -v "${PWD}/ai-core:/work" -w /work python:3.12.15-slim-trixie@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f sh -c "pip install -q pip-tools && pip-compile --generate-hashes --output-file=requirements.lock.txt requirements.txt"
+```
+
+### Actualizar el digest de la imagen base
+
+Obtén el digest del índice multi-arquitectura, que debe incluir `linux/amd64` y
+`linux/arm64`:
+
+```powershell
+docker buildx imagetools inspect python:3.12.15-slim-trixie
+```
+
+Reemplaza el digest en `ai-core/Dockerfile` y en el comando de regeneración del
+lock, y vuelve a generarlo.
+
 ## Desarrollo local
 
 ```powershell
@@ -75,3 +102,103 @@ python -m pytest -q
 ```
 
 Desde `ai-core/`, ejecuta la suite completa con `python -m pytest -q`.
+
+## Ejecución con Docker
+
+### Construir la imagen
+
+Las versiones de las dependencias directas están fijadas en `requirements.txt`.
+Uvicorn conserva el extra `standard`, con dependencias opcionales resueltas según
+la plataforma.
+
+Desde la raíz del repositorio:
+
+```bash
+docker build -t mediflow-ai-core ./ai-core
+```
+
+### Iniciar con Docker Compose
+
+Desde la raíz del repositorio, con un `.env` que defina al menos `DB_PASSWORD`
+(Compose exige esa variable para todo el archivo, aunque solo levantes IA Core):
+
+```bash
+docker compose up -d --build ai-core
+```
+
+Variables que usa el servicio: `GEMINI_API_KEY`, `GEMINI_MODEL`,
+`AUDIT_CONFIDENCE_THRESHOLD` y `AI_CORE_PORT` (por defecto 8000). El puerto se
+publica solo en `127.0.0.1`, porque IA Core no debe exponerse a Internet. Si el
+puerto 8000 ya está ocupado, define otro `AI_CORE_PORT` en el `.env` de la raíz.
+
+### Verificar
+
+```bash
+docker compose ps
+```
+
+El servicio debe aparecer como `healthy`. En PowerShell, consulta el endpoint
+publicado; `docker compose port` resuelve el puerto asignado (incluido
+`AI_CORE_PORT`):
+
+```powershell
+$publishedPort = docker compose port ai-core 8000
+$port = ($publishedPort -split ":")[-1]
+Invoke-RestMethod "http://localhost:$port/health"
+```
+
+La respuesta esperada es `status: ok`.
+
+### Integración con el Backend
+
+Dentro de la red de Compose, el Backend debe usar:
+
+```text
+AI_SERVICE_URL=http://ai-core:8000
+```
+
+(referencia: #30)
+
+### Notas importantes
+
+- `/health` solo indica que el proceso está vivo. **No valida la configuración
+  de Gemini**: sin `GEMINI_API_KEY` o `GEMINI_MODEL` el servicio arranca, pero
+  `/api/v1/ai/process` responde 503.
+- La VM de OCI es ARM. La imagen debe construirse en esa VM o publicarse como
+  imagen multi-arquitectura.
+
+### Verificar el endpoint de procesamiento
+
+Con el contenedor en ejecución, una solicitud incompleta debe responder `400 INVALID_REQUEST`:
+
+```powershell
+$publishedPort = docker compose port ai-core 8000
+$port = ($publishedPort -split ":")[-1]
+$client = [System.Net.Http.HttpClient]::new()
+$content = [System.Net.Http.StringContent]::new(
+  '{"document_id":"X"}',
+  [System.Text.Encoding]::UTF8,
+  "application/json"
+)
+$response = $client.PostAsync("http://localhost:$port/api/v1/ai/process", $content).GetAwaiter().GetResult()
+$status = [int]$response.StatusCode
+$body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json
+if ($status -ne 400 -or $body.error.code -ne "INVALID_REQUEST") {
+  throw "Expected 400 INVALID_REQUEST; received $status $($body | ConvertTo-Json -Compress)"
+}
+"HTTP $status $($body | ConvertTo-Json -Compress)"
+$response.Dispose()
+$content.Dispose()
+$client.Dispose()
+```
+
+Desde otro servicio de la red de Compose (por ejemplo, Backend), la URL base es
+`http://ai-core:8000`; desde ese contenedor, `/health` y
+`/api/v1/ai/process` se consultan en la red interna, sin usar el puerto del host.
+
+### Arquitectura de despliegue
+
+La VM de OCI usa procesadores Ampere ARM (`aarch64`). La imagen se construye
+directamente en la VM (`docker compose build ai-core`) o se publica como imagen
+multi-arquitectura (`linux/arm64`). Una imagen construida solo para x86 no
+funcionará en la VM.
