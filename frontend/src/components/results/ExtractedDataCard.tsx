@@ -117,14 +117,17 @@ function ExtractedDataCard({ data }: ExtractedDataCardProps) {
                     component="li"
                     variant="body2"
                     key={`${item}-${index}`}
-                    sx={{ mb: 0.5 }}
+                    sx={{ fontWeight: 600, mb: 0.5 }}
                   >
                     {item}
                   </Typography>
                 ))}
               </Box>
             ) : (
-              <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 600, overflowWrap: "anywhere" }}
+              >
                 {row.value}
               </Typography>
             )}

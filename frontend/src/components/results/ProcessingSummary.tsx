@@ -86,7 +86,7 @@ function ProcessingSummary({
               </Typography>
               <Typography
                 variant="body2"
-                sx={{ fontWeight: 500, textAlign: "right" }}
+                sx={{ fontWeight: 600, textAlign: "right" }}
               >
                 {documentTypeLabels[classification.document_type]}
               </Typography>
@@ -101,7 +101,10 @@ function ProcessingSummary({
                 <Typography variant="body2" color="text.secondary">
                   Especialidad
                 </Typography>
-                <Typography variant="body2" sx={{ textAlign: "right" }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 600, textAlign: "right" }}
+                >
                   {classification.specialty}
                 </Typography>
               </Stack>
@@ -132,18 +135,21 @@ function ProcessingSummary({
         {confidence && (
           <Stack
             spacing={2}
-            sx={{
+            sx={(theme) => ({
               p: 2,
               borderLeft: {
-                xs: 0,
-                md: classification ? 1 : 0,
+                xs: "none",
+                md: classification
+                  ? `1px solid ${theme.palette.divider}`
+                  : "none",
               },
               borderTop: {
-                xs: classification ? 1 : 0,
-                md: 0,
+                xs: classification
+                  ? `1px solid ${theme.palette.divider}`
+                  : "none",
+                md: "none",
               },
-              borderColor: "divider",
-            }}
+            })}
           >
             {confidenceMetrics.map((metric) => {
               const percentage = Math.round(metric.value * 100);

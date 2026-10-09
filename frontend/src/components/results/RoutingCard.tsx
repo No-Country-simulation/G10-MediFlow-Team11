@@ -98,7 +98,9 @@ function RoutingCard({ routing, storage }: RoutingCardProps) {
                 Justificación
               </Typography>
 
-              <Typography variant="body2">{routing.justification}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {routing.justification}
+              </Typography>
             </Box>
           </>
         )}
