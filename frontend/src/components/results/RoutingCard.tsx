@@ -7,14 +7,19 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import type {
   AuditReason,
   RoutingDecision,
   RoutingDestination,
+  Storage,
 } from "../../types/processing";
 
 interface RoutingCardProps {
   routing: RoutingDecision;
+  storage: Storage;
 }
 
 const destinationLabels: Record<RoutingDestination, string> = {
@@ -35,48 +40,70 @@ const auditReasonLabels: Record<AuditReason, string> = {
   AI_UNAVAILABLE: "Servicio de IA no disponible",
 };
 
-function RoutingCard({ routing }: RoutingCardProps) {
-  const requiresReview = routing.requires_human_review;
+function RoutingCard({ routing, storage }: RoutingCardProps) {
+  const storageLabels = {
+    PENDING: "Almacenamiento pendiente",
+    SUCCESS: "Guardado correctamente",
+    ERROR: "Error de almacenamiento",
+  } as const;
+
+  const storageColors = {
+    PENDING: "warning.main",
+    SUCCESS: "success.main",
+    ERROR: "error.main",
+  } as const;
 
   return (
     <Card variant="outlined">
       <Box sx={{ px: 2, py: 1.5 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Destino del documento
+          Enrutamiento
         </Typography>
       </Box>
 
       <Divider />
 
       <Stack spacing={2} sx={{ p: 2 }}>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          sx={{ alignItems: { xs: "flex-start", sm: "center" } }}
-          spacing={1}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            p: 2,
+            bgcolor: "action.hover",
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
         >
-          <Typography variant="body2" color="text.secondary">
-            Destino asignado:
-          </Typography>
+          <DescriptionOutlinedIcon color="primary" />
 
-          <Chip
-            label={destinationLabels[routing.primary_destination]}
-            size="small"
-            color={requiresReview ? "warning" : "primary"}
-            variant="outlined"
-          />
-        </Stack>
-
-        {routing.justification && (
           <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Justificación
+            <Typography variant="caption" color="text.secondary">
+              Destino principal
             </Typography>
 
-            <Typography variant="body2">{routing.justification}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {destinationLabels[routing.primary_destination]}
+            </Typography>
           </Box>
+        </Box>
+
+        {routing.justification && (
+          <>
+            <Divider />
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" gutterBottom>
+                Justificación
+              </Typography>
+
+              <Typography variant="body2">{routing.justification}</Typography>
+            </Box>
+          </>
         )}
 
-        {requiresReview && (
+        {routing.requires_human_review && (
           <Alert severity="warning" variant="outlined">
             Este documento requiere revisión humana.
           </Alert>
@@ -99,13 +126,28 @@ function RoutingCard({ routing }: RoutingCardProps) {
                   key={reason}
                   label={auditReasonLabels[reason]}
                   size="small"
-                  variant="outlined"
                   color="warning"
+                  variant="outlined"
                 />
               ))}
             </Stack>
           </Box>
         )}
+
+        <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
+          {storage.state === "SUCCESS" ? (
+            <CheckOutlinedIcon sx={{ color: storageColors[storage.state] }} />
+          ) : (
+            <InfoOutlinedIcon sx={{ color: storageColors[storage.state] }} />
+          )}
+
+          <Typography
+            variant="body2"
+            sx={{ color: storageColors[storage.state] }}
+          >
+            {storageLabels[storage.state]}
+          </Typography>
+        </Stack>
       </Stack>
     </Card>
   );

@@ -7,7 +7,7 @@ interface ExtractedDataCardProps {
 
 interface DataRow {
   label: string;
-  value: string;
+  value: string | string[];
 }
 
 function ExtractedDataCard({ data }: ExtractedDataCardProps) {
@@ -29,7 +29,7 @@ function ExtractedDataCard({ data }: ExtractedDataCardProps) {
 
   if (data.requesting_doctor?.name) {
     rows.push({
-      label: "Médico solicitante",
+      label: "Médico responsable",
       value: data.requesting_doctor.name,
     });
   }
@@ -59,13 +59,13 @@ function ExtractedDataCard({ data }: ExtractedDataCardProps) {
     const medications = data.medications
       .filter((medication) => medication.name)
       .map((medication) =>
-        [medication.name, medication.dosage].filter(Boolean).join(" — "),
+        [medication.name, medication.dosage].filter(Boolean).join(" "),
       );
 
     if (medications.length > 0) {
       rows.push({
         label: "Medicamentos",
-        value: medications.join("\n"),
+        value: medications,
       });
     }
   }
@@ -103,15 +103,31 @@ function ExtractedDataCard({ data }: ExtractedDataCardProps) {
               {row.label}
             </Typography>
 
-            <Typography
-              variant="body2"
-              sx={{
-                whiteSpace: "pre-line",
-                overflowWrap: "anywhere",
-              }}
-            >
-              {row.value}
-            </Typography>
+            {Array.isArray(row.value) ? (
+              <Box
+                component="ul"
+                sx={{
+                  m: 0,
+                  pl: 2,
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {row.value.map((item, index) => (
+                  <Typography
+                    component="li"
+                    variant="body2"
+                    key={`${item}-${index}`}
+                    sx={{ mb: 0.5 }}
+                  >
+                    {item}
+                  </Typography>
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                {row.value}
+              </Typography>
+            )}
           </Box>
         ))}
       </Stack>

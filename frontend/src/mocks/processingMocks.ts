@@ -6,7 +6,7 @@ export const successfulProcessingResponse = {
 
   classification: {
     document_type: "IMAGING_REPORT",
-    specialty: "Radiology / Pulmonology",
+    specialty: "Radiología / Neumología",
     priority_level: "URGENT",
   },
 
@@ -25,9 +25,22 @@ export const successfulProcessingResponse = {
       name: "Dr. Juan Gómez",
       license_number: "MP-12345",
     },
-    primary_diagnosis: "Possible pneumonia",
+    primary_diagnosis: "Posible neumonía",
     suggested_icd10: "J18.9",
-    medications: [],
+    medications: [
+      {
+        name: "Amoxicilina",
+        dosage: "875 mg",
+      },
+      {
+        name: "Paracetamol",
+        dosage: "500 mg",
+      },
+      {
+        name: "Azitromicina",
+        dosage: "250 mg",
+      },
+    ],
   },
 
   validation: {
@@ -40,13 +53,14 @@ export const successfulProcessingResponse = {
     primary_destination: "MEDICAL_EMERGENCY",
     requires_human_review: false,
     audit_reasons: [],
-    justification: "Critical clinical findings detected.",
+    justification: "Se han detectado hallazgos clínicos críticos.",
   },
 
   notification: {
     generated: true,
     type: "MEDICAL_EMERGENCY",
-    message: "Critical finding detected. Immediate medical evaluation is recommended.",
+    message:
+      "Se ha detectado un hallazgo crítico. Se recomienda una evaluación médica inmediata.",
   },
 
   storage: {
@@ -61,7 +75,7 @@ export const auditRequiredProcessingResponse = {
 
   classification: {
     document_type: "PRESCRIPTION",
-    specialty: "General Medicine",
+    specialty: "Medicina General",
     priority_level: "ROUTINE",
   },
 
@@ -92,17 +106,15 @@ export const auditRequiredProcessingResponse = {
       "primary_diagnosis",
     ],
     inconsistencies: [],
-    warnings: ["Low extraction confidence."],
+    warnings: ["Baja confianza en la extracción."],
   },
 
   routing_decision: {
     primary_destination: "HUMAN_REVIEW",
     requires_human_review: true,
-    audit_reasons: [
-      "LOW_CONFIDENCE",
-      "MISSING_CRITICAL_FIELDS",
-    ],
-    justification: "Critical fields are missing and extraction confidence is low.",
+    audit_reasons: ["LOW_CONFIDENCE", "MISSING_CRITICAL_FIELDS"],
+    justification:
+      "Faltan campos críticos y la confianza en la extracción es baja.",
   },
 
   notification: {

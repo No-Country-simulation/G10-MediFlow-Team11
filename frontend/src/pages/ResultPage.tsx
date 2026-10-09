@@ -20,8 +20,7 @@ import ProcessingSummary from "../components/results/ProcessingSummary";
 import ExtractedDataCard from "../components/results/ExtractedDataCard";
 import ValidationCard from "../components/results/ValidationCard";
 import RoutingCard from "../components/results/RoutingCard";
-import NotificationCard from "../components/results/NotificationCard";
-import StorageCard from "../components/results/StorageCard";
+import NotificationSnackbar from "../components/results/NotificationSnackbar";
 
 function ResultPage() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -95,22 +94,28 @@ function ResultPage() {
             alignItems: "start",
           }}
         >
-          {/* Panel de resultados */}
+          <NotificationSnackbar
+            key={result.document_id}
+            notification={result.notification}
+          />
+
           <Paper variant="outlined" sx={{ minWidth: 0 }}>
             <Stack spacing={2} sx={{ p: 2 }}>
               <Stack
                 direction="row"
-                sx={{
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
+                sx={{ justifyContent: "space-between" }}
+                spacing={2}
               >
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ alignSelf: "flex-start", fontWeight: 600 }}
+                >
                   Resultado
                 </Typography>
 
                 <Button
                   size="small"
+                  sx={{ alignSelf: "flex-end" }}
                   startIcon={<HistoryOutlinedIcon />}
                   onClick={() =>
                     navigate(
@@ -133,20 +138,32 @@ function ResultPage() {
                 spacing={2}
               >
                 <Stack
-                  direction={{ xs: "column", sm: "row" }}
-                  sx={{ alignItems: { xs: "flex-start", sm: "center" } }}
+                  direction="row"
                   spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    rowGap: 1,
+                    minWidth: 0,
+                  }}
                 >
                   <Typography variant="body2" color="text.secondary">
                     Documento
                   </Typography>
 
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 600,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
                     {result.document_id}
                   </Typography>
 
                   <Button
                     size="small"
+                    sx={{ alignSelf: "flex-end" }}
                     startIcon={<ContentCopyOutlinedIcon />}
                     onClick={() => {
                       void navigator.clipboard.writeText(result.document_id);
@@ -171,7 +188,10 @@ function ResultPage() {
               {result.validation && (
                 <ValidationCard validation={result.validation} />
               )}
-              <RoutingCard routing={result.routing_decision} />
+              <RoutingCard
+                routing={result.routing_decision}
+                storage={result.storage}
+              />
               {result.status === "NEEDS_AUDIT" && (
                 <Button
                   variant="contained"
@@ -185,10 +205,6 @@ function ResultPage() {
                   Continuar a auditoría
                 </Button>
               )}
-
-              <NotificationCard notification={result.notification} />
-
-              <StorageCard storage={result.storage} />
             </Stack>
           </Paper>
 

@@ -1,5 +1,4 @@
-import { Alert, Box, Card, Divider, Stack, Typography } from "@mui/material";
-import type { AlertColor } from "@mui/material";
+import { Box, Card, Divider, Stack, Typography } from "@mui/material";
 import type { Validation } from "../../types/processing";
 
 interface ValidationCardProps {
@@ -8,25 +7,39 @@ interface ValidationCardProps {
 
 interface ValidationSection {
   title: string;
-  severity: AlertColor;
+  color: string;
   items: string[];
+}
+
+const fieldLabels: Record<string, string> = {
+  "patient.name": "Nombre del paciente",
+  "patient.age": "Edad del paciente",
+  "requesting_doctor.name": "Nombre del médico responsable",
+  "requesting_doctor.license_number":
+    "Cédula profesional del médico responsable",
+  primary_diagnosis: "Diagnóstico principal",
+  suggested_icd10: "Código CIE-10 sugerido",
+};
+
+function formatMissingField(field: string): string {
+  return fieldLabels[field] ?? field;
 }
 
 function ValidationCard({ validation }: ValidationCardProps) {
   const sections: ValidationSection[] = [
     {
       title: "Campos faltantes",
-      severity: "warning",
-      items: validation.missing_fields,
+      color: "warning.main",
+      items: validation.missing_fields.map(formatMissingField),
     },
     {
       title: "Inconsistencias",
-      severity: "error",
+      color: "error.main",
       items: validation.inconsistencies,
     },
     {
       title: "Advertencias",
-      severity: "info",
+      color: "warning.main",
       items: validation.warnings,
     },
   ];
@@ -43,7 +56,7 @@ function ValidationCard({ validation }: ValidationCardProps) {
     <Card variant="outlined">
       <Box sx={{ px: 2, py: 1.5 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Validación del documento
+          Hallazgos de validación
         </Typography>
       </Box>
 
@@ -51,31 +64,53 @@ function ValidationCard({ validation }: ValidationCardProps) {
 
       <Stack spacing={2} sx={{ p: 2 }}>
         {visibleSections.map((section) => (
-          <Alert
-            key={section.title}
-            severity={section.severity}
-            variant="outlined"
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              {section.title}
-            </Typography>
+          <Stack key={section.title} spacing={1}>
+            <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
+              <Box
+                sx={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  bgcolor: section.color,
+                  flexShrink: 0,
+                }}
+              />
 
-            <Box
-              component="ul"
-              sx={{
-                mt: 1,
-                mb: 0,
-                pl: 2,
-                overflowWrap: "anywhere",
-              }}
-            >
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 500, color: section.color }}
+              >
+                {section.title}
+              </Typography>
+            </Stack>
+
+            <Stack spacing={0.75} sx={{ pl: 2 }}>
               {section.items.map((item, index) => (
-                <li key={`${item}-${index}`}>
-                  <Typography variant="body2">{item}</Typography>
-                </li>
+                <Stack
+                  key={`${item}-${index}`}
+                  direction="row"
+                  sx={{ alignItems: "flex-start" }}
+                  spacing={1}
+                >
+                  <Typography
+                    variant="body2"
+                    color="text.disabled"
+                    aria-hidden="true"
+                  >
+                    –
+                  </Typography>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ overflowWrap: "anywhere" }}
+                  >
+                    {item}
+                  </Typography>
+                </Stack>
               ))}
-            </Box>
-          </Alert>
+            </Stack>
+          </Stack>
         ))}
       </Stack>
     </Card>
