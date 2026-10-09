@@ -241,7 +241,7 @@ class DocumentQueryControllerTest {
 
     @Test
     void textContentReturnsOriginalJsonBytes() throws Exception {
-        DocumentRecord document = contentDocument(InputType.TEXT, "text/plain");
+        DocumentRecord document = contentDocument(InputType.TEXT, "application/json");
         byte[] original = "{\"document_id\":\"DOC-70\",\"document_text\":\"á\"}"
                 .getBytes(StandardCharsets.UTF_8);
         when(persistenceService.findDocument("DOC-70")).thenReturn(Optional.of(document));

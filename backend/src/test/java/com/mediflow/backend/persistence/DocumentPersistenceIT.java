@@ -22,6 +22,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
-//@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create")
 class DocumentPersistenceIT {
 
@@ -144,6 +144,44 @@ class DocumentPersistenceIT {
                         Integer.class,
                         "DOC-APPEND-0001"
                 )
+        );
+    }
+
+    @Test
+    void documentQueriesUseRealPostgresFilteringAndOrdering() {
+        Instant firstCreatedAt = Instant.parse("2026-09-15T18:00:00Z");
+        Instant laterCreatedAt = Instant.parse("2026-09-15T18:01:00Z");
+
+        DocumentRecord auditB = sampleDocument("DOC-QUERY-B");
+        auditB.setCreatedAt(firstCreatedAt);
+
+        DocumentRecord auditA = sampleDocument("DOC-QUERY-A");
+        auditA.setCreatedAt(firstCreatedAt);
+
+        DocumentRecord auditC = sampleDocument("DOC-QUERY-C");
+        auditC.setCreatedAt(laterCreatedAt);
+
+        DocumentRecord processed = sampleDocument("DOC-QUERY-PROCESSED");
+        processed.setStatus(DocumentStatus.PROCESSED);
+        processed.setCreatedAt(firstCreatedAt);
+
+        persistenceService.saveDocument(auditB);
+        persistenceService.saveDocument(auditA);
+        persistenceService.saveDocument(auditC);
+        persistenceService.saveDocument(processed);
+        documentRepository.flush();
+
+        assertTrue(persistenceService.findDocument("DOC-QUERY-A").isPresent());
+        assertTrue(persistenceService.findDocument("DOC-QUERY-MISSING").isEmpty());
+
+        List<String> queryDocumentIds = persistenceService.listAuditDocuments().stream()
+                .map(DocumentRecord::getId)
+                .filter(id -> id.startsWith("DOC-QUERY-"))
+                .toList();
+
+        assertEquals(
+                List.of("DOC-QUERY-A", "DOC-QUERY-B", "DOC-QUERY-C"),
+                queryDocumentIds
         );
     }
 
