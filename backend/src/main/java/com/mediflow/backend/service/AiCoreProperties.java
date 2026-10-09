@@ -10,7 +10,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AiCoreProperties {
     private String serviceUrl = "http://localhost:8000";
     private int requestTimeoutSeconds = 30;
-    private int connectTimeoutSeconds = 30;
     private int maxAttempts = 2;
 
     public String getProcessEndpoint() {

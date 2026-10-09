@@ -1,6 +1,7 @@
 package com.mediflow.backend.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mediflow.backend.dto.ProcessingRequest;
 import com.mediflow.backend.dto.response.AiErrorResponse;
@@ -19,6 +20,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.net.http.HttpClient;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
@@ -50,9 +52,8 @@ public class AiCoreClient {
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                AiProcessResponse response = sendRequest(request);
-                validateSuccessfulResponse(request.getDocumentId(), response);
-                return response;
+                String responseBody = sendRequest(request);
+                return validateSuccessfulResponse(request.getDocumentId(), responseBody);
             } catch (AiClientRetryableException retryableException) {
                 lastTechnicalFailure = retryableException.getAuditReason();
                 if (attempt >= maxAttempts) {
@@ -71,23 +72,27 @@ public class AiCoreClient {
         throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE);
     }
 
-    private AiProcessResponse sendRequest(ProcessingRequest request) {
+    private String sendRequest(ProcessingRequest request) {
         try {
             return restClient.post()
                     .body(request)
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, (httpRequest, response) -> {
-                        String body = response.getBody() == null ? "" : new String(response.getBody().readAllBytes());
+                        String body = response.getBody() == null ? "" : new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
                         throw new AiClientNonRetryableException(AuditReason.INVALID_AI_RESPONSE, response.getStatusCode(), body);
                     })
                     .onStatus(HttpStatusCode::is5xxServerError, (httpRequest, response) -> {
-                        String body = response.getBody() == null ? "" : new String(response.getBody().readAllBytes());
+                        String body = response.getBody() == null ? "" : new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
                         if (response.getStatusCode().value() == 502 && isAiOutputInvalid(body)) {
                             throw new AiClientRetryableException(AuditReason.INVALID_AI_RESPONSE, response.getStatusCode(), body);
                         }
                         throw new AiClientRetryableException(AuditReason.AI_UNAVAILABLE, response.getStatusCode(), body);
                     })
-                    .body(AiProcessResponse.class);
+                    .onStatus(status -> status.value() != 200, (httpRequest, response) -> {
+                        String body = response.getBody() == null ? "" : new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                        throw new AiClientNonRetryableException(AuditReason.INVALID_AI_RESPONSE, response.getStatusCode(), body);
+                    })
+                    .body(String.class);
         } catch (AiClientRetryableException ex) {
             throw ex;
         } catch (AiClientNonRetryableException ex) {
@@ -111,29 +116,163 @@ public class AiCoreClient {
         }
     }
 
-    private void validateSuccessfulResponse(String expectedDocumentId, AiProcessResponse response) {
-        if (response == null) {
-            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "AI Core returned a null body");
-        }
-        if (response.getDocumentId() == null || response.getDocumentId().isBlank()) {
-            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "document_id missing from AI response");
-        }
-        if (expectedDocumentId != null && !expectedDocumentId.equals(response.getDocumentId())) {
+    private AiProcessResponse validateSuccessfulResponse(String expectedDocumentId, String responseBody) {
+        AiProcessResponse parsedResponse = parseSuccessfulResponse(responseBody);
+        if (expectedDocumentId != null && !expectedDocumentId.equals(parsedResponse.getDocumentId())) {
             throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "document_id mismatch");
         }
-        if (response.getClassification() == null || response.getConfidence() == null || response.getExtractedData() == null
-                || response.getValidation() == null || response.getRoutingDecision() == null) {
-            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "AI response is structurally incomplete");
+        return parsedResponse;
+    }
+
+    private AiProcessResponse parseSuccessfulResponse(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "AI Core returned an empty body");
         }
-        if (response.getClassification().getDocumentType() == null || response.getClassification().getPriorityLevel() == null) {
-            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "classification is invalid");
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            if (!isValidResponseContract(root)) {
+                throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "AI response does not match the success contract");
+            }
+            return objectMapper.treeToValue(root, AiProcessResponse.class);
+        } catch (JsonProcessingException exception) {
+            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, exception);
         }
-        if (response.getConfidence().getClassification() == null || response.getConfidence().getExtraction() == null || response.getConfidence().getGlobal() == null) {
-            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "confidence is invalid");
+    }
+
+    private boolean isValidResponseContract(JsonNode root) {
+        if (root == null || !root.isObject() || !isNonEmptyText(root.get("document_id"))) {
+            return false;
         }
-        if (response.getRoutingDecision().getPrimaryDestination() == null || response.getRoutingDecision().getJustification() == null || response.getRoutingDecision().getJustification().isBlank()) {
-            throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "routing decision is invalid");
+
+        JsonNode classification = root.get("classification");
+        if (!isObject(classification)
+                || !isNonEmptyText(classification.get("document_type"))
+                || !isNonEmptyText(classification.get("priority_level"))
+                || !isOptionalText(classification.get("specialty"))) {
+            return false;
         }
+
+        JsonNode confidence = root.get("confidence");
+        if (!isObject(confidence)
+                || !isValidConfidence(confidence.get("classification"))
+                || !isValidConfidence(confidence.get("extraction"))
+                || !isValidConfidence(confidence.get("global"))) {
+            return false;
+        }
+
+        JsonNode extractedData = root.get("extracted_data");
+        if (!isObject(extractedData) || !isValidExtractedData(extractedData)) {
+            return false;
+        }
+
+        JsonNode validation = root.get("validation");
+        if (!isObject(validation)
+                || !isStringArray(validation.get("missing_fields"))
+                || !isStringArray(validation.get("inconsistencies"))
+                || !isStringArray(validation.get("warnings"))) {
+            return false;
+        }
+
+        JsonNode routingDecision = root.get("routing_decision");
+        if (!isObject(routingDecision)
+                || !isNonEmptyText(routingDecision.get("primary_destination"))
+                || !isStringArray(routingDecision.get("audit_reasons"))
+                || !isNonEmptyText(routingDecision.get("justification"))) {
+            return false;
+        }
+        for (JsonNode reason : routingDecision.get("audit_reasons")) {
+            try {
+                if (!objectMapper.treeToValue(reason, AuditReason.class).isSemantic()) {
+                    return false;
+                }
+            } catch (JsonProcessingException exception) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isValidExtractedData(JsonNode extractedData) {
+        if (!isOptionalObject(extractedData.get("patient"))
+                || !isOptionalObject(extractedData.get("requesting_doctor"))
+                || !isOptionalText(extractedData.get("primary_diagnosis"))
+                || !isOptionalText(extractedData.get("suggested_icd10"))
+                || !isOptionalObjectArray(extractedData.get("medications"), "name", "dosage")
+                || !isOptionalObjectArray(extractedData.get("requested_studies"), "name")) {
+            return false;
+        }
+
+        JsonNode patient = extractedData.get("patient");
+        if (isObject(patient)
+                && (!isOptionalText(patient.get("name"))
+                || !isOptionalNonNegativeInteger(patient.get("age")))) {
+            return false;
+        }
+
+        JsonNode doctor = extractedData.get("requesting_doctor");
+        return !isObject(doctor)
+                || (isOptionalText(doctor.get("name"))
+                && isOptionalText(doctor.get("license_number")));
+    }
+
+    private boolean isOptionalObjectArray(JsonNode value, String... textFields) {
+        if (value == null || value.isNull()) {
+            return true;
+        }
+        if (!value.isArray()) {
+            return false;
+        }
+        for (JsonNode item : value) {
+            if (!isObject(item)) {
+                return false;
+            }
+            for (String field : textFields) {
+                if (!isOptionalText(item.get(field))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean isStringArray(JsonNode value) {
+        if (value == null || !value.isArray()) {
+            return false;
+        }
+        for (JsonNode item : value) {
+            if (!item.isTextual()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isValidConfidence(JsonNode value) {
+        return value != null && value.isNumber()
+                && Double.isFinite(value.doubleValue())
+                && value.doubleValue() >= 0.0
+                && value.doubleValue() <= 1.0;
+    }
+
+    private boolean isOptionalNonNegativeInteger(JsonNode value) {
+        return value == null || value.isNull()
+                || (value.isIntegralNumber() && value.canConvertToInt() && value.intValue() >= 0);
+    }
+
+    private boolean isOptionalText(JsonNode value) {
+        return value == null || value.isNull() || value.isTextual();
+    }
+
+    private boolean isNonEmptyText(JsonNode value) {
+        return value != null && value.isTextual() && !value.textValue().isBlank();
+    }
+
+    private boolean isOptionalObject(JsonNode value) {
+        return value == null || value.isNull() || value.isObject();
+    }
+
+    private boolean isObject(JsonNode value) {
+        return value != null && value.isObject();
     }
 
     private boolean isAiOutputInvalid(String body) {
@@ -162,10 +301,10 @@ public class AiCoreClient {
 
     private JdkClientHttpRequestFactory requestFactory() {
         HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(properties.getConnectTimeoutSeconds()))
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
-        factory.setReadTimeout(Duration.ofSeconds(properties.getRequestTimeoutSeconds()));
+        factory.setReadTimeout(Duration.ofSeconds(Math.max(1, properties.getRequestTimeoutSeconds())));
         return factory;
     }
 
