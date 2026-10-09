@@ -31,7 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+//@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
+@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create")
 class DocumentPersistenceIT {
 
     @SuppressWarnings("resource")
