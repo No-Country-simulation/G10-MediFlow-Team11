@@ -21,6 +21,22 @@ import ExtractedDataCard from "../components/results/ExtractedDataCard";
 import ValidationCard from "../components/results/ValidationCard";
 import RoutingCard from "../components/results/RoutingCard";
 import NotificationSnackbar from "../components/results/NotificationSnackbar";
+import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
+import type { DocumentViewerState } from "../components/DocumentViewer/types";
+import { getDocumentContent } from "../services/documentService";
+
+function getDocumentExtension(mimeType: string): string {
+  switch (mimeType) {
+    case "application/pdf":
+      return ".pdf";
+    case "image/png":
+      return ".png";
+    case "image/jpeg":
+      return ".jpg";
+    default:
+      return "";
+  }
+}
 
 function ResultPage() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -28,6 +44,10 @@ function ResultPage() {
   const [result, setResult] = useState<ProcessingResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewerState, setViewerState] = useState<DocumentViewerState>({
+    status: "loading",
+    documentKey: documentId ?? "",
+  });
 
   const navigate = useNavigate();
 
@@ -64,6 +84,59 @@ function ResultPage() {
 
     return () => {
       active = false;
+    };
+  }, [documentId]);
+
+  useEffect(() => {
+    if (!documentId) {
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+
+    async function loadDocument() {
+      try {
+        const content = await getDocumentContent(
+          documentId!,
+          controller.signal,
+        );
+
+        if (!active) return;
+
+        if (!content) {
+          setViewerState({
+            status: "unavailable",
+            documentKey: documentId!,
+          });
+          return;
+        }
+
+        setViewerState({
+          status: "ready",
+          documentKey: documentId!,
+          blob: content.blob,
+          mimeType: content.mimeType,
+        });
+      } catch (error: unknown) {
+        if (!active || controller.signal.aborted) return;
+
+        setViewerState({
+          status: "error",
+          documentKey: documentId!,
+          message:
+            error instanceof Error
+              ? error.message
+              : "No fue posible cargar el documento.",
+        });
+      }
+    }
+
+    void loadDocument();
+
+    return () => {
+      active = false;
+      controller.abort();
     };
   }, [documentId]);
 
@@ -211,37 +284,58 @@ function ResultPage() {
           {/* Panel del documento */}
           <Paper variant="outlined" sx={{ minWidth: 0 }}>
             <Stack spacing={2} sx={{ p: 2 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                Documento
-              </Typography>
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Documento
+                </Typography>
+
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    fontWeight: 500,
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {result.document_id}
+                  {viewerState.documentKey === result.document_id &&
+                  viewerState.status === "ready"
+                    ? getDocumentExtension(viewerState.mimeType)
+                    : ""}
+                </Typography>
+              </Stack>
 
               <Divider />
 
               <Box
                 sx={{
-                  minHeight: { xs: 320, lg: 600 },
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  bgcolor: "action.hover",
-                  borderRadius: 1,
-                  p: 3,
+                  mt: 2,
+                  width: "100%",
+                  maxWidth: "100%",
+                  height: 480,
+                  minWidth: 0,
+                  overflow: "hidden",
                 }}
               >
-                <Stack spacing={1} sx={{ alignItems: "center" }}>
-                  <Typography color="text.secondary">
-                    Vista previa no disponible
-                  </Typography>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ textAlign: "center" }}
-                  >
-                    El visor del documento se integrará cuando esté disponible
-                    el servicio correspondiente.
-                  </Typography>
-                </Stack>
+                <DocumentViewer
+                  ariaLabel={`Vista previa del documento ${result.document_id}`}
+                  document={
+                    viewerState.documentKey === result.document_id
+                      ? viewerState
+                      : {
+                          status: "loading",
+                          documentKey: result.document_id,
+                        }
+                  }
+                />
               </Box>
             </Stack>
           </Paper>

@@ -19,6 +19,26 @@ const mockResults: ProcessingResponse[] = [
     document_id: "DOC-2026-0004",
     status: "REJECTED",
   },
+  {
+    ...successfulProcessingResponse,
+    document_id: "DOC-2026-0005",
+    classification: null,
+    confidence: null,
+    extracted_data: null,
+    validation: {
+      missing_fields: [],
+      inconsistencies: [],
+      warnings: [],
+    },
+    routing_decision: {
+      ...successfulProcessingResponse.routing_decision,
+      justification: "",
+      audit_reasons: [],
+    },
+    notification: {
+      generated: false,
+    },
+  },
 ];
 
 export async function getDocumentResult(
