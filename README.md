@@ -175,11 +175,17 @@ Variables de referencia para la integración con OCI e IA Core:
 ```env
 OCI_BUCKET_NAME=mediflow-documentos-clinicos
 OCI_NAMESPACE=<namespace>
-AI_SERVICE_URL=<url-del-servicio-python>
+MEDIFLOW_AI_SERVICE_URL=http://localhost:8000
 AUDIT_CONFIDENCE_THRESHOLD=0.85
 GEMINI_API_KEY=<api-key>
 GEMINI_MODEL=<model-id>
 ```
+
+Compose usa el `.env` para interpolar `compose.yaml`; solo las variables declaradas en `environment` se entregan a cada contenedor. El Backend contenerizado recibe `MEDIFLOW_AI_SERVICE_URL=http://ai-core:8000`, `DB_HOST=postgres` y `DB_PORT=5432`, independientemente de los valores locales de la plantilla. Spring Boot ejecutado fuera de Docker requiere las variables en el entorno de su proceso.
+
+### Despliegue en OCI Compute (Issue #59)
+
+La [guía de despliegue](./docs/backend-cloud/oci-compute-deployment.md) reutiliza el único `compose.yaml` sobre `MediFlow_Core_VM`: configuración protegida, ARM64, Instance Principals, HTTPS y verificaciones. La preparación del repositorio no acredita ejecución en OCI; el checklist de la guía se completa con evidencia del despliegue real.
 
 ## Los 3 escenarios obligatorios de demostración
 

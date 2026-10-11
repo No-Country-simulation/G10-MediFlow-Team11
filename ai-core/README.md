@@ -154,10 +154,10 @@ La respuesta esperada es `status: ok`.
 Dentro de la red de Compose, el Backend debe usar:
 
 ```text
-AI_SERVICE_URL=http://ai-core:8000
+MEDIFLOW_AI_SERVICE_URL=http://ai-core:8000
 ```
 
-(referencia: #30)
+Esta propiedad del Backend ya está fijada en `compose.yaml` (referencia: #30). La URL `http://localhost:8000` de la plantilla raíz aplica al Backend ejecutado fuera de Docker. Para desplegar los servicios en la VM, sigue la [guía de OCI Compute](../docs/backend-cloud/oci-compute-deployment.md).
 
 ### Notas importantes
 

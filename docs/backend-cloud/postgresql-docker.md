@@ -93,7 +93,7 @@ En ese caso, cambia **únicamente tu `.env`** para usar otro puerto del host, po
 DB_PORT=5433
 ```
 
-PostgreSQL sigue utilizando `5432` **dentro del contenedor**; solo cambia el puerto por el que se accede desde tu equipo. Como el Backend lee la misma variable `DB_PORT`, se conecta automáticamente al puerto correcto. No hace falta modificar `compose.yaml` ni `.env.example`.
+PostgreSQL sigue utilizando `5432` **dentro del contenedor**; solo cambia el puerto por el que se accede desde tu equipo. El Backend ejecutado fuera de Docker lee `DB_PORT` para conectarse al puerto publicado. El Backend de Compose siempre utiliza `postgres:5432`, independientemente del puerto del host. No hace falta modificar `compose.yaml` ni `.env.example`.
 
 ---
 
@@ -194,7 +194,7 @@ El Backend (Spring Boot) lee la conexión a PostgreSQL desde estas variables de 
 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` y `SERVER_PORT`.
 
 > [!IMPORTANT]
-> Docker Compose carga automáticamente el `.env` de la raíz, pero **Spring Boot no carga archivos `.env` automáticamente**. Las variables tienen que estar presentes en el entorno del proceso que ejecuta Maven.
+> Docker Compose usa el `.env` de la raíz para interpolación y solo entrega a cada contenedor las variables declaradas en `environment`. **Spring Boot no carga archivos `.env` automáticamente**: para ejecutar Maven fuera de Docker, las variables tienen que estar presentes en el entorno de ese proceso.
 
 Una forma de hacerlo es cargar el `.env` en la sesión actual de la terminal antes de ejecutar Maven. Las variables solo quedan disponibles en esa terminal.
 
@@ -235,6 +235,7 @@ Si cambiaste `SERVER_PORT`, usa ese puerto en la URL.
 - **Las credenciales no se versionan.** `DB_PASSWORD` solo existe en el `.env` de cada entorno local, que está ignorado por Git. `compose.yaml` y `.env.example` no contienen contraseñas.
 - **PostgreSQL se publica en el host únicamente mediante `127.0.0.1`.** Solo es accesible desde el propio equipo (o desde la propia instancia, en un servidor), no desde otras máquinas de la red.
 - **En OCI, PostgreSQL no debe exponerse públicamente mediante reglas de ingreso al puerto `5432`.** La configuración de red (Security Lists / NSG) debe mantener el servicio restringido a los componentes internos que lo consumen.
+- Para desplegar el servicio existente junto a Backend e IA Core sin duplicar su definición, sigue la [guía de OCI Compute (#59)](./oci-compute-deployment.md).
 
 ---
 
