@@ -1,6 +1,6 @@
 package com.mediflow.backend.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mediflow.backend.config.JacksonConfig;
 import com.mediflow.backend.dto.ProcessingRequest;
 import com.mediflow.backend.dto.response.AiProcessResponse;
 import com.mediflow.backend.dto.response.RoutingDecisionAi;
@@ -288,7 +288,7 @@ class AiCoreClientTest {
             try {
                 AiCoreProperties properties = properties();
                 properties.setServiceUrl("http://127.0.0.1:" + server.getAddress().getPort());
-                AiCoreClient client = new AiCoreClient(properties, RestClient.builder(), new ObjectMapper());
+                AiCoreClient client = new AiCoreClient(properties, RestClient.builder(), JacksonConfig.createJsonMapper());
 
                 AiCoreClient.AiClientFatalException exception = assertThrows(
                         AiCoreClient.AiClientFatalException.class,
@@ -301,6 +301,50 @@ class AiCoreClientTest {
                 server.stop(0);
             }
         }
+    }
+
+    @Test
+    void processRejectsMalformedSuccessJsonWithoutRetrying() {
+        ClientFixture fixture = fixture(properties());
+        doReturn("{not-json").when(fixture.responseSpec()).body(String.class);
+
+        AiCoreClient.AiClientFatalException exception = assertThrows(
+                AiCoreClient.AiClientFatalException.class,
+                () -> fixture.client().process(validRequest("DOC-42"))
+        );
+
+        assertEquals(AuditReason.INVALID_AI_RESPONSE, exception.getAuditReason());
+        verify(fixture.restClient(), times(1)).post();
+    }
+
+    @Test
+    void processRejectsUnknownResponseEnumWithoutRetrying() {
+        ClientFixture fixture = fixture(properties());
+        String body = json(validResponse("DOC-42")).replace("IMAGING_REPORT", "UNKNOWN_DOCUMENT_TYPE");
+        doReturn(body).when(fixture.responseSpec()).body(String.class);
+
+        AiCoreClient.AiClientFatalException exception = assertThrows(
+                AiCoreClient.AiClientFatalException.class,
+                () -> fixture.client().process(validRequest("DOC-42"))
+        );
+
+        assertEquals(AuditReason.INVALID_AI_RESPONSE, exception.getAuditReason());
+        verify(fixture.restClient(), times(1)).post();
+    }
+
+    @Test
+    void processRetriesMalformedServerErrorJsonAndReportsAiUnavailable() {
+        ClientFixture fixture = fixture(properties());
+        doThrow(serverError(HttpStatus.BAD_GATEWAY, "{not-json"))
+                .when(fixture.responseSpec()).body(String.class);
+
+        AiCoreClient.AiClientFatalException exception = assertThrows(
+                AiCoreClient.AiClientFatalException.class,
+                () -> fixture.client().process(validRequest("DOC-42"))
+        );
+
+        assertEquals(AuditReason.AI_UNAVAILABLE, exception.getAuditReason());
+        verify(fixture.restClient(), times(2)).post();
     }
 
     private static ClientFixture fixture(AiCoreProperties properties) {
@@ -319,7 +363,7 @@ class AiCoreClientTest {
         doReturn(responseSpec).when(requestBodySpec).retrieve();
         doReturn(responseSpec).when(responseSpec).onStatus(any(), any());
 
-        return new ClientFixture(new AiCoreClient(properties, builder, new ObjectMapper()),
+        return new ClientFixture(new AiCoreClient(properties, builder, JacksonConfig.createJsonMapper()),
                 builder, restClient, requestBodySpec, responseSpec);
     }
 
@@ -343,7 +387,7 @@ class AiCoreClientTest {
 
     private static String json(Object value) {
         try {
-            return new ObjectMapper().writeValueAsString(value);
+            return JacksonConfig.createJsonMapper().writeValueAsString(value);
         } catch (Exception exception) {
             throw new AssertionError("Could not serialize test fixture", exception);
         }
