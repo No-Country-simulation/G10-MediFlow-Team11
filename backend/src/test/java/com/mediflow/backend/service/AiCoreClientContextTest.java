@@ -3,6 +3,7 @@ package com.mediflow.backend.service;
 import com.mediflow.backend.config.JacksonConfig;
 import com.mediflow.backend.dto.ProcessingRequest;
 import com.mediflow.backend.dto.response.AiProcessResponse;
+import com.mediflow.backend.enums.AuditReason;
 import com.mediflow.backend.enums.DocumentType;
 import com.mediflow.backend.enums.InputType;
 import com.mediflow.backend.enums.PrimaryDestination;
@@ -29,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 class AiCoreClientContextTest {
 
@@ -108,7 +110,50 @@ class AiCoreClientContextTest {
         });
     }
 
+    @Test
+    void additionalNestedFieldsSurviveHttpDeserializationAndReserialization() throws IOException {
+        withHttpExchange(InputType.TEXT, RESPONSE_WITH_NESTED_EXTRA_FIELDS, (request, response) -> {
+            var mapper = JacksonConfig.createJsonMapper();
+            var expected = mapper.readTree(RESPONSE_WITH_NESTED_EXTRA_FIELDS).get("extracted_data");
+            var actual = mapper.readTree(mapper.writeValueAsString(response)).get("extracted_data");
+
+            assertAll(
+                    () -> assertThat(actual.get("patient"))
+                            .as("El parseo funcionó, pero Patient perdió o alteró campos")
+                            .isEqualTo(expected.get("patient")),
+                    () -> assertThat(actual.get("requesting_doctor"))
+                            .as("El parseo funcionó, pero RequestingDoctor perdió o alteró campos")
+                            .isEqualTo(expected.get("requesting_doctor")),
+                    () -> assertThat(actual.get("medications").get(0))
+                            .as("El parseo funcionó, pero Medication perdió o alteró campos")
+                            .isEqualTo(expected.get("medications").get(0))
+            );
+        });
+    }
+
+    @Test
+    void missingCriticalFieldsSurvivesHttpDeserializationAndReserialization() throws IOException {
+        withHttpExchange(InputType.TEXT, RESPONSE_WITH_MISSING_CRITICAL_FIELDS, (request, response) -> {
+            assertThat(response.getRoutingDecision().getAuditReasons())
+                    .containsExactly(AuditReason.MISSING_CRITICAL_FIELDS);
+            assertThat(response.getValidation().getMissingFields()).containsExactly("patient.name");
+            assertThat(response.getExtractedData().getPatient().getName()).isNull();
+
+            var mapper = JacksonConfig.createJsonMapper();
+            var expected = mapper.readTree(RESPONSE_WITH_MISSING_CRITICAL_FIELDS);
+            var actual = mapper.readTree(mapper.writeValueAsString(response));
+            assertThat(actual.get("routing_decision").get("audit_reasons"))
+                    .isEqualTo(expected.get("routing_decision").get("audit_reasons"));
+            assertThat(actual.get("validation").get("missing_fields"))
+                    .isEqualTo(expected.get("validation").get("missing_fields"));
+        });
+    }
+
     private void withHttpExchange(InputType inputType, HttpAssertions assertions) throws IOException {
+        withHttpExchange(inputType, VALID_AI_RESPONSE, assertions);
+    }
+
+    private void withHttpExchange(InputType inputType, String responseBody, HttpAssertions assertions) throws IOException {
         var captured = new AtomicReference<CapturedRequest>();
         var requestCount = new AtomicInteger();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -118,7 +163,7 @@ class AiCoreClientContextTest {
                 captured.set(new CapturedRequest(exchange.getRequestMethod(), exchange.getRequestURI().getPath(),
                         exchange.getRequestHeaders().getFirst("Content-Type"),
                         new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
-                byte[] body = VALID_AI_RESPONSE.getBytes(StandardCharsets.UTF_8);
+                byte[] body = responseBody.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, body.length);
                 exchange.getResponseBody().write(body);
@@ -191,6 +236,46 @@ class AiCoreClientContextTest {
               "routing_decision": {
                 "primary_destination": "MEDICAL_RECORD", "audit_reasons": [],
                 "justification": "Resultado sintético de rutina."
+              }
+            }
+            """;
+
+    private static final String RESPONSE_WITH_NESTED_EXTRA_FIELDS = """
+            {
+              "document_id": "HTTP-CONTRACT-59",
+              "classification": {"document_type": "IMAGING_REPORT", "specialty": "Radiología", "priority_level": "ROUTINE"},
+              "confidence": {"classification": 0.99, "extraction": 0.94, "global": 0.96},
+              "extracted_data": {
+                "patient": {
+                  "name": "Paciente sintético", "age": 52,
+                  "synthetic_metadata": {"verified": true, "codes": ["P-59"]}, "synthetic_optional": null
+                },
+                "requesting_doctor": {
+                  "name": "Profesional sintético", "license_number": "TEST-59",
+                  "synthetic_roles": ["reviewer", "requester"], "synthetic_year": 2026
+                },
+                "medications": [{
+                  "name": "Medicamento sintético", "dosage": "Dosis sintética",
+                  "synthetic_schedule": {"hours": [8, 20]}, "synthetic_active": false
+                }]
+              },
+              "validation": {"missing_fields": [], "inconsistencies": [], "warnings": []},
+              "routing_decision": {
+                "primary_destination": "MEDICAL_RECORD", "audit_reasons": [], "justification": "Resultado sintético de rutina."
+              }
+            }
+            """;
+
+    private static final String RESPONSE_WITH_MISSING_CRITICAL_FIELDS = """
+            {
+              "document_id": "HTTP-CONTRACT-59",
+              "classification": {"document_type": "IMAGING_REPORT", "specialty": "Radiología", "priority_level": "ROUTINE"},
+              "confidence": {"classification": 0.99, "extraction": 0.94, "global": 0.96},
+              "extracted_data": {"patient": {"name": null, "age": 52}},
+              "validation": {"missing_fields": ["patient.name"], "inconsistencies": [], "warnings": []},
+              "routing_decision": {
+                "primary_destination": "HUMAN_REVIEW", "audit_reasons": ["MISSING_CRITICAL_FIELDS"],
+                "justification": "Falta el nombre del paciente sintético."
               }
             }
             """;
