@@ -1,12 +1,4 @@
-import {
-  Alert,
-  Box,
-  Card,
-  Chip,
-  Divider,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Card, Chip, Divider, Stack, Typography } from "@mui/material";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -107,13 +99,7 @@ function RoutingCard({ status, routing, storage }: RoutingCardProps) {
           </>
         )}
 
-        {status === "NEEDS_AUDIT" && routing.requires_human_review && (
-          <Alert severity="warning" variant="outlined">
-            Este documento requiere revisión humana.
-          </Alert>
-        )}
-
-        {routing.audit_reasons.length > 0 && (
+        {status !== "NEEDS_AUDIT" && routing.audit_reasons.length > 0 && (
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
               {status === "APPROVED" || status === "REJECTED"

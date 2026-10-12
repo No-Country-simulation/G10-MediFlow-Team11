@@ -17,6 +17,7 @@ import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
 import ResultStatus from "../components/results/ResultStatus";
 import ProcessingSummary from "../components/results/ProcessingSummary";
+import ReviewReasonsCard from "../components/results/ReviewReasonsCard";
 import ExtractedDataCard from "../components/results/ExtractedDataCard";
 import ValidationCard from "../components/results/ValidationCard";
 import RoutingCard from "../components/results/RoutingCard";
@@ -276,6 +277,13 @@ function ResultPage() {
               </Stack>
 
               <Divider />
+
+              {result.status === "NEEDS_AUDIT" &&
+                result.routing_decision.audit_reasons.length > 0 && (
+                  <ReviewReasonsCard
+                    reasons={result.routing_decision.audit_reasons}
+                  />
+                )}
 
               <ProcessingSummary
                 classification={result.classification}

@@ -13,7 +13,7 @@ const statusConfig: Record<
   RECEIVED: { label: "Recibido", color: "default" },
   PROCESSING: { label: "Procesando", color: "info" },
   PROCESSED: { label: "Procesado", color: "success" },
-  NEEDS_AUDIT: { label: "Requiere auditoría", color: "warning" },
+  NEEDS_AUDIT: { label: "Requiere revisión", color: "warning" },
   APPROVED: { label: "Aprobado", color: "success" },
   REJECTED: { label: "Rechazado", color: "error" },
   FAILED: { label: "Fallido", color: "error" },
