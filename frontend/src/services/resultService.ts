@@ -1,26 +1,20 @@
 import { env } from "../config/env";
 import {
-  auditRequiredProcessingResponse,
-  successfulProcessingResponse,
-} from "../mocks/processingMocks";
+  approvedResultMock,
+  needsAuditResultMock,
+  processedResultMock,
+  rejectedResultMock,
+} from "../mocks/resultMocks";
 import type { ProcessingResponse } from "../types/processing";
 import { ApiError } from "./processingService";
 
 const mockResults: ProcessingResponse[] = [
-  successfulProcessingResponse,
-  auditRequiredProcessingResponse,
+  processedResultMock,
+  needsAuditResultMock,
+  approvedResultMock,
+  rejectedResultMock,
   {
-    ...auditRequiredProcessingResponse,
-    document_id: "DOC-2026-0003",
-    status: "APPROVED",
-  },
-  {
-    ...auditRequiredProcessingResponse,
-    document_id: "DOC-2026-0004",
-    status: "REJECTED",
-  },
-  {
-    ...successfulProcessingResponse,
+    ...processedResultMock,
     document_id: "DOC-2026-0005",
     classification: null,
     confidence: null,
@@ -31,7 +25,7 @@ const mockResults: ProcessingResponse[] = [
       warnings: [],
     },
     routing_decision: {
-      ...successfulProcessingResponse.routing_decision,
+      ...processedResultMock.routing_decision,
       justification: "",
       audit_reasons: [],
     },

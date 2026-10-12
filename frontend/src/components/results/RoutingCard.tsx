@@ -12,12 +12,14 @@ import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import type {
   AuditReason,
+  DocumentStatus,
   RoutingDecision,
   RoutingDestination,
   Storage,
 } from "../../types/processing";
 
 interface RoutingCardProps {
+  status: DocumentStatus;
   routing: RoutingDecision;
   storage: Storage;
 }
@@ -40,7 +42,7 @@ const auditReasonLabels: Record<AuditReason, string> = {
   AI_UNAVAILABLE: "Servicio de IA no disponible",
 };
 
-function RoutingCard({ routing, storage }: RoutingCardProps) {
+function RoutingCard({ status, routing, storage }: RoutingCardProps) {
   const storageLabels = {
     PENDING: "Almacenamiento pendiente",
     SUCCESS: "Guardado correctamente",
@@ -68,8 +70,8 @@ function RoutingCard({ routing, storage }: RoutingCardProps) {
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 2,
-            p: 2,
+            gap: 1.5,
+            p: 1.5,
             bgcolor: "action.hover",
             border: 1,
             borderColor: "divider",
@@ -105,7 +107,7 @@ function RoutingCard({ routing, storage }: RoutingCardProps) {
           </>
         )}
 
-        {routing.requires_human_review && (
+        {status === "NEEDS_AUDIT" && routing.requires_human_review && (
           <Alert severity="warning" variant="outlined">
             Este documento requiere revisión humana.
           </Alert>
@@ -114,7 +116,9 @@ function RoutingCard({ routing, storage }: RoutingCardProps) {
         {routing.audit_reasons.length > 0 && (
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-              Motivos de auditoría
+              {status === "APPROVED" || status === "REJECTED"
+                ? "Motivos de auditoría registrados"
+                : "Motivos de auditoría"}
             </Typography>
 
             <Stack

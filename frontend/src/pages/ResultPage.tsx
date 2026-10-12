@@ -144,9 +144,9 @@ function ResultPage() {
     <>
       <PageHeader
         title="Resultado del procesamiento"
-        description="Consulta el estado y la información obtenida del documento."
+        description="Revise la clasificación, los datos extraídos y el destino asignado al documento."
       />
-
+      <Divider sx={{ mb: 0.5 }} />
       {loading ? (
         <CircularProgress />
       ) : error ? (
@@ -165,6 +165,8 @@ function ResultPage() {
             },
             gap: 2,
             alignItems: "start",
+            height: { xs: "auto", lg: "calc(100dvh - 200px)" },
+            minHeight: { lg: 450 },
           }}
         >
           <NotificationSnackbar
@@ -172,12 +174,36 @@ function ResultPage() {
             notification={result.notification}
           />
 
-          <Paper variant="outlined" sx={{ minWidth: 0 }}>
-            <Stack spacing={2} sx={{ p: 2 }}>
+          <Paper
+            variant="outlined"
+            sx={{
+              minWidth: 0,
+              minHeight: 0,
+              height: { xs: "auto", lg: "100%" },
+              overflowY: { xs: "visible", lg: "auto" },
+              overscrollBehaviorY: "auto",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#C8CDD3 transparent",
+              border: 0,
+              "&::-webkit-scrollbar": {
+                width: "4px",
+              },
+
+              "&::-webkit-scrollbar-track": {
+                backgroundColor: "transparent",
+              },
+
+              "&::-webkit-scrollbar-thumb": {
+                backgroundColor: "#C8CDD3",
+                borderRadius: "8px",
+              },
+            }}
+          >
+            <Stack spacing={1.75} sx={{ p: 2 }}>
               <Stack
                 direction="row"
                 sx={{ justifyContent: "space-between" }}
-                spacing={2}
+                spacing={1}
               >
                 <Typography
                   variant="subtitle1"
@@ -262,6 +288,7 @@ function ResultPage() {
                 <ValidationCard validation={result.validation} />
               )}
               <RoutingCard
+                status={result.status}
                 routing={result.routing_decision}
                 storage={result.storage}
               />
@@ -281,8 +308,15 @@ function ResultPage() {
             </Stack>
           </Paper>
 
-          {/* Panel del documento */}
-          <Paper variant="outlined" sx={{ minWidth: 0 }}>
+          <Paper
+            variant="outlined"
+            sx={{
+              minWidth: 0,
+              minHeight: 0,
+              height: { xs: "auto", lg: "100%" },
+              border: 0,
+            }}
+          >
             <Stack spacing={2} sx={{ p: 2 }}>
               <Stack
                 direction="row"
@@ -320,7 +354,7 @@ function ResultPage() {
                   mt: 2,
                   width: "100%",
                   maxWidth: "100%",
-                  height: 480,
+                  height: { xs: 480, lg: "calc(100dvh - 320px)" },
                   minWidth: 0,
                   overflow: "hidden",
                 }}

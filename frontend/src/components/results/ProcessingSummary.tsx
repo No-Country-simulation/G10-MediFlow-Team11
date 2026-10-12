@@ -1,12 +1,4 @@
-import {
-  Box,
-  Card,
-  Chip,
-  Divider,
-  LinearProgress,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Card, Chip, Divider, Stack, Typography } from "@mui/material";
 import type {
   Confidence,
   DocumentClassification,
@@ -70,12 +62,15 @@ function ProcessingSummary({
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            md: classification && confidence ? "1.15fr 0.85fr" : "1fr",
+            sm:
+              classification && confidence
+                ? "minmax(0, 3fr) minmax(0, 2fr)"
+                : "1fr",
           },
         }}
       >
         {classification && (
-          <Stack spacing={2} sx={{ p: 2 }}>
+          <Stack spacing={1.5} sx={{ p: 2 }}>
             <Stack
               direction="row"
               sx={{ justifyContent: "space-between" }}
@@ -134,12 +129,12 @@ function ProcessingSummary({
 
         {confidence && (
           <Stack
-            spacing={2}
+            spacing={1.5}
             sx={(theme) => ({
               p: 2,
               borderLeft: {
                 xs: "none",
-                md: classification
+                sm: classification
                   ? `1px solid ${theme.palette.divider}`
                   : "none",
               },
@@ -147,7 +142,7 @@ function ProcessingSummary({
                 xs: classification
                   ? `1px solid ${theme.palette.divider}`
                   : "none",
-                md: "none",
+                sm: "none",
               },
             })}
           >
@@ -155,7 +150,7 @@ function ProcessingSummary({
               const percentage = Math.round(metric.value * 100);
 
               return (
-                <Stack key={metric.label} spacing={0.75}>
+                <Stack key={metric.label} spacing={0.5}>
                   <Stack
                     direction="row"
                     sx={{
@@ -168,16 +163,51 @@ function ProcessingSummary({
                       {metric.label}
                     </Typography>
 
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography
+                      variant={
+                        metric.label === "Confianza global" ? "h5" : "body2"
+                      }
+                      sx={{
+                        fontWeight:
+                          metric.label === "Confianza global" ? 700 : 600,
+                        lineHeight: 1.2,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
                       {percentage}%
                     </Typography>
                   </Stack>
 
-                  <LinearProgress
-                    variant="determinate"
-                    value={Math.max(0, Math.min(100, percentage))}
-                    sx={{ height: 5, borderRadius: 1 }}
-                  />
+                  <Box
+                    sx={{
+                      position: "relative",
+                      height: 14,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: "100%",
+                        height: "1px",
+                        bgcolor: "divider",
+                      }}
+                    />
+
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        left: `${Math.max(0, Math.min(100, percentage))}%`,
+                        top: "50%",
+                        width: 9,
+                        height: 9,
+                        bgcolor: "background.paper",
+                        border: 1.5,
+                        borderColor: "primary.main",
+                        transform: "translate(-50%, -50%) rotate(45deg)",
+                      }}
+                    />
+                  </Box>
                 </Stack>
               );
             })}
