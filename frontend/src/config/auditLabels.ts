@@ -1,0 +1,36 @@
+import type { AuditReason, DocumentType } from "../types/processing";
+
+const AUDIT_REASON_LABELS: Record<AuditReason, string> = {
+  LOW_CONFIDENCE: "Confianza de extracción por debajo del umbral requerido",
+  ILLEGIBLE_DOCUMENT: "Documento ilegible",
+  // TODO: Confirmar con el equipo si la API enviará el detalle de los campos faltantes.
+  MISSING_CRITICAL_FIELDS: "Campos obligatorios no detectados",
+  INCONSISTENT_DATA: "Datos inconsistentes",
+  INVALID_AI_RESPONSE:
+    "No se obtuvo una respuesta válida del servicio de análisis",
+  AI_TIMEOUT: "Tiempo de espera agotado",
+  AI_UNAVAILABLE: "Servicio de análisis no disponible",
+};
+
+const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  PRESCRIPTION: "Receta médica",
+  IMAGING_REPORT: "Informe de imagen",
+  STUDY_REPORT: "Informe de estudio",
+  PROCEDURE_ORDER: "Orden de procedimiento",
+  DISCHARGE_SUMMARY: "Resumen de alta",
+  MEDICAL_CERTIFICATE: "Certificado médico",
+};
+
+export function auditReasonLabel(reason: string): string {
+  return AUDIT_REASON_LABELS[reason as AuditReason] ?? reason;
+}
+
+export function documentTypeLabel(
+  documentType: string | null,
+): string {
+  if (documentType === null) {
+    return "Sin clasificar";
+  }
+
+  return DOCUMENT_TYPE_LABELS[documentType as DocumentType] ?? documentType;
+}
