@@ -113,6 +113,15 @@ function ResultPage() {
           return;
         }
 
+        if (content.kind === "text") {
+          setViewerState({
+            status: "text",
+            documentKey: documentId!,
+            text: content.text,
+          });
+          return;
+        }
+
         setViewerState({
           status: "ready",
           documentKey: documentId!,

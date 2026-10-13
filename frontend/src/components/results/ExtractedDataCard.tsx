@@ -1,74 +1,13 @@
 import { Box, Card, Divider, Stack, Typography } from "@mui/material";
 import type { ExtractedData } from "../../types/processing";
+import { buildExtractedDataRows } from "./extractedDataRows";
 
 interface ExtractedDataCardProps {
   data: ExtractedData;
 }
 
-interface DataRow {
-  label: string;
-  value: string | string[];
-}
-
 function ExtractedDataCard({ data }: ExtractedDataCardProps) {
-  const rows: DataRow[] = [];
-
-  if (data.patient?.name) {
-    rows.push({
-      label: "Paciente",
-      value: data.patient.name,
-    });
-  }
-
-  if (data.patient?.age != null) {
-    rows.push({
-      label: "Edad",
-      value: `${data.patient.age} años`,
-    });
-  }
-
-  if (data.requesting_doctor?.name) {
-    rows.push({
-      label: "Médico responsable",
-      value: data.requesting_doctor.name,
-    });
-  }
-
-  if (data.requesting_doctor?.license_number) {
-    rows.push({
-      label: "Cédula profesional",
-      value: data.requesting_doctor.license_number,
-    });
-  }
-
-  if (data.primary_diagnosis) {
-    rows.push({
-      label: "Diagnóstico principal",
-      value: data.primary_diagnosis,
-    });
-  }
-
-  if (data.suggested_icd10) {
-    rows.push({
-      label: "Código CIE-10 sugerido",
-      value: data.suggested_icd10,
-    });
-  }
-
-  if (data.medications?.length) {
-    const medications = data.medications
-      .filter((medication) => medication.name)
-      .map((medication) =>
-        [medication.name, medication.dosage].filter(Boolean).join(" "),
-      );
-
-    if (medications.length > 0) {
-      rows.push({
-        label: "Medicamentos",
-        value: medications,
-      });
-    }
-  }
+  const rows = buildExtractedDataRows(data);
 
   if (rows.length === 0) {
     return null;

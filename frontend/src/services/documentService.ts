@@ -2,10 +2,9 @@ import { env } from "../config/env";
 import type { ViewerMimeType } from "../components/DocumentViewer/types";
 import { ApiError } from "./processingService";
 
-export interface DocumentContent {
-  blob: Blob;
-  mimeType: ViewerMimeType;
-}
+export type DocumentContent =
+  | { kind: "file"; blob: Blob; mimeType: ViewerMimeType }
+  | { kind: "text"; text: string };
 
 const supportedMimeTypes: readonly string[] = [
   "application/pdf",
@@ -15,6 +14,14 @@ const supportedMimeTypes: readonly string[] = [
 
 function isViewerMimeType(mimeType: string): mimeType is ViewerMimeType {
   return supportedMimeTypes.includes(mimeType);
+}
+
+interface TextDocumentPayload {
+  document_text?: unknown;
+}
+
+function isTextDocumentPayload(value: unknown): value is TextDocumentPayload {
+  return typeof value === "object" && value !== null;
 }
 
 export async function getDocumentContent(
@@ -54,6 +61,7 @@ export async function getDocumentContent(
         : "image/jpeg";
 
     return {
+      kind: "file",
       blob: await response.blob(),
       mimeType,
     };
@@ -64,7 +72,7 @@ export async function getDocumentContent(
   const response = await fetch(`${env.apiBaseUrl}${endpoint}`, {
     method: "GET",
     headers: {
-      Accept: "application/pdf, image/jpeg, image/png",
+      Accept: "application/pdf, image/jpeg, image/png, application/json",
     },
     signal,
   });
@@ -87,6 +95,42 @@ export async function getDocumentContent(
     .trim()
     .toLowerCase();
 
+  if (mimeType === "application/json") {
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new ApiError(
+        415,
+        "INVALID_TEXT_DOCUMENT",
+        "El contenido del documento de texto no es un JSON válido.",
+      );
+    }
+
+    if (!isTextDocumentPayload(payload)) {
+      throw new ApiError(
+        415,
+        "INVALID_TEXT_DOCUMENT",
+        "El contenido del documento de texto no tiene la estructura esperada.",
+      );
+    }
+
+    const documentText = payload.document_text;
+
+    if (typeof documentText !== "string") {
+      throw new ApiError(
+        415,
+        "INVALID_TEXT_DOCUMENT",
+        "El contenido del documento de texto no incluye el campo document_text.",
+      );
+    }
+
+    return {
+      kind: "text",
+      text: documentText,
+    };
+  }
+
   if (!mimeType || !isViewerMimeType(mimeType)) {
     throw new ApiError(
       415,
@@ -98,6 +142,7 @@ export async function getDocumentContent(
   const blob = await response.blob();
 
   return {
+    kind: "file",
     blob,
     mimeType,
   };
