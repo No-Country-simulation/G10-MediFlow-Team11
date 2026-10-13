@@ -80,6 +80,15 @@ Extracto **sanitizado**, no transcripción íntegra, de INPUT después del reboo
 
 La expresión `Up About a minute` corresponde al estado mostrado por Docker; no mide el tiempo total de recuperación ni demuestra ausencia absoluta de fallos durante el arranque. Los diagnósticos futuros del runbook pueden incluir `ssh` en `systemctl`, sin alterar la procedencia de esta evidencia.
 
+### Estabilidad de contenedores
+
+| Verificación | Resultado / límite | Tipo de evidencia |
+| --- | --- | --- |
+| Tres mediciones UTC del 13 de octubre de 2026 | 17:32:50, 17:38:17 y 18:57:03. En las tres, Backend, IA Core y PostgreSQL permanecieron `healthy`, con `RestartCount=0` y sin cambios en `StartedAt`. | REPORTE DEL OPERADOR |
+| Intervalo observado | 1 hora, 24 minutos y 13 segundos entre la primera y la tercera medición. | REPORTE DEL OPERADOR |
+
+Son tres mediciones puntuales sobre la revisión desplegada `2d22d61`; no constituyen monitoreo continuo ni demuestran ausencia de eventos entre ellas. No se incorpora salida textual.
+
 ## 4. HTTPS, Caddy, DNS y seguridad de red
 
 | Verificación | Resultado / límite | Tipo de evidencia |
@@ -130,7 +139,7 @@ Location: https://mediflow-core.duckdns.org/actuator/health
 
 **La API funcional no está públicamente disponible.** El acceso interno de auditoría con HTTP `200` y la restricción pública con `404` corresponden a vías diferentes. El health público no autoriza ampliar rutas. Las decisiones de exposición segura de API/Frontend y la operación futura de DNS/TLS quedan en §7.
 
-## 5. OCI Object Storage: CLI y prueba Java aislada
+## 5. OCI Object Storage: CLI, prueba Java aislada y lectura por el Backend
 
 Bucket privado `mediflow-documentos-clinicos`, región `us-ashburn-1`. No se publica su namespace.
 
@@ -150,7 +159,30 @@ BUILD SUCCESS
 
 La secuencia de operaciones corresponde a [`ObjectStorageServiceIT.java`](../../backend/src/test/java/com/mediflow/backend/service/ObjectStorageServiceIT.java). La autenticación utiliza [`ObjectStorageConfig.java`](../../backend/src/main/java/com/mediflow/backend/config/ObjectStorageConfig.java). La salida acredita la ejecución de la prueba; el aislamiento y la configuración de su entorno se registran según el reporte del operador.
 
-Esta prueba demuestra operaciones reales de Object Storage mediante el SDK Java de MediFlow en el entorno aislado. **No demuestra una petición a un endpoint del Backend de producción ni un flujo clínico completo.** La lectura desde un endpoint del Backend desplegado permanece pendiente.
+Esta prueba demuestra operaciones reales de Object Storage mediante el SDK Java de MediFlow en el entorno aislado. **No demuestra una petición a un endpoint del Backend de producción ni un flujo clínico completo.** La lectura desde el Backend desplegado se registra a continuación.
+
+### Lectura por el Backend desplegado
+
+Verificación del 13 de octubre de 2026 sobre el Backend ya desplegado en la VM, revisión `2d22d61`; no sobre commits posteriores de la rama Git.
+
+| Verificación | Resultado / límite | Tipo de evidencia |
+| --- | --- | --- |
+| Objeto sintético | Creado con OCI CLI e Instance Principals, sin sobrescritura; 86 bytes. Identificador `issue59-oci-read-20261013`; clave `recibidos/issue59-oci-read-20261013/original.json`. OCI confirmó `content-length: 86` y `content-type: application/json`. La escritura no fue iniciada por el Backend. | REPORTE DEL OPERADOR |
+| Fila en PostgreSQL | Una única fila válida insertada para ese identificador. Respaldo previo con `BACKUP_CATALOG=OK`. | REPORTE DEL OPERADOR |
+| `GET /api/v1/documents/issue59-oci-read-20261013/content` | Mediante `localhost:8080`: HTTP `200`, `Content-Type: application/json`. SHA-256 original y recuperado coincidentes: `af46c1535cc7cab367fa4b5ec1d72b1a5757c9b0f76dc867e1b0da803840669a`. Resultado `PASS_BACKEND_POSTGRESQL_OCI`; extracto textual abajo. | SALIDA DEL OPERADOR |
+| Limpieza | `DELETE 1` y cero referencias restantes en PostgreSQL; eliminada la versión específica del objeto en OCI, listado de versiones sin entradas y consulta HEAD posterior HTTP `404`. Limpieza local: `LOCAL_FIXTURE_CLEANED=OK`. | REPORTE DEL OPERADOR |
+
+Extracto textual de la lectura aportado por el operador (no transcripción completa):
+
+```text
+CURL_EXIT_CODE=0
+HTTP_STATUS=200
+HTTP/1.1 200
+Content-Type: application/json
+RESULTADO=PASS_BACKEND_POSTGRESQL_OCI
+```
+
+Esta verificación acredita que el Backend desplegado leyó mediante Instance Principals un objeto del bucket cuya fila existía en PostgreSQL. **No acredita escritura iniciada por el Backend, la ejecución de `AiCoreClient.process()` desde el Backend desplegado ni la validación end-to-end de #56.** El acceso fue interno; no cambia la restricción pública de §4.
 
 ## 6. Persistencia PostgreSQL y respaldo
 
@@ -167,12 +199,12 @@ No se incorporan sentencias SQL ni resultados exactos no aportados. El runbook c
 
 ## 7. Pendientes, límites y relación con la aceptación
 
-| Verificación pendiente | Alcance / relación con #59 | Tipo de evidencia |
+| Verificación / límite | Alcance / relación con #59 | Tipo de evidencia |
 | --- | --- | --- |
 | Flujo real de `AiCoreClient` desde Backend desplegado | Integración funcional posterior; el health de IA no ejecuta el cliente. | SIN EVIDENCIA — PENDIENTE |
 | Validación clínica end-to-end | Corresponde a [#56](https://github.com/No-Country-simulation/G10-MediFlow-Team11/issues/56), fase posterior explícita de #59. | SIN EVIDENCIA — PENDIENTE |
-| Lectura OCI por endpoint funcional del Backend desplegado | Completa evidencia directa de ese proceso; CLI y SDK aislado no la sustituyen. Revisar este límite al aceptar el criterio de acceso del Backend al bucket de #59. | SIN EVIDENCIA — PENDIENTE |
-| Ventana registrada sin reinicios inesperados | Criterio explícito de #59: `healthy` tras reboot no aporta contadores comparados durante una ventana; completar evidencia para aceptación. | SIN EVIDENCIA — PENDIENTE |
+| Lectura OCI por endpoint funcional del Backend desplegado | Registrada en §5: objeto escrito con OCI CLI y leído por el Backend en la revisión `2d22d61`. No acredita escritura iniciada por el Backend, `AiCoreClient` ni #56. Revisar su suficiencia al aceptar el criterio de acceso del Backend al bucket de #59. | REPORTE DEL OPERADOR |
+| Ventana registrada sin reinicios inesperados | Registrada en §3: tres mediciones en 1 hora, 24 minutos y 13 segundos, con `RestartCount=0` y `StartedAt` sin cambios. Son mediciones puntuales, no monitoreo continuo; revisar su suficiencia frente al criterio de #59. | REPORTE DEL OPERADOR |
 | Exposición segura de API y Frontend | Decisión de acceso y rutas antes de ampliar Caddy; health HTTPS no acredita acceso funcional público. Trabajo posterior, no apertura automática. | SIN EVIDENCIA — PENDIENTE |
 | Timeouts, límites de carga y proxy en procesamiento funcional | Validación al habilitar ese consumo; no cubierta por health. | SIN EVIDENCIA — PENDIENTE |
 | Renovación futura del certificado TLS | Evolución operativa; validez actual no demuestra renovación. | SIN EVIDENCIA — PENDIENTE |
@@ -187,5 +219,6 @@ Los resultados documentan un despliegue operativo y comprobaciones de red, almac
 | Fecha | Revisión desplegada | Alcance verificado | Resultado | Fuente | Tipo de evidencia |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-13 | `2d22d61` | Despliegue OCI, HTTPS, recuperación, PostgreSQL y Object Storage | Verificaciones completadas con límites y pendientes documentados | Resumen del operador; extractos clasificados individualmente en este registro | REPORTE DEL OPERADOR |
+| 2026-10-13 | `2d22d61` | Lectura por el Backend desplegado (Backend → PostgreSQL → OCI Object Storage) y estabilidad de contenedores | `PASS_BACKEND_POSTGRESQL_OCI`; tres mediciones con `RestartCount=0` | Resumen del operador; extracto textual de la lectura en §5 | REPORTE DEL OPERADOR |
 
 Referencias: [runbook operativo](./oci-compute-deployment.md), [arquitectura](../ARCHITECTURE.md), [Compose](../../compose.yaml), [PostgreSQL](./postgresql-docker.md).

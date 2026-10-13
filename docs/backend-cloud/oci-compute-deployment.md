@@ -296,7 +296,7 @@ dc exec -T backend curl -fsS -o /dev/null -w 'contenido HTTP %{http_code}\n' \
 
 Esperar `200` y registrar el ID de la fixture sin publicar su contenido ni claves internas. Esta prueba verifica lectura mediante la configuración de Instance Principals del Backend; un `404` no acredita almacenamiento y un `500` requiere diagnóstico.
 
-Si no existe una fixture, dejar la lectura por endpoint pendiente y coordinar su creación. Una prueba Java aislada no acredita esa petición al contenedor de producción ni un flujo clínico completo. Registrar por separado CLI, SDK aislado, diagnóstico de metadata y endpoint en el documento de evidencias.
+Si no existe una fixture, crearla en una sesión autorizada: subir con OCI CLI e Instance Principals un objeto sintético sin sobrescritura, confirmar `content-length` y `content-type`, insertar una única fila válida que apunte a su clave y, tras la lectura, comparar el SHA-256 original con el recuperado. Esa escritura procede de OCI CLI, no del Backend. Al terminar, eliminar la fila y la versión específica del objeto, y comprobar que no quedan referencias, que el listado de versiones está vacío y que HEAD devuelve `404`. Hacer antes un respaldo de PostgreSQL. Sin autorización para crearla, dejar la lectura por endpoint pendiente. Una prueba Java aislada no acredita esa petición al contenedor de producción ni un flujo clínico completo. Registrar por separado CLI, SDK aislado, diagnóstico de metadata y endpoint en el documento de evidencias.
 
 ## 8. HTTPS y exposición de red
 
@@ -504,6 +504,17 @@ dc ps
 
 Tras `start` y `restart`, esperar `healthy` y repetir consultas de disponibilidad y conectividad. Comparar los contadores `RestartCount` durante una ventana de observación registrada; separar reinicios solicitados de reinicios inesperados. Revisar logs localmente y sanear datos/secretos antes de compartir evidencia.
 
+Para la ventana de observación, repetir en varios momentos y registrar la hora UTC de cada medición:
+
+```bash
+date -u '+%Y-%m-%dT%H:%M:%SZ'
+for service_name in backend ai-core postgres; do
+  docker inspect --format '{{.Name}} health={{.State.Health.Status}} restarts={{.RestartCount}} started={{.State.StartedAt}}' "$(dc ps -q "$service_name")"
+done
+```
+
+`RestartCount` constante y `StartedAt` sin cambios entre mediciones indican ausencia de reinicios en esos puntos, no monitoreo continuo.
+
 Para retirar contenedores y red conservando el volumen:
 
 ```bash
@@ -565,6 +576,6 @@ Consultar el [registro de evidencias](./oci-compute-deployment-evidence.md) para
 
 Registrar fecha, SHA desplegado, alcance y tipo de evidencia de cada verificación. Separar salidas textuales, capturas OCI disponibles, reportes del operador y comprobaciones sin evidencia; no registrar como cumplido un paso solo por figurar en este runbook. Añadir identificadores de imágenes y una ventana de observación de reinicios únicamente cuando se disponga de ellos.
 
-La conectividad HTTP con IA y la prueba Java aislada de Object Storage tienen límites distintos del flujo real de `AiCoreClient` y de la lectura mediante un endpoint del Backend desplegado. Esos pendientes se mantienen explícitos en el registro. #56 corresponde a la integración end-to-end posterior; publicación funcional de API/Frontend, pruebas de carga, renovación futura de TLS y restauración de respaldo no se convierten automáticamente en bloqueos de #59. El estado de aceptación debe revisarse contra los criterios del Issue, sin cerrarlo desde esta documentación.
+La conectividad HTTP con IA y la prueba Java aislada de Object Storage tienen límites distintos del flujo real de `AiCoreClient`. La lectura mediante un endpoint del Backend desplegado y la ventana de observación de reinicios constan en el registro con sus límites; el flujo de `AiCoreClient` sigue pendiente. #56 corresponde a la integración end-to-end posterior; publicación funcional de API/Frontend, pruebas de carga, renovación futura de TLS y restauración de respaldo no se convierten automáticamente en bloqueos de #59. El estado de aceptación debe revisarse contra los criterios del Issue, sin cerrarlo desde esta documentación.
 
 Referencias: [arquitectura §§11–15](../ARCHITECTURE.md), [PostgreSQL](./postgresql-docker.md), [Backend](../../backend/README.md#contenerización-del-backend-issue-53), [IA Core](../../ai-core/README.md#ejecución-con-docker), [variables de Compose](https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/), [Instance Principals](https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm).
