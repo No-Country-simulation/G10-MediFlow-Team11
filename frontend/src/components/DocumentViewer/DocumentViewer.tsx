@@ -100,6 +100,32 @@ function DocumentViewer({ document, ariaLabel, className }: DocumentViewerProps)
             fileName={document.fileName}
           />
         ))}
+      {document.status === "text" && (
+        <Box
+          className="document-viewer__text-stage"
+          sx={{
+            height: "100%",
+            overflow: "auto",
+            p: 2,
+            bgcolor: "grey.50",
+          }}
+        >
+          <Typography
+            component="pre"
+            variant="body2"
+            sx={{
+              m: 0,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              fontFamily: "monospace",
+              fontSize: "0.875rem",
+              lineHeight: 1.6,
+            }}
+          >
+            {document.text}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }

@@ -13,6 +13,11 @@ export type DocumentViewerState =
       blob: Blob;
       mimeType: ViewerMimeType;
       fileName?: string;
+    }
+  | {
+      status: "text";
+      documentKey: string;
+      text: string;
     };
 
 export type DocumentViewerProps = {
