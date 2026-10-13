@@ -1,16 +1,18 @@
-# Despliegue de MediFlow en OCI Compute — Issue #59
+# Despliegue de MediFlow en OCI Compute
 
-Esta guía prepara el despliegue de Backend, PostgreSQL e IA Core en la instancia existente `MediFlow_Core_VM`. Reutiliza el único [`compose.yaml`](../../compose.yaml), PostgreSQL de #13, Backend de #53, IA Core de #72 y el cliente Backend → IA de #30. No crea infraestructura OCI, credenciales estáticas, otro Compose ni contratos funcionales.
+Esta guía documenta el despliegue y la operación de Backend, PostgreSQL e IA Core en la instancia existente `MediFlow_Core_VM`. Reutiliza el único [`compose.yaml`](../../compose.yaml), PostgreSQL de #13, Backend de #53, IA Core de #72 y el cliente Backend → IA de #30. No crea infraestructura OCI, credenciales estáticas, otro Compose ni contratos funcionales.
 
-**Estado:** preparación del repositorio. Los comandos de ejecución son para una sesión posterior autorizada en la VM. Ningún checklist marcado como pendiente acredita una validación realizada.
+**Configuración actual del entorno de demostración del MVP:** Ubuntu 22.04 ARM64, con HTTPS público limitado a `/actuator/health`. La API funcional permanece sin publicación pública. El [registro de evidencias](./oci-compute-deployment-evidence.md) concentra fecha, revisión desplegada, fuentes, resultados y pendientes.
+
+Los comandos de esta guía son procedimientos para sesiones operativas autorizadas; su inclusión no acredita que se hayan ejecutado. Registrar cada nueva verificación por separado, sin confundir despliegue (#59) con validación funcional end-to-end (#56).
 
 ## 1. Prerrequisitos y revisión desplegada
 
-- #12 debe proporcionar la VM operativa, SSH administrativo restringido, Docker Engine y Compose. El [registro de aprovisionamiento](./README.md#compute) describe Ubuntu 22.04 Minimal, Ampere `aarch64`, `VM.Standard.A1.Flex`, 2 OCPU y 12 GB RAM; volver a comprobar su estado antes del despliegue.
+- #12 proporciona la VM existente, acceso SSH administrativo, Docker y Docker Compose. El [registro de aprovisionamiento](./README.md#compute) describe Ampere `aarch64`, `VM.Standard.A1.Flex`, 2 OCPU y 12 GB RAM. Revalidar capacidad disponible antes de nuevas construcciones; no confundir esa caracterización con una medición actual de RAM o disco.
 - La instancia debe pertenecer a `MediFlow_VM_Group` y tener la política existente para el bucket privado `mediflow-documentos-clinicos`. La preparación de #59 no modifica Dynamic Groups, IAM, VCN ni el bucket.
-- Usar una revisión aprobada que incluya #13, #53, #72, PR #82 y la preparación de #59. Registrar el SHA real, sin desplegar cambios locales no revisados.
+- Usar una revisión aprobada que incluya #13, #53, #72, PR #82 y la preparación de #59. Consultar el SHA en el registro de evidencias; para una actualización registrar su nuevo SHA aprobado, sin desplegar cambios locales no revisados.
 - Confirmar espacio para las imágenes y el volumen, salida HTTPS hacia registros de imágenes, dependencias de construcción, OCI y Gemini, y disponibilidad del puerto loopback del Backend.
-- Confirmar el mecanismo HTTPS del MVP: hostname, certificado y proxy reales. Son datos del despliegue, no valores inventados por esta guía.
+- El mecanismo HTTPS actual es Caddy v2 en el host, con el dominio DuckDNS `mediflow-core.duckdns.org` y certificado TLS público válido. Mantener la restricción de rutas descrita en la sección 8.
 
 ### Obtener el checkout y seleccionar el commit aprobado
 
@@ -69,7 +71,7 @@ La arquitectura esperada es `aarch64`. Si faltan prerrequisitos de #12, reportar
 
 ## 2. Variables protegidas y proyecto Compose
 
-Crear el archivo únicamente si no existe y restringir sus permisos:
+Mantener las variables sensibles fuera del repositorio en `.env.oci` protegido. Para operar la instalación existente, conservar ese archivo y su proyecto Compose; el siguiente bloque crea el archivo solo si falta.
 
 ```bash
 umask 077
@@ -97,6 +99,8 @@ Editar `.env.oci` localmente con los valores reales. `.gitignore` excluye `.env.
 | `BACKEND_PORT`, `DB_PORT`, `AI_CORE_PORT` | Puertos publicados en loopback; defaults `8080`, `5432`, `8000`. |
 
 Compose usa el archivo indicado por `--env-file` para **interpolación**. Solo los valores declarados en `environment` llegan a cada servicio; no se inyecta todo el archivo. Backend recibe las cuatro variables OCI y los valores internos fijos `DB_HOST=postgres`, `DB_PORT=5432`, `SERVER_PORT=8080` y `MEDIFLOW_AI_SERVICE_URL=http://ai-core:8000`. La URL `localhost` de la plantilla sirve al Backend nativo local y no reemplaza la URL interna. IA Core recibe solo sus variables de Gemini y umbral.
+
+El Issue #59 utiliza el nombre `AI_SERVICE_URL`; la propiedad implementada y conservada en el repositorio es `MEDIFLOW_AI_SERVICE_URL`. Esa diferencia de nomenclatura no requiere renombrar variables durante la operación.
 
 Usar una sesión sin overrides heredados de despliegues anteriores: las variables del shell pueden prevalecer sobre el archivo. Conservar el nombre del proyecto Compose ya existente para reutilizar su volumen; elegir y registrar uno estable solo para el primer despliegue. Un nombre o directorio diferente puede seleccionar otro volumen y aparentar pérdida de datos.
 
@@ -249,6 +253,25 @@ El cliente de #30 usa `mediflow.ai.service-url`, con `MEDIFLOW_AI_SERVICE_URL` e
 
 ## 7. Backend → OCI Object Storage
 
+### CLI y SDK Java aislado
+
+Verificar con OCI CLI e Instance Principals desde un contenedor temporal en la red Docker del Backend la autenticación, el listado de objetos y `NoPublicAccess` del bucket. Conservar únicamente resultados sanitizados; no publicar namespace ni credenciales. Esa comprobación de red y permisos no sustituye una operación del SDK Java.
+
+[`ObjectStorageServiceIT.java`](../../backend/src/test/java/com/mediflow/backend/service/ObjectStorageServiceIT.java) arranca Spring y utiliza el servicio de almacenamiento del repositorio para subir, leer, comparar y eliminar un JSON sintético. Para ejecutarla de forma aislada en una sesión autorizada:
+
+1. Utilizar el código de la revisión aprobada y registrar la red Docker existente del Backend.
+2. Preparar una imagen temporal con JDK 21 y Maven y un PostgreSQL de prueba separado; no adjuntar el volumen de producción ni apuntar sus variables `DB_*` a la base desplegada.
+3. Proporcionar a esa imagen las variables de prueba mediante configuración protegida, con `OCI_AUTH_MODE=instance_principal`, el bucket/región existentes y el namespace real; no montar claves OCI estáticas ni imprimir secretos.
+4. Desde `backend/` dentro de la imagen temporal, ejecutar el siguiente objetivo. Es un comando de reproducción, no una transcripción del comando exacto usado por el operador:
+
+```bash
+RUN_OCI_IT=true ./mvnw -B -Dtest=ObjectStorageServiceIT test
+```
+
+5. Registrar el resultado y limpiar únicamente los recursos temporales de esa prueba, sin tocar servicios, datos ni volúmenes del despliegue. La prueba escribe y elimina un objeto sintético del bucket; repetirla requiere autorización para esas operaciones.
+
+### Diagnóstico y lectura por el Backend desplegado
+
 La autenticación usa `InstancePrincipalsAuthenticationDetailsProvider` del SDK existente. El contenedor necesita alcanzar metadata y los servicios regionales de autenticación/Object Storage. Las verificaciones del host realizadas en #12 no demuestran acceso desde el contenedor.
 
 En la VM, comprobar metadata sin imprimir certificados ni identidad:
@@ -273,21 +296,174 @@ dc exec -T backend curl -fsS -o /dev/null -w 'contenido HTTP %{http_code}\n' \
 
 Esperar `200` y registrar el ID de la fixture sin publicar su contenido ni claves internas. Esta prueba verifica lectura mediante la configuración de Instance Principals del Backend; un `404` no acredita almacenamiento y un `500` requiere diagnóstico.
 
-Si no existe una fixture, dejar la prueba pendiente y coordinar su creación. La suite existente `ObjectStorageServiceIT`, habilitada con `RUN_OCI_IT=true`, **crea, lee y elimina un objeto**, además de arrancar Spring contra PostgreSQL. Requiere autorización para esas escrituras y una configuración de prueba explícita; ejecutarla como JVM separada no prueba automáticamente el contenedor desplegado. No habilitarla durante la preparación estática ni afirmar permisos de escritura/eliminación a partir de una lectura exitosa. Registrar esa evidencia separada cuando corresponda.
+Si no existe una fixture, dejar la lectura por endpoint pendiente y coordinar su creación. Una prueba Java aislada no acredita esa petición al contenedor de producción ni un flujo clínico completo. Registrar por separado CLI, SDK aislado, diagnóstico de metadata y endpoint en el documento de evidencias.
 
 ## 8. HTTPS y exposición de red
 
 La arquitectura exige HTTPS en el despliegue y bucket privado. `compose.yaml` conserva los tres puertos en `127.0.0.1`; no publicar Backend, PostgreSQL o IA directamente en todas las interfaces. La red Compose es compartida y permite comunicación entre servicios; no constituye segmentación estricta de PostgreSQL respecto de IA.
 
-Usar el proxy HTTPS del host si ya existe. Si falta, preparar su configuración en la fase de ejecución con el hostname y certificado confirmados; hasta entonces HTTPS es un bloqueo de aceptación, no una validación cumplida. No requiere otro Compose.
+### Responsabilidades y preparación del host
 
-Requisitos del proxy:
+#12 aporta la instancia, Ubuntu ARM64, acceso administrativo, Docker/Compose y la infraestructura OCI existente (red, Security List e IAM). #59 configura el despliegue sobre esa base: Caddy v2, su ruta HTTPS, el dominio temporal y las aperturas 80/443 del firewall del host con persistencia. Las reglas OCI son un prerrequisito que debe coordinarse con infraestructura si falta; estos procedimientos no las modifican.
 
-- Terminar TLS en `443` con certificado válido para el hostname real, clave privada protegida y renovación comprobada.
-- Redirigir HTTP a HTTPS en `80`, salvo las rutas necesarias para el mecanismo de emisión/renovación del certificado.
-- Enviar la API a `127.0.0.1:<BACKEND_PORT real>`, preservando `/api/v1/...` y los métodos/cuerpos. No exponer todo Actuator: si se habilita `/actuator/health` para verificación externa, limitarlo a ese endpoint.
-- Permitir el presupuesto síncrono de hasta 60 segundos de IA **más** transporte y PostgreSQL/OCI. Definir y verificar un timeout mayor a 60 segundos; 120 segundos es un punto de partida que debe ajustarse con evidencia, no una garantía extrema a extremo.
-- Alinear límites de carga y configuración de origen del Frontend con los contratos existentes; no modificar esos contratos en #59.
+Los pasos de instalación siguientes son solo para un host que aún carezca de esos componentes y una sesión autorizada. En `MediFlow_Core_VM` ya configurada, comprobar y reutilizar lo existente; no reinstalar, actualizar paquetes ni reemplazar configuraciones como parte de una consulta de salud. Antes de instalar Caddy, comprobar que 80/443 no pertenecen a otro servicio y que el DNS confirmado apunta al host. El paquete inicia el servicio automáticamente: coordinar esa primera instalación y aplicar enseguida el Caddyfile restringido.
+
+En Ubuntu 22.04 con `dpkg --print-architecture` igual a `arm64`, usar el [repositorio estable oficial de Caddy](https://caddyserver.com/docs/install#debian-ubuntu-raspbian). Si ya existen la clave o la lista APT, verificar su origen y reutilizarlas; no sobrescribirlas con este bloque:
+
+```bash
+(
+  set -o pipefail
+  test "$(dpkg --print-architecture)" = arm64 || exit 1
+  if command -v caddy >/dev/null 2>&1; then exit 1; fi
+  test ! -e /usr/share/keyrings/caddy-stable-archive-keyring.gpg || exit 1
+  test ! -e /etc/apt/sources.list.d/caddy-stable.list || exit 1
+  sudo ss -lntp
+  sudo apt-get update || exit 1
+  sudo apt-get install debian-keyring debian-archive-keyring apt-transport-https curl gnupg || exit 1
+  curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key |
+    sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg || exit 1
+  curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt |
+    sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null || exit 1
+  sudo chmod 644 /usr/share/keyrings/caddy-stable-archive-keyring.gpg /etc/apt/sources.list.d/caddy-stable.list || exit 1
+  sudo apt-get update || exit 1
+  apt-cache policy caddy
+  read -r -p "Versión 2.x aprobada del repositorio oficial mostrada arriba: " CADDY_PACKAGE_VERSION
+  case "$CADDY_PACKAGE_VERSION" in 2.*) ;; *) exit 1 ;; esac
+  sudo apt-get install "caddy=$CADDY_PACKAGE_VERSION" || exit 1
+) || exit 1
+caddy version
+dpkg-query -W -f='${Version} ${Architecture}\n' caddy
+systemctl is-active caddy
+systemctl is-enabled caddy
+```
+
+Registrar la versión y arquitectura obtenidas; no atribuirlas retrospectivamente al despliegue registrado. Si el servicio no está activo, diagnosticar con `sudo journalctl -u caddy --no-pager -n 50` antes de continuar; sanear los logs antes de compartirlos.
+
+### Caddy v2 y DuckDNS: exposición actual
+
+Caddy v2 se ejecuta en el host Ubuntu y termina TLS en `443` para `mediflow-core.duckdns.org`, **dominio temporal del entorno de demostración del MVP**, no una solución definitiva de producción. Su configuración aplicada reside en `/etc/caddy/Caddyfile`:
+
+```caddyfile
+mediflow-core.duckdns.org {
+    handle /actuator/health {
+        reverse_proxy 127.0.0.1:8080
+    }
+    handle {
+        respond "Not found" 404
+    }
+}
+```
+
+HTTP redirige a HTTPS con `308`. La única ruta pública es `/actuator/health`; las demás, incluida `/api/v1/documents/audit`, devuelven `404`. Backend permanece en `127.0.0.1:8080`, IA Core en `127.0.0.1:8000` y PostgreSQL en `127.0.0.1:5432`. **La API funcional no está públicamente disponible.** Un `200` interno de auditoría y un `404` público son compatibles con esta restricción.
+
+Para aplicar exactamente el bloque anterior, conservar primero una copia protegida y preparar un candidato. En `sudoedit`, sustituir el contenido del candidato por ese Caddyfile; revisar que no se amplían rutas. El [servicio oficial](https://caddyserver.com/docs/running#using-the-service) utiliza `/etc/caddy/Caddyfile`; verificarlo antes si existe una instalación personalizada. Ejecutar en la misma sesión:
+
+`caddy_backup` existe solo en la sesión Bash donde se asigna. Registrar su ruta en el registro operativo protegido del host; en otra sesión, recuperar y comprobar esa ruta antes de restaurar. El directorio creado por `sudo mktemp -d` queda protegido en el host y no se elimina al cerrar Bash. Conservar propietario, grupo, permisos y demás atributos del Caddyfile original; comprobar la lectura con el usuario efectivo del servicio. Si no puede leerlo, detenerse y diagnosticar sin imponer permisos nuevos.
+
+```bash
+sudo test -f /etc/caddy/Caddyfile && sudo test ! -L /etc/caddy/Caddyfile || exit 1
+caddy_service_user=$(systemctl show caddy --property=User --value) || exit 1
+test -n "$caddy_service_user" || exit 1
+caddy_backup=$(sudo mktemp -d /etc/caddy/mediflow-backup.XXXXXX) || exit 1
+sudo cp -a /etc/caddy/Caddyfile "$caddy_backup/Caddyfile" || exit 1
+sudo test ! -e /etc/caddy/Caddyfile.candidate || exit 1
+sudo cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.candidate || exit 1
+sudoedit /etc/caddy/Caddyfile.candidate || exit 1
+sudo cp --attributes-only --preserve=all "$caddy_backup/Caddyfile" /etc/caddy/Caddyfile.candidate || exit 1
+sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile.candidate || exit 1
+sudo caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || exit 1
+sudo cp --preserve=all /etc/caddy/Caddyfile.candidate /etc/caddy/Caddyfile || exit 1
+sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile || exit 1
+sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || exit 1
+if ! sudo systemctl reload caddy; then
+  sudo cp -a "$caddy_backup/Caddyfile" /etc/caddy/Caddyfile || exit 1
+  sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || exit 1
+  sudo systemctl reload caddy
+  exit 1
+fi
+sudo systemctl enable caddy || exit 1
+sudo systemctl is-active caddy
+sudo systemctl is-enabled caddy
+sudo rm -- /etc/caddy/Caddyfile.candidate
+```
+
+Conservar el respaldo hasta completar las comprobaciones externas de esta sección: health `200`, redirección `308` y ruta funcional `404`. Si falla alguna, diagnosticar y restaurar el archivo respaldado, validarlo y recargarlo con los mismos pasos; no reiniciar Caddy a ciegas ni ampliar rutas. Una validación fallida del candidato no altera la configuración activa.
+
+Mantener esa restricción al operar el host. Antes de cualquier exposición adicional, quedan pendientes la decisión de acceso seguro para API/Frontend, rutas permitidas y controles de acceso. No ampliar el proxy a `/api/v1/...` ni a todo Actuator como parte de una verificación de salud.
+
+La renovación futura del certificado y la estrategia de actualización DuckDNS requieren verificación separada; no incluir tokens ni claves privadas en el registro. Para habilitar consumo funcional, verificar timeouts que contemplen hasta 60 segundos de IA más transporte y PostgreSQL/OCI, así como límites de carga y origen del Frontend, sin cambiar contratos. El health público no prueba ese procesamiento.
+
+### Firewall OCI y Ubuntu
+
+Conservar en la Security List de OCI `80/443` y SSH restringido al origen administrativo autorizado, cuyo valor no se publica. En Ubuntu, mantener los permisos `80/443` en `INPUT` **antes** de `REJECT` y su persistencia mediante `netfilter-persistent`. Backend, IA Core y PostgreSQL deben mantener sus enlaces loopback sin exposición pública directa en `8080/8000/5432`.
+
+Las reglas OCI, las reglas de Ubuntu y las rutas de Caddy son controles complementarios. Preservarlos y revisar su estado en una sesión administrativa autorizada; esta guía no modifica reglas ni contiene IPs administrativas.
+
+### Preparar INPUT y su persistencia sin alterar Docker
+
+Mantener abierta la sesión SSH, disponer del acceso de recuperación administrativo y probar una segunda conexión antes de cerrar la primera. Conservar las reglas existentes de SSH, loopback y conexiones `ESTABLISHED,RELATED`, así como las reglas propias de OCI. No cambiar políticas, hacer flush, activar otro gestor de firewall ni modificar las cadenas `DOCKER*`, `FORWARD` o NAT. Estos pasos usan IPv4; si se habilita IPv6, revisar sus controles por separado antes de publicar un registro AAAA.
+
+Comprobar primero los paquetes `netfilter-persistent` e `iptables-persistent` y la base persistente aprobada del host en `/etc/iptables/rules.v4`. Si faltan los paquetes, instalarlos **solo en la preparación inicial, antes de arrancar Docker**, evitando guardar automáticamente reglas activas:
+
+```bash
+printf '%s\n' \
+  'iptables-persistent iptables-persistent/autosave_v4 boolean false' \
+  'iptables-persistent iptables-persistent/autosave_v6 boolean false' |
+  sudo debconf-set-selections
+sudo apt-get install netfilter-persistent iptables-persistent || exit 1
+```
+
+En un host con Docker activo y sin esos paquetes, detener este procedimiento y coordinar una ventana de mantenimiento: la instalación puede cargar reglas. Si falta la base persistente o contiene reglas dinámicas de Docker, obtener/revisar la base del host con el responsable de infraestructura antes de continuar; no reconstruirla filtrando cadenas automáticamente.
+
+Inspeccionar localmente y respaldar la base persistente; los respaldos pueden contener el origen administrativo y no deben adjuntarse a Git ni a las evidencias públicas:
+
+`firewall_backup` también pertenece a la sesión Bash actual. Conservar su ruta en el registro operativo protegido y comprobarla si se retoma desde otra sesión; el directorio creado con `sudo mktemp -d` y sus respaldos permanecen protegidos en el host después de cerrar la sesión.
+
+```bash
+sudo iptables --version
+sudo iptables -w -L INPUT -n --line-numbers
+sudo test -s /etc/iptables/rules.v4 || exit 1
+firewall_backup=$(sudo mktemp -d /etc/iptables/mediflow-backup.XXXXXX) || exit 1
+sudo cp -a /etc/iptables/rules.v4 "$firewall_backup/rules.v4" || exit 1
+sudo sh -c 'iptables-save > "$1/active.v4"' sh "$firewall_backup" || exit 1
+```
+
+El snapshot activo es solo diagnóstico protegido, **no** el archivo que se restaurará al iniciar. Para cada puerto, si ya existe un permiso efectivo antes del `REJECT`, omitir su inserción. Si falta, leer la posición actual del rechazo y añadir solo ese permiso; volver a listar antes del siguiente puerto porque cambian los números. No reutilizar las posiciones históricas 5/6/7:
+
+```bash
+read -r -p "Puerto que falta permitir (80 o 443): " WEB_PORT
+case "$WEB_PORT" in 80|443) ;; *) exit 1 ;; esac
+sudo iptables -w -L INPUT -n --line-numbers
+read -r -p "Número actual de la regla REJECT, revisado arriba: " INPUT_REJECT_POSITION
+[[ "$INPUT_REJECT_POSITION" =~ ^[1-9][0-9]*$ ]] || exit 1
+sudo iptables -w -I INPUT "$INPUT_REJECT_POSITION" -p tcp --dport "$WEB_PORT" -j ACCEPT || exit 1
+sudo iptables -w -L INPUT -n --line-numbers
+```
+
+Para persistir, usar `sudoedit /etc/iptables/rules.v4` y añadir únicamente estas líneas dentro de la tabla `*filter`, antes del `-A INPUT ... -j REJECT` correspondiente; omitir las que ya estén bien ubicadas. Preservar todas las demás reglas y el `COMMIT`:
+
+```text
+-A INPUT -p tcp --dport 80 -j ACCEPT
+-A INPUT -p tcp --dport 443 -j ACCEPT
+```
+
+Revisar localmente el diff contra el respaldo y comprobar que solo cambian esos permisos. [`iptables-restore --test`](https://manpages.debian.org/bookworm/iptables/iptables-restore.8.en.html) valida sin aplicar; habilitar la carga en el próximo arranque, sin recargar el firewall ahora:
+
+```bash
+sudo diff -u "$firewall_backup/rules.v4" /etc/iptables/rules.v4
+sudo iptables-restore --test /etc/iptables/rules.v4 || exit 1
+sudo systemctl enable netfilter-persistent || exit 1
+systemctl is-enabled netfilter-persistent
+sudo iptables -w -C INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -w -C INPUT -p tcp --dport 443 -j ACCEPT
+sudo iptables -w -L INPUT -n --line-numbers
+```
+
+`-C` comprueba presencia, no orden: revisar que ambos permisos precedan al rechazo. No ejecutar `netfilter-persistent save` sobre Docker activo: guarda las reglas cargadas, incluidas las dinámicas. Tampoco ejecutar `netfilter-persistent reload/start/restart`, `iptables-restore` sin `--test` ni restaurar el snapshot completo sobre Docker en marcha. [Docker requiere conservar sus reglas](https://docs.docker.com/engine/network/packet-filtering-firewalls/) y la carga de la base por [`netfilter-persistent`](https://manpages.debian.org/bookworm/netfilter-persistent/netfilter-persistent.8.en.html) debe coordinarse para no sobrescribirlas.
+
+El reboot exitoso registrado no acredita una comprobación específica del orden de arranque entre ambos servicios. Esa revisión sigue sin evidencia: en una sesión autorizada, inspeccionar `systemctl cat netfilter-persistent docker` y `systemctl show netfilter-persistent docker --property=After --property=Before --property=Wants --property=Requires`, incluidas personalizaciones. Revisar la relación efectiva antes de cambiar la carga persistente; no inferirla ni modificar dependencias systemd automáticamente.
+
+Si falla la validación del archivo, restaurar únicamente su copia persistente antes de cualquier reboot; no restaurar tablas activas completas. Verificar segunda conexión SSH, HTTPS y salud de Compose. Comprobar persistencia con el siguiente reboot autorizado mediante la sección 9; no afirmar esa prueba solo por habilitar el servicio. Ante un fallo, conservar la sesión administrativa y diagnosticar antes de retirar exclusivamente una regla recién añadida e identificada.
 
 En la VM:
 
@@ -303,12 +479,15 @@ Esperar `127.0.0.1` en los puertos publicados. Corroborar reglas OCI y firewall 
 Desde un equipo externo, usando la URL confirmada y el endpoint de health habilitado:
 
 ```bash
-read -r -p "URL HTTPS real de health del MVP: " MVP_HEALTH_URL
-case "$MVP_HEALTH_URL" in https://*) ;; *) exit 1 ;; esac
-curl -fsS --max-time 15 "$MVP_HEALTH_URL"
+MVP_HEALTH_URL='https://mediflow-core.duckdns.org/actuator/health'
+curl -fsS -D - --max-time 15 "$MVP_HEALTH_URL"
+curl -sS -o /dev/null -w 'HTTP %{http_code}\n' --max-time 15 \
+  http://mediflow-core.duckdns.org/actuator/health
+curl -sS -o /dev/null -w 'API pública HTTP %{http_code}\n' --max-time 15 \
+  https://mediflow-core.duckdns.org/api/v1/documents/audit
 ```
 
-No usar `-k`: la prueba debe validar el certificado. Registrar respuesta `UP`, cadena TLS y renovación; probar también la API a través del proxy y la ausencia de acceso externo directo a los puertos internos. Un curl local no demuestra exposición pública HTTPS.
+Esperar `UP` por HTTPS, `308` por HTTP (sin `-L`, para observar la redirección) y `404` en la ruta funcional pública. No usar `-k`: la consulta HTTPS debe validar el certificado. Estos son comandos de repetición; no implican acceso funcional a la API ni una prueba de renovación. Un curl local no demuestra exposición pública HTTPS.
 
 ## 9. Operación, logs y persistencia
 
@@ -340,20 +519,52 @@ docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgre
 
 Antes y después del ciclo de detención/recreación, comparar una fila sintética previamente identificada o los conteos de `documents` y `document_triage_history`, sin actividad concurrente que cambie la comparación. No declarar persistencia solo porque existe un volumen. Para cambios de variables usar `dc up -d --wait --wait-timeout 180`; `restart` conserva el entorno anterior del contenedor.
 
-## 10. Evidencia de aceptación de #59
+### Respaldos antes de una actualización
 
-Registrar fecha, operador, SHA desplegado, proyecto Compose, IDs de imágenes y resultados sanitizados. Mantener todos los puntos pendientes hasta ejecutar la verificación correspondiente en el entorno real.
+Conservar los respaldos fuera del checkout y con acceso restringido. El siguiente procedimiento crea un **nuevo** respaldo en formato custom, sin presuponer una ruta del servidor:
 
-- [ ] Dependencias #12, #13, #53 y #72 disponibles; revisión incluye PR #82 y preparación #59.
-- [ ] Arquitectura ARM64 comprobada en host e imágenes; construcción exitosa.
-- [ ] `.env.oci` ignorado, protegido, con namespace real, `instance_principal`, lazy init desactivado y secretos fuera de Git/imágenes.
-- [ ] Tres servicios `healthy`; Backend `UP` e IA `ok`, sin reinicios inesperados en la ventana registrada.
-- [ ] Backend → PostgreSQL comprobado mediante consulta HTTP y conexiones internas.
-- [ ] Backend → IA: `/health` y `400 INVALID_REQUEST` desde el contenedor; ejecución del cliente real registrada aparte o pendiente identificada.
-- [ ] Metadata accesible desde Backend y lectura de fixture OCI mediante el SDK desplegado; permisos de escritura/eliminación registrados aparte si se requieren.
-- [ ] Bucket privado y Dynamic Group/política existentes comprobados para la instancia.
-- [ ] HTTPS externo con certificado válido y proxy configurado; puertos PostgreSQL/IA/Backend sin exposición directa.
-- [ ] Detención, inicio y reinicio reproducibles; misma identidad de volumen y datos conservados tras recreación.
-- [ ] Evidencia distingue controles estáticos, pruebas de red, pruebas funcionales y pendientes para #56; no se cierra #59 con validación estática solamente.
+```bash
+read -r -p "Directorio existente y autorizado para respaldos fuera del checkout: " BACKUP_DIRECTORY
+test -d "$BACKUP_DIRECTORY" || exit 1
+backup_root=$(cd -- "$BACKUP_DIRECTORY" && pwd -P) || exit 1
+checkout_root=$(git rev-parse --show-toplevel) || exit 1
+case "$backup_root/" in
+  "$checkout_root/"*) printf '%s\n' 'El respaldo debe quedar fuera del checkout.' >&2; exit 1 ;;
+esac
+backup_file="$backup_root/mediflow-$(date -u +%Y%m%dT%H%M%SZ).dump"
+test ! -e "$backup_file" || exit 1
+umask 077
+if ! dc exec -T postgres sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$backup_file"; then
+  printf '%s\n' 'Respaldo fallido; no continuar con la actualización.' >&2
+  exit 1
+fi
+chmod 600 "$backup_file"
+test -s "$backup_file" || exit 1
+dc exec -T postgres pg_restore --list < "$backup_file" > /dev/null || exit 1
+```
+
+La inspección del catálogo no restaura la base ni sustituye una prueba de restauración aislada. No borrar volúmenes ni esquemas del despliegue para probar persistencia. La limpieza de una fixture debe limitarse al esquema de prueba identificado y autorizado; no ejecutar una limpieza genérica de la base.
+
+### Recuperación después de reboot
+
+Después de un reboot autorizado, reconectar mediante el acceso SSH existente, volver al mismo checkout, proyecto y archivo de entorno y repetir el preflight de la sección 2. Comprobar servicios del host y estado del despliegue sin cambiar su configuración:
+
+```bash
+systemctl is-active ssh docker caddy netfilter-persistent
+systemctl is-enabled ssh docker caddy netfilter-persistent
+dc ps
+dc exec -T backend curl -fsS http://127.0.0.1:8080/actuator/health
+dc exec -T backend curl -fsS http://ai-core:8000/health
+```
+
+La reconexión exitosa acredita recuperación del acceso SSH. Los comandos con `ssh` anteriores son diagnósticos para futuras verificaciones, no la fuente de la evidencia histórica de reconexión. Repetir además `/api/v1/documents/audit` internamente y los controles externos de la sección 8. Un fallo de recuperación requiere diagnóstico del servicio y de las reglas existentes; no reinstalar paquetes, cambiar puertos ni abrir rutas como reacción automática. Registrar una ventana de observación de `RestartCount` sin inferir disponibilidad continua a partir de una consulta de salud.
+
+## 10. Registro y criterios de aceptación de #59
+
+Consultar el [registro de evidencias](./oci-compute-deployment-evidence.md) para resultados, extractos del operador, limitaciones y pendientes. Contrastar cada actualización con el [Issue #59](https://github.com/No-Country-simulation/G10-MediFlow-Team11/issues/59): servicios y configuraciones existentes, salud, comunicaciones internas, Instance Principals, secretos protegidos, PostgreSQL sin exposición pública y operación reproducible.
+
+Registrar fecha, SHA desplegado, alcance y tipo de evidencia de cada verificación. Separar salidas textuales, capturas OCI disponibles, reportes del operador y comprobaciones sin evidencia; no registrar como cumplido un paso solo por figurar en este runbook. Añadir identificadores de imágenes y una ventana de observación de reinicios únicamente cuando se disponga de ellos.
+
+La conectividad HTTP con IA y la prueba Java aislada de Object Storage tienen límites distintos del flujo real de `AiCoreClient` y de la lectura mediante un endpoint del Backend desplegado. Esos pendientes se mantienen explícitos en el registro. #56 corresponde a la integración end-to-end posterior; publicación funcional de API/Frontend, pruebas de carga, renovación futura de TLS y restauración de respaldo no se convierten automáticamente en bloqueos de #59. El estado de aceptación debe revisarse contra los criterios del Issue, sin cerrarlo desde esta documentación.
 
 Referencias: [arquitectura §§11–15](../ARCHITECTURE.md), [PostgreSQL](./postgresql-docker.md), [Backend](../../backend/README.md#contenerización-del-backend-issue-53), [IA Core](../../ai-core/README.md#ejecución-con-docker), [variables de Compose](https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/), [Instance Principals](https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm).
