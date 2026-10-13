@@ -73,7 +73,7 @@ function AuditPage() {
           <AuditQueueErrorState onRetry={reload} />
         ) : (
           <>
-            <div className="audit-queue__count" aria-live="polite">
+            {items.length > 0 && <div className="audit-queue__count" aria-live="polite">
               <span className="audit-queue__count-dot" aria-hidden="true" />
               <span>
                 {items.length}{" "}
@@ -83,7 +83,7 @@ function AuditPage() {
                   ? "documento pendiente"
                   : "documentos pendientes"}
               </span>
-            </div>
+            </div>}
             {items.length === 0 ? (
               <AuditQueueEmptyState />
             ) : (
