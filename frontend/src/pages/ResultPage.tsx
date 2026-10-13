@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
@@ -41,6 +41,10 @@ function getDocumentExtension(mimeType: string): string {
 
 function ResultPage() {
   const { documentId } = useParams<{ documentId: string }>();
+  const location = useLocation();
+  const navigationState = location.state as
+    | { sourceKind?: "text" | "file"; sourceText?: string | null }
+    | null;
 
   const [result, setResult] = useState<ProcessingResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +101,18 @@ function ResultPage() {
     let active = true;
 
     async function loadDocument() {
+      if (
+        navigationState?.sourceKind === "text" &&
+        typeof navigationState.sourceText === "string"
+      ) {
+        setViewerState({
+          status: "text",
+          documentKey: documentId!,
+          text: navigationState.sourceText,
+        });
+        return;
+      }
+
       try {
         const content = await getDocumentContent(
           documentId!,
@@ -148,7 +164,7 @@ function ResultPage() {
       active = false;
       controller.abort();
     };
-  }, [documentId]);
+  }, [documentId, navigationState]);
 
   return (
     <>

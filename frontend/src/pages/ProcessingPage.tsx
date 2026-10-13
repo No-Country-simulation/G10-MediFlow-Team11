@@ -3,8 +3,6 @@ import PageHeader from "../components/PageHeader";
 import { Box, CircularProgress } from "@mui/material";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
-import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DocumentViewer, {
@@ -14,8 +12,6 @@ import DocumentViewer, {
 import { processFile, processText } from "../services/processingService";
 import { useNotification } from "../notifications/useNotification";
 import type { ProcessingResponse } from "../types/processing";
-
-const RESULT_HANDOFF_STORAGE_KEY = "mediflow.result.handoff" as const;
 
 type InputMode = "file" | "text";
 
@@ -303,15 +299,6 @@ function ProcessingPage() {
   const [originFieldError, setOriginFieldError] = useState<string | null>(null);
   const [textFieldError, setTextFieldError] = useState<string | null>(null);
 
-  interface SuccessState {
-    result: ProcessingResponse;
-    sourceKind: InputMode;
-    sourceText: string | null;
-    sourceFile: File | null;
-    originChannel: string;
-  }
-  const [successState, setSuccessState] = useState<SuccessState | null>(null);
-
   const previewDocument: DocumentViewerState | null = selectedFile
     ? (() => {
         const resolvedMime = normalizeViewerMimeType(selectedFile);
@@ -376,7 +363,6 @@ function ProcessingPage() {
     setOriginFieldError(null);
     setTextFieldError(null);
     setFormError(null);
-    setFileError((prev) => prev);
 
     if (!originChannel.trim()) {
       setOriginFieldError("Indique el canal de origen.");
@@ -425,45 +411,17 @@ function ProcessingPage() {
 
       const finalResult = result as ProcessingResponse;
 
-      const handoff = {
-        result: finalResult,
-        sourceKind: inputMode,
-        sourceText: inputMode === "text" ? documentText : null,
-        originChannel: resolvedOriginChannel,
-        sourceFileMeta:
-          inputMode === "file" && selectedFile
-            ? {
-                name: selectedFile.name,
-                size: selectedFile.size,
-                type: selectedFile.type,
-                lastModified: selectedFile.lastModified,
-              }
-            : null,
-        storedAt: new Date().toISOString(),
-      };
-      try {
-        sessionStorage.setItem(
-          RESULT_HANDOFF_STORAGE_KEY,
-          JSON.stringify(handoff),
-        );
-      } catch {
-        // Silencioso: sessionStorage handoff opcional.
-      }
-
-      setSuccessState({
-        result: finalResult,
-        sourceKind: inputMode,
-        sourceText: inputMode === "text" ? documentText : null,
-        sourceFile: inputMode === "file" ? selectedFile : null,
-        originChannel: resolvedOriginChannel,
-      });
-
       showNotification({
         message: "Documento procesado correctamente.",
         severity: "success",
       });
 
-      navigate(`/results/${encodeURIComponent(finalResult.document_id)}`);
+      navigate(`/results/${encodeURIComponent(finalResult.document_id)}`, {
+        state: {
+          sourceKind: inputMode,
+          sourceText: inputMode === "text" ? documentText : null,
+        },
+      });
     } catch (error) {
       showError(error);
       setProcessingError(true);
@@ -484,33 +442,14 @@ function ProcessingPage() {
     setProcessingError(false);
     setOriginFieldError(null);
     setTextFieldError(null);
-    setSuccessState(null);
-
-    try {
-      sessionStorage.removeItem(RESULT_HANDOFF_STORAGE_KEY);
-    } catch {
-      // sessionStorage opcional
-    }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const handleProcessAnother = () => {
-    try {
-      sessionStorage.removeItem(RESULT_HANDOFF_STORAGE_KEY);
-    } catch {
-      // sessionStorage opcional
-    }
-    setSuccessState(null);
-    setIsProcessing(false);
-    handleClearForm();
-  };
-
   const hasClearableData = useMemo(() => {
     return (
-      successState !== null ||
       selectedFile !== null ||
       documentText.length > 0 ||
       originChannel !== "" ||
@@ -522,7 +461,6 @@ function ProcessingPage() {
       Boolean(textFieldError)
     );
   }, [
-    successState,
     selectedFile,
     documentText,
     originChannel,
@@ -652,503 +590,6 @@ function ProcessingPage() {
     </div>
   );
 
-  const successViewerState: DocumentViewerState | null =
-    successState?.sourceFile
-      ? (() => {
-          const resolvedMime = normalizeViewerMimeType(successState.sourceFile);
-          if (!resolvedMime) return null;
-          return {
-            status: "ready",
-            documentKey:
-              successState.sourceFile.name +
-              String(successState.sourceFile.lastModified) +
-              String(successState.sourceFile.size),
-            blob: successState.sourceFile,
-            mimeType: resolvedMime,
-            fileName: successState.sourceFile.name,
-          };
-        })()
-      : null;
-
-  const classification = successState?.result.classification;
-  const confidence = successState?.result.confidence;
-  const extractedData = successState?.result.extracted_data;
-  const routingDecision = successState?.result.routing_decision;
-  const storage = successState?.result.storage;
-  const needsAudit =
-    successState?.result.status === "NEEDS_AUDIT" ||
-    Boolean(routingDecision?.requires_human_review);
-
-  const successSummaryBlock = (
-    <div
-      className="processing-page__card"
-      style={{
-        maxWidth: 896,
-        margin: "0 auto",
-        padding: 24,
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 56,
-            height: 56,
-            borderRadius: 999,
-            background: "rgba(11, 117, 115, 0.10)",
-            color: "var(--proc-status)",
-          }}
-        >
-          <CheckCircleRoundedIcon sx={{ fontSize: 32 }} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 16,
-              lineHeight: "24px",
-              fontWeight: 600,
-              color: "var(--proc-text)",
-            }}
-          >
-            Documento procesado correctamente
-          </div>
-          <div
-            style={{ fontSize: 13, color: "var(--proc-muted)", marginTop: 2 }}
-          >
-            Identificador canónico del backend:{" "}
-            <span
-              style={{
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                fontSize: 12,
-                color: "var(--proc-text)",
-              }}
-            >
-              {successState?.result.document_id}
-            </span>
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--proc-muted-light)",
-              marginTop: 4,
-            }}
-          >
-            Estado: {successState?.result.status} · Canal de origen:{" "}
-            {successState?.originChannel}
-          </div>
-        </div>
-      </div>
-
-      {needsAudit && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "12px 14px",
-            borderRadius: 9,
-            background: "var(--proc-error-bg)",
-            border: "1px solid var(--proc-error-border)",
-            fontSize: 13,
-            color: "var(--proc-text)",
-          }}
-        >
-          <strong style={{ color: "var(--proc-required)" }}>
-            Requiere auditoría humana.
-          </strong>
-          <span style={{ color: "var(--proc-muted)" }}>
-            La clasificación automática superó el umbral de revisión. El
-            documento queda en cola para validación manual.
-          </span>
-        </div>
-      )}
-
-      {(classification ||
-        confidence ||
-        extractedData ||
-        routingDecision ||
-        storage) && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 14,
-            borderTop: "1px solid var(--proc-border)",
-            borderBottom: "1px solid var(--proc-border)",
-            padding: "16px 0",
-          }}
-        >
-          {classification && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--proc-muted)",
-                  marginBottom: 6,
-                }}
-              >
-                Clasificación
-              </div>
-              <div
-                style={{
-                  fontSize: 14,
-                  lineHeight: "22px",
-                  color: "var(--proc-text)",
-                }}
-              >
-                {classification.document_type && (
-                  <span style={{ marginRight: 12 }}>
-                    Tipo:{" "}
-                    <strong>{String(classification.document_type)}</strong>
-                  </span>
-                )}
-                {classification.specialty && (
-                  <span style={{ marginRight: 12 }}>
-                    Especialidad: <strong>{classification.specialty}</strong>
-                  </span>
-                )}
-                {classification.priority_level && (
-                  <span>
-                    Prioridad:{" "}
-                    <strong style={{ color: "var(--proc-primary)" }}>
-                      {String(classification.priority_level)}
-                    </strong>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          {confidence && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--proc-muted)",
-                  marginBottom: 6,
-                }}
-              >
-                Confianza
-              </div>
-              <div style={{ fontSize: 14, color: "var(--proc-text)" }}>
-                Global: <strong>{Math.round(confidence.global * 100)}%</strong>
-                {typeof confidence.classification === "number" && (
-                  <span style={{ marginLeft: 12 }}>
-                    Clasificación:{" "}
-                    <strong>
-                      {Math.round(confidence.classification * 100)}%
-                    </strong>
-                  </span>
-                )}
-                {typeof confidence.extraction === "number" && (
-                  <span style={{ marginLeft: 12 }}>
-                    Extracción:{" "}
-                    <strong>{Math.round(confidence.extraction * 100)}%</strong>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          {extractedData && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--proc-muted)",
-                  marginBottom: 6,
-                }}
-              >
-                Datos extraídos (resumen)
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  lineHeight: "21px",
-                  color: "var(--proc-text)",
-                }}
-              >
-                {(extractedData.patient?.name ||
-                  extractedData.patient?.age != null) && (
-                  <div>
-                    Paciente:{" "}
-                    <strong>
-                      {[
-                        extractedData.patient.name,
-                        extractedData.patient.age != null
-                          ? `${extractedData.patient.age} años`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </strong>
-                  </div>
-                )}
-                {(extractedData.requesting_doctor?.name ||
-                  extractedData.requesting_doctor?.license_number) && (
-                  <div>
-                    Solicitante:{" "}
-                    <strong>
-                      {[
-                        extractedData.requesting_doctor.name,
-                        extractedData.requesting_doctor.license_number,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </strong>
-                  </div>
-                )}
-                {extractedData.primary_diagnosis && (
-                  <div style={{ marginTop: 4 }}>
-                    Diagnóstico principal:{" "}
-                    <strong>{extractedData.primary_diagnosis}</strong>
-                  </div>
-                )}
-                {extractedData.suggested_icd10 && (
-                  <div>
-                    CIE-10 sugerido:{" "}
-                    <strong style={{ color: "var(--proc-primary)" }}>
-                      {String(extractedData.suggested_icd10)}
-                    </strong>
-                  </div>
-                )}
-                {Array.isArray(extractedData.medications) &&
-                  extractedData.medications.length > 0 && (
-                    <div>
-                      Medicaciones:{" "}
-                      <strong>
-                        {extractedData.medications.length} ítem(es)
-                      </strong>
-                    </div>
-                  )}
-              </div>
-            </div>
-          )}
-          {routingDecision && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--proc-muted)",
-                  marginBottom: 6,
-                }}
-              >
-                Enrutamiento
-              </div>
-              <div style={{ fontSize: 13, color: "var(--proc-text)" }}>
-                Destino:{" "}
-                <strong>{String(routingDecision.primary_destination)}</strong>
-                {routingDecision.justification && (
-                  <span style={{ color: "var(--proc-muted)" }}>
-                    {" "}
-                    · {routingDecision.justification}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          {storage && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--proc-muted)",
-                  marginBottom: 6,
-                }}
-              >
-                Almacenamiento
-              </div>
-              <div style={{ fontSize: 13, color: "var(--proc-text)" }}>
-                Estado: <strong>{String(storage.state)}</strong>
-                {storage.provider && (
-                  <span style={{ marginLeft: 12 }}>
-                    Provider: <strong>{String(storage.provider)}</strong>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div
-          style={{
-            fontSize: 12,
-            color: "var(--proc-muted-light)",
-            lineHeight: "18px",
-          }}
-        >
-          La visualización detallada del resultado (Ticket <strong>#20</strong>)
-          es elaborada por el equipo asignado. La información de esta transición
-          ha sido depositada en{" "}
-          <code
-            style={{
-              fontFamily: "ui-monospace, monospace",
-              background: "var(--proc-surface-alt)",
-              padding: "1px 5px",
-              borderRadius: 5,
-              fontSize: 11,
-            }}
-          >
-            sessionStorage
-          </code>{" "}
-          bajo la clave{" "}
-          <code
-            style={{
-              fontFamily: "ui-monospace, monospace",
-              background: "var(--proc-surface-alt)",
-              padding: "1px 5px",
-              borderRadius: 5,
-              fontSize: 11,
-            }}
-          >
-            mediflow.result.handoff
-          </code>{" "}
-          para que el resultado oficial consuma sin re-procesar.
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "center",
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleProcessAnother}
-            className="processing-page__btn-primary processing-page__btn-primary--enabled"
-          >
-            Procesar otro documento
-          </button>
-          {needsAudit && (
-            <button
-              type="button"
-              onClick={() => navigate("/audit")}
-              className="processing-page__btn-secondary"
-            >
-              Ir a Auditoría
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleClearForm}
-            className="processing-page__btn-secondary"
-          >
-            Descartar y limpiar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const successViewerBlock = (
-    <div
-      className="processing-page__viewer-panel"
-      style={{ minHeight: "100%" }}
-    >
-      <div className="processing-page__viewer-header">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            minWidth: 0,
-          }}
-        >
-          <ArticleOutlinedIcon
-            sx={{ fontSize: 16, color: "var(--proc-muted)" }}
-            aria-hidden
-          />
-          <div
-            className="processing-page__viewer-title"
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {successState?.sourceKind === "file" && successState?.sourceFile
-              ? successState.sourceFile.name
-              : "Documento de texto (modo texto)"}
-          </div>
-        </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          {successState?.sourceKind === "file" && successState?.sourceFile && (
-            <>
-              <span
-                className="processing-page__file-type-badge"
-                style={{ fontSize: 10, width: 34, height: 24 }}
-              >
-                {(successState.sourceFile.name.split(".").pop() || "")
-                  .toUpperCase()
-                  .slice(0, 3) || "FILE"}
-              </span>
-              <span style={{ fontSize: 12, color: "var(--proc-muted)" }}>
-                {successState.sourceFile.size < 1024
-                  ? `${successState.sourceFile.size} B`
-                  : successState.sourceFile.size < 1024 * 1024
-                    ? `${(successState.sourceFile.size / 1024).toFixed(1)} KB`
-                    : `${(successState.sourceFile.size / 1024 / 1024).toFixed(2)} MB`}
-              </span>
-            </>
-          )}
-          {successState?.sourceKind === "text" && successState?.sourceText && (
-            <span style={{ fontSize: 12, color: "var(--proc-muted)" }}>
-              {successState.sourceText.length} caracteres
-            </span>
-          )}
-        </div>
-      </div>
-      <div
-        className="processing-page__viewer-body"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          minHeight: 0,
-          overflow: "hidden",
-          background: "#F1F3F6",
-        }}
-      >
-        {successViewerState ? (
-          <DocumentViewer
-            document={successViewerState}
-            ariaLabel="Vista previa del documento procesado"
-          />
-        ) : (
-          <div style={{ padding: 16, height: "100%", overflow: "auto" }}>
-            <pre
-              style={{
-                margin: 0,
-                fontSize: 13,
-                lineHeight: "21px",
-                color: "var(--proc-text)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontFamily: '"Inter", ui-sans-serif, system-ui, sans-serif',
-                background: "var(--proc-surface)",
-                border: "1px solid var(--proc-border)",
-                borderRadius: 10,
-                padding: 16,
-              }}
-            >
-              {successState?.sourceText || "(sin contenido)"}
-            </pre>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <Box className="processing-page">
       <PageHeader
@@ -1170,21 +611,7 @@ function ProcessingPage() {
           }}
         />
 
-        {successState ? (
-          <div className="processing-page__grid">
-            <div className="processing-page__grid-col processing-page__grid-col--config">
-              {successSummaryBlock}
-            </div>
-            <div className="processing-page__grid-col processing-page__grid-col--viewer">
-              {successViewerBlock}
-            </div>
-          </div>
-        ) : (
-          <></>
-        )}
-
-        {!successState && (
-          <>
+        <>
             <div
               className="processing-page__tablist"
               role="tablist"
@@ -1601,8 +1028,7 @@ function ProcessingPage() {
                 </div>
               </section>
             )}
-          </>
-        )}
+        </>
       </Box>
     </Box>
   );
