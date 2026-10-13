@@ -463,23 +463,7 @@ function ProcessingPage() {
         severity: "success",
       });
 
-      navigate("/result", {
-        state: {
-          result: finalResult,
-          sourceKind: inputMode,
-          sourceText: inputMode === "text" ? documentText : null,
-          sourceFile:
-            inputMode === "file" && selectedFile
-              ? {
-                  name: selectedFile.name,
-                  size: selectedFile.size,
-                  type: selectedFile.type,
-                  lastModified: selectedFile.lastModified,
-                }
-              : null,
-          originChannel: resolvedOriginChannel,
-        },
-      });
+      navigate(`/results/${encodeURIComponent(finalResult.document_id)}`);
     } catch (error) {
       showError(error);
       setProcessingError(true);

@@ -1,10 +1,4 @@
-import {
-  BrowserRouter,
-  Link as RouterLink,
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
 import AuditPage from "../pages/AuditPage";
 import LoginPage from "../pages/LoginPage";
