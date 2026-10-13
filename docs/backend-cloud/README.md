@@ -85,6 +85,7 @@ El despliegue de PostgreSQL, Backend, IA Core y demás servicios queda fuera de 
 
 - [`../ARCHITECTURE.md`](../ARCHITECTURE.md): arquitectura base y contratos de integración.
 - [`./postgresql-docker.md`](./postgresql-docker.md): PostgreSQL con Docker Compose para desarrollo local.
+- [Contenerización del Backend](../../backend/README.md#contenerización-del-backend-issue-53): ejecución del Backend con Docker para desarrollo local. El despliegue efectivo en OCI sigue siendo un ticket posterior.
 
 ## Seguridad
 
