@@ -41,6 +41,11 @@ export const processedResultMock = {
         dosage: "500 mg",
       },
     ],
+    measurements: {
+      systolic: 128,
+      diastolic: 82,
+      unit: "mmHg",
+    },
   },
 
   validation: {

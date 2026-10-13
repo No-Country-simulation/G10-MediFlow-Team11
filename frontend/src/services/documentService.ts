@@ -6,6 +6,13 @@ export type DocumentContent =
   | { kind: "file"; blob: Blob; mimeType: ViewerMimeType }
   | { kind: "text"; text: string };
 
+export const mockDocumentFiles: Record<string, string> = {
+  "DOC-2026-0001": "document.pdf",
+  "DOC-2026-0002": "document.jpg",
+  "DOC-2026-0003": "document.png",
+  "DOC-2026-0004": "document.jpg",
+};
+
 const supportedMimeTypes: readonly string[] = [
   "application/pdf",
   "image/jpeg",
@@ -29,13 +36,7 @@ export async function getDocumentContent(
   signal?: AbortSignal,
 ): Promise<DocumentContent | null> {
   if (env.useMocks) {
-    const mockDocuments: Record<string, string> = {
-      "DOC-2026-0001": "document.pdf",
-      "DOC-2026-0002": "document.jpg",
-      "DOC-2026-0003": "document.png",
-    };
-
-    const fileName = mockDocuments[documentId];
+    const fileName = mockDocumentFiles[documentId];
 
     if (!fileName) {
       return null;

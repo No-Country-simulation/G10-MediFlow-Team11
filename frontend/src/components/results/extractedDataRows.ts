@@ -20,6 +20,82 @@ function humanizeKey(key: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function isPrimitive(value: unknown): value is string | number | boolean {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
+function formatScalar(value: unknown): string | null {
+  if (value == null) return null;
+
+  if (isPrimitive(value)) {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null;
+    if (value.every(isPrimitive)) {
+      return value.map((item) => String(item)).join(", ");
+    }
+
+    const items = value
+      .map((item) => formatScalar(item))
+      .filter((item): item is string => item != null);
+
+    return items.length > 0 ? items.join("; ") : null;
+  }
+
+  if (typeof value === "object") {
+    const parts = Object.entries(value as Record<string, unknown>)
+      .map(([key, nested]) => {
+        const formatted = formatScalar(nested);
+        return formatted == null ? null : `${humanizeKey(key)}: ${formatted}`;
+      })
+      .filter((part): part is string => part != null);
+
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+
+  return null;
+}
+
+function formatAdditionalValue(value: unknown): string | string[] | null {
+  if (value == null) return null;
+
+  if (isPrimitive(value)) {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null;
+    if (value.every(isPrimitive)) {
+      return value.map((item) => String(item));
+    }
+
+    const items = value
+      .map((item) => formatScalar(item))
+      .filter((item): item is string => item != null);
+
+    return items.length > 0 ? items : null;
+  }
+
+  if (typeof value === "object") {
+    const items = Object.entries(value as Record<string, unknown>)
+      .map(([key, nested]) => {
+        const formatted = formatScalar(nested);
+        return formatted == null ? null : `${humanizeKey(key)}: ${formatted}`;
+      })
+      .filter((item): item is string => item != null);
+
+    return items.length > 0 ? items : null;
+  }
+
+  return null;
+}
+
 export function buildExtractedDataRows(data: ExtractedData): DataRow[] {
   const rows: DataRow[] = [];
 
@@ -95,17 +171,14 @@ export function buildExtractedDataRows(data: ExtractedData): DataRow[] {
 
   for (const [key, value] of Object.entries(data)) {
     if (KNOWN_KEYS.has(key)) continue;
-    if (value == null) continue;
-    if (
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean"
-    ) {
-      rows.push({
-        label: humanizeKey(key),
-        value: String(value),
-      });
-    }
+
+    const formatted = formatAdditionalValue(value);
+    if (formatted == null) continue;
+
+    rows.push({
+      label: humanizeKey(key),
+      value: formatted,
+    });
   }
 
   return rows;

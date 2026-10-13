@@ -209,4 +209,94 @@ describe("buildExtractedDataRows", () => {
     expect(patientRows).toHaveLength(1);
     expect(diagnosisRows).toHaveLength(1);
   });
+
+  it("incluye campos adicionales de tipo objeto como pares legibles", () => {
+    const data: ExtractedData = {
+      patient: { name: "Ana López" },
+      measurements: { systolic: 120, diastolic: 80, unit: "mmHg" },
+    } as ExtractedData;
+
+    const rows = buildExtractedDataRows(data);
+
+    expect(rows).toContainEqual({
+      label: "Measurements",
+      value: ["Systolic: 120", "Diastolic: 80", "Unit: mmHg"],
+    });
+  });
+
+  it("incluye campos adicionales de tipo array de primitivos como lista", () => {
+    const data: ExtractedData = {
+      patient: { name: "Ana López" },
+      allergies: ["penicilina", "aspirina"],
+    } as ExtractedData;
+
+    const rows = buildExtractedDataRows(data);
+
+    expect(rows).toContainEqual({
+      label: "Allergies",
+      value: ["penicilina", "aspirina"],
+    });
+  });
+
+  it("incluye campos adicionales de tipo array de objetos como lista legible", () => {
+    const data: ExtractedData = {
+      patient: { name: "Ana López" },
+      lab_results: [
+        { test: "glucosa", value: 95 },
+        { test: "colesterol", value: 180 },
+      ],
+    } as ExtractedData;
+
+    const rows = buildExtractedDataRows(data);
+
+    expect(rows).toContainEqual({
+      label: "Lab Results",
+      value: ["Test: glucosa · Value: 95", "Test: colesterol · Value: 180"],
+    });
+  });
+
+  it("omite propiedades nulas dentro de objetos y arrays adicionales", () => {
+    const data: ExtractedData = {
+      patient: { name: "Ana López" },
+      measurements: { systolic: 120, note: null },
+      lab_results: [{ test: "glucosa", value: null }, null],
+    } as ExtractedData;
+
+    const rows = buildExtractedDataRows(data);
+
+    expect(rows).toContainEqual({
+      label: "Measurements",
+      value: ["Systolic: 120"],
+    });
+    expect(rows).toContainEqual({
+      label: "Lab Results",
+      value: ["Test: glucosa"],
+    });
+  });
+
+  it("no incluye campos adicionales de tipo array vacío", () => {
+    const data: ExtractedData = {
+      patient: { name: "Ana López" },
+      empty_list: [],
+    } as ExtractedData;
+
+    const rows = buildExtractedDataRows(data);
+
+    expect(
+      rows.find((row) => row.label === "Empty List"),
+    ).toBeUndefined();
+  });
+
+  it("no incluye campos adicionales de tipo objeto vacío", () => {
+    const data: ExtractedData = {
+      patient: { name: "Ana López" },
+      empty_object: {},
+    } as ExtractedData;
+
+    const rows = buildExtractedDataRows(data);
+
+    expect(
+      rows.find((row) => row.label === "Empty Object"),
+    ).toBeUndefined();
+  });
 });

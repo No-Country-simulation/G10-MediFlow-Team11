@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDocumentContent } from "./documentService";
+import { getDocumentContent, mockDocumentFiles } from "./documentService";
 import { ApiError } from "./processingService";
 
 vi.mock("../config/env", () => ({
@@ -26,7 +26,7 @@ describe("getDocumentContent", () => {
   });
 
   it("devuelve null cuando el backend responde 404", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(null, 404, { "Content-Type": "application/json" }),
     );
 
@@ -36,7 +36,7 @@ describe("getDocumentContent", () => {
   });
 
   it("lanza ApiError cuando el backend responde con error HTTP", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(null, 500, { "Content-Type": "application/json" }),
     );
 
@@ -45,7 +45,7 @@ describe("getDocumentContent", () => {
 
   it("procesa una respuesta PDF válida", async () => {
     const blob = new Blob(["pdf-bytes"], { type: "application/pdf" });
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(blob, 200, { "Content-Type": "application/pdf" }),
     );
 
@@ -60,7 +60,7 @@ describe("getDocumentContent", () => {
 
   it("procesa una respuesta JPEG válida", async () => {
     const blob = new Blob(["jpeg-bytes"], { type: "image/jpeg" });
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(blob, 200, { "Content-Type": "image/jpeg" }),
     );
 
@@ -75,7 +75,7 @@ describe("getDocumentContent", () => {
 
   it("procesa una respuesta PNG válida", async () => {
     const blob = new Blob(["png-bytes"], { type: "image/png" });
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(blob, 200, { "Content-Type": "image/png" }),
     );
 
@@ -95,7 +95,7 @@ describe("getDocumentContent", () => {
       origin_channel: "Guardia_Emergencias",
     });
 
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(jsonBody, 200, { "Content-Type": "application/json" }),
     );
 
@@ -108,7 +108,7 @@ describe("getDocumentContent", () => {
   });
 
   it("lanza error cuando el JSON de documento TEXT está malformado", async () => {
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse("{invalid json", 200, {
         "Content-Type": "application/json",
       }),
@@ -123,7 +123,7 @@ describe("getDocumentContent", () => {
       origin_channel: "Guardia_Emergencias",
     });
 
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(jsonBody, 200, { "Content-Type": "application/json" }),
     );
 
@@ -136,7 +136,7 @@ describe("getDocumentContent", () => {
       document_text: 12345,
     });
 
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(jsonBody, 200, { "Content-Type": "application/json" }),
     );
 
@@ -145,7 +145,7 @@ describe("getDocumentContent", () => {
 
   it("lanza error para MIME binario no admitido", async () => {
     const blob = new Blob(["gif-bytes"], { type: "image/gif" });
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(blob, 200, { "Content-Type": "image/gif" }),
     );
 
@@ -154,7 +154,7 @@ describe("getDocumentContent", () => {
 
   it("lanza error cuando no hay Content-Type", async () => {
     const blob = new Blob(["bytes"], { type: "" });
-    global.fetch = vi.fn().mockResolvedValue(
+    globalThis.fetch = vi.fn().mockResolvedValue(
       createResponse(blob, 200, {}),
     );
 
@@ -162,7 +162,7 @@ describe("getDocumentContent", () => {
   });
 
   it("propaga errores de red", async () => {
-    global.fetch = vi
+    globalThis.fetch = vi
       .fn()
       .mockRejectedValue(new TypeError("Network request failed"));
 
@@ -171,12 +171,17 @@ describe("getDocumentContent", () => {
     );
   });
 
+  it("asocia un original sintético al documento REJECTED y reserva el contenido ausente", () => {
+    expect(mockDocumentFiles["DOC-2026-0004"]).toBe("document.jpg");
+    expect(mockDocumentFiles["DOC-2026-0005"]).toBeUndefined();
+  });
+
   it("incluye application/json en el header Accept de la petición", async () => {
     const blob = new Blob(["pdf"], { type: "application/pdf" });
     const fetchMock = vi.fn().mockResolvedValue(
       createResponse(blob, 200, { "Content-Type": "application/pdf" }),
     );
-    global.fetch = fetchMock;
+    globalThis.fetch = fetchMock;
 
     await getDocumentContent("DOC-001");
 

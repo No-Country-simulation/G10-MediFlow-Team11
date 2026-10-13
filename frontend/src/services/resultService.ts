@@ -13,6 +13,7 @@ const mockResults: ProcessingResponse[] = [
   needsAuditResultMock,
   approvedResultMock,
   rejectedResultMock,
+  // DOC-2026-0005 cubre resultado sin original asociado al visor.
   {
     ...processedResultMock,
     document_id: "DOC-2026-0005",
