@@ -13,7 +13,6 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -152,10 +151,12 @@ public class DocumentRecord {
         }
     }
 
-    @PreUpdate
-    void onUpdate() {
-        updatedAt = Instant.now();
-    }
+    /**
+     * No existe {@code @PreUpdate}: {@code updated_at} se controla explícitamente
+     * mediante {@link #touchUpdatedAt(Instant)} para garantizar que coincida
+     * exactamente con {@code document_triage_history.occurred_at} y el
+     * {@code updated_at} del artefacto {@code triage.json} (arquitectura §10-11).
+     */
 
     public static Map<String, Object> defaultNotification() {
         Map<String, Object> body = new LinkedHashMap<>();
