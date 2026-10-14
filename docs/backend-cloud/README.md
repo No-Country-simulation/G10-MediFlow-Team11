@@ -73,19 +73,22 @@ El contrato completo de almacenamiento, la convención de nombres de objeto y el
 
 #### Verificaciones realizadas
 
+Estas verificaciones corresponden al aprovisionamiento de #12; no acreditan el estado actual de los servicios contenerizados ni se repiten al preparar #59.
+
 - Arquitectura `aarch64` verificada.
 - Ejecución correcta de `hello-world` con Docker.
 - Acceso al bucket `mediflow-documentos-clinicos` mediante Instance Principals.
 - Prueba de `put`, `list` y `delete` completada correctamente.
 - Ausencia de `~/.oci`: sin credenciales OCI estáticas en la VM.
 
-El despliegue de PostgreSQL, Backend, IA Core y demás servicios queda fuera de esta etapa y se realizará en tickets posteriores.
+El despliegue de PostgreSQL, Backend e IA Core corresponde a #59. La guía siguiente prepara su ejecución y registro de evidencia; la implementación en el repositorio no implica que ya se haya desplegado en la VM.
 
 ## Guías relacionadas
 
 - [`../ARCHITECTURE.md`](../ARCHITECTURE.md): arquitectura base y contratos de integración.
 - [`./postgresql-docker.md`](./postgresql-docker.md): PostgreSQL con Docker Compose para desarrollo local.
-- [Contenerización del Backend](../../backend/README.md#contenerización-del-backend-issue-53): ejecución del Backend con Docker para desarrollo local. El despliegue efectivo en OCI sigue siendo un ticket posterior.
+- [Contenerización del Backend](../../backend/README.md#contenerización-del-backend-issue-53): ejecución del Backend con Docker para desarrollo local.
+- [Despliegue en OCI Compute (#59)](./oci-compute-deployment.md): ARM64, variables protegidas, Instance Principals, HTTPS, operación y checklist de aceptación en la VM.
 
 ## Seguridad
 

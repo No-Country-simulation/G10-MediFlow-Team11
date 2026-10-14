@@ -15,7 +15,7 @@ Proyecto desarrollado para el **Hackathon ONE — Grupo 10** (Oracle Next Educat
 - [Estado actual de implementación](#estado-actual-de-implementación)
   - [Backend — Inicialización del servicio (Issue #1)](#backend--inicialización-del-servicio-issue-1)
   - [Contenerización del Backend (Issue #53)](#contenerización-del-backend-issue-53)
-  - [Infraestructura Cloud — Aprovisionamiento en OCI (Issue #9)](#infraestructura-cloud--aprovisionamiento-en-oci-issue-9)
+  - [Infraestructura Cloud — Aprovisionamiento en OCI (Issue #9)](../docs/backend-cloud/README.md#infraestructura-oci-base)
   - [PostgreSQL — Configuración del servicio](#postgresql--configuración-del-servicio)
   - [Contratos DTO de procesamiento (Issue #5)](#contratos-dto-de-procesamiento-issue-5)
   - [Persistencia de documentos e historial (PostgreSQL)](#persistencia-de-documentos-e-historial-postgresql)
@@ -182,7 +182,7 @@ docker compose ps
 curl.exe -sS http://localhost:8080/actuator/health
 ```
 
-PostgreSQL y Backend deben aparecer como `healthy`; la respuesta de health esperada es `{"status":"UP"}`. En Bash, usa `curl -sS http://localhost:8080/actuator/health`. Si `BACKEND_PORT` tiene un valor distinto de `8080`, sustituye `8080` por ese puerto publicado en ambos comandos curl.
+PostgreSQL, IA Core y Backend deben aparecer como `healthy`; Backend depende de los healthchecks de PostgreSQL e IA Core. La respuesta de health esperada del Backend es `{"status":"UP"}`. En Bash, usa `curl -sS http://localhost:8080/actuator/health`. Si `BACKEND_PORT` tiene un valor distinto de `8080`, sustituye `8080` por ese puerto publicado en ambos comandos curl.
 
 #### Logs y detención
 
@@ -198,12 +198,18 @@ docker compose down
 
 #### Variables de entorno
 
-Compose carga las variables del `.env` situado en la raíz del repositorio y las entrega al contenedor Backend. Dentro de Docker, el Backend usa `DB_HOST=postgres` y `DB_PORT=5432` (puerto interno); Compose fija esos valores independientemente de `DB_PORT` del `.env`, que corresponde al puerto publicado en el host.
+Compose usa el `.env` de la raíz para interpolar `compose.yaml`; solo entrega al Backend las variables declaradas en su bloque `environment`. Dentro de Docker fija `DB_HOST=postgres`, `DB_PORT=5432` (puerto interno), `SERVER_PORT=8080` y `MEDIFLOW_AI_SERVICE_URL=http://ai-core:8000`. El `DB_PORT` del `.env` corresponde al puerto publicado en el host; la URL local de IA en la plantilla corresponde al Backend nativo y no reemplaza la URL interna de Compose.
 
 | Variable | Valor por defecto en Compose | Descripción |
 |---|---|---|
 | `BACKEND_PORT` | `8080` | Puerto del host publicado en loopback para el Backend. |
 | `BACKEND_LAZY_INIT` | `false` | Valor de `SPRING_MAIN_LAZY_INITIALIZATION`. En `.env.example` se establece en `true` para desarrollo local fuera de OCI; en OCI debe dejarse en `false`. |
+| `OCI_BUCKET_NAME` | `mediflow-documentos-clinicos` | Bucket privado utilizado por Backend. |
+| `OCI_NAMESPACE` | vacío | Se pasa sin exigirlo al validar Compose localmente; las operaciones de almacenamiento requieren el namespace real. |
+| `OCI_REGION` | `us-ashburn-1` | Región del cliente Object Storage. |
+| `OCI_AUTH_MODE` | `instance_principal` | La plantilla local usa `config_file`; en OCI definir explícitamente `instance_principal`. |
+
+La [guía de OCI Compute (Issue #59)](../docs/backend-cloud/oci-compute-deployment.md) describe los overrides y las verificaciones del despliegue. `/actuator/health` no sustituye las pruebas de IA ni Object Storage.
 
 #### Notas importantes
 
@@ -218,7 +224,7 @@ Compose carga las variables del `.env` situado en la raíz del repositorio y las
   ```
 
   Actualiza los digests fijados en `backend/Dockerfile` usando el campo `Digest:` del índice, no el digest de un manifiesto de plataforma.
-- Limitación conocida: fuera de OCI, sin `BACKEND_LAZY_INIT=true`, el contenedor no llega a `healthy` porque `ObjectStorageConfig` inicializa Instance Principals durante el arranque. El interruptor de inicialización perezosa es un parche de configuración; la corrección de fondo corresponde al squad Backend en un ticket aparte. Con inicialización perezosa, los errores de OCI podrían aparecer en el primer uso de Object Storage.
+- Fuera de OCI, Instance Principals requiere metadata de una instancia OCI. El modo `config_file` requiere `~/.oci/config` y su clave, disponibles para el Backend nativo local, pero no incluidos en el contenedor. `BACKEND_LAZY_INIT=true` permite diferir esa inicialización en desarrollo; no habilita acceso a Object Storage y los errores pueden aparecer en su primer uso. En la VM usar `instance_principal` y `BACKEND_LAZY_INIT=false` para detectar fallos de autenticación durante el arranque.
 
 ### PostgreSQL — Configuración del servicio
 
@@ -375,6 +381,11 @@ Definidas en la plantilla [`/.env.example`](../.env.example), en la raíz del re
 | `SERVER_PORT` | No | `8080` | Puerto de escucha del servicio |
 | `BACKEND_PORT` | No | `8080` | Puerto del host publicado por Docker Compose para el Backend |
 | `BACKEND_LAZY_INIT` | No | `false` en Compose; `true` en `.env.example` | Habilita la inicialización perezosa para desarrollo local fuera de OCI |
+| `MEDIFLOW_AI_SERVICE_URL` | No | `http://localhost:8000` nativo; `http://ai-core:8000` en Compose | Propiedad `mediflow.ai.service-url` del cliente implementado en #30 |
+| `OCI_BUCKET_NAME` | No | `mediflow-documentos-clinicos` | Bucket privado |
+| `OCI_NAMESPACE` | Para usar almacenamiento | vacío | Namespace real del bucket; no bloquea la validación estática de Compose |
+| `OCI_REGION` | No | `us-ashburn-1` | Región de Object Storage |
+| `OCI_AUTH_MODE` | No | `instance_principal` en aplicación/Compose; `config_file` en plantilla local | En OCI usar Instance Principals sin archivos de credenciales |
 
 `.env` está excluido del control de versiones mediante `.gitignore`; solo `.env.example` se versiona.
 

@@ -1,8 +1,5 @@
 package com.mediflow.backend.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mediflow.backend.dto.ProcessingRequest;
 import com.mediflow.backend.dto.response.AiErrorResponse;
 import com.mediflow.backend.dto.response.AiProcessResponse;
@@ -18,6 +15,9 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
@@ -33,11 +33,11 @@ public class AiCoreClient {
 
     private final RestClient restClient;
     private final AiCoreProperties properties;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
-    public AiCoreClient(AiCoreProperties properties, RestClient.Builder restClientBuilder, ObjectMapper objectMapper) {
+    public AiCoreClient(AiCoreProperties properties, RestClient.Builder restClientBuilder, JsonMapper jsonMapper) {
         this.properties = properties;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
         this.restClient = restClientBuilder
                 .baseUrl(properties.getProcessEndpoint())
                 .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE)
@@ -129,12 +129,12 @@ public class AiCoreClient {
             throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "AI Core returned an empty body");
         }
         try {
-            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode root = jsonMapper.readTree(responseBody);
             if (!isValidResponseContract(root)) {
                 throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, "AI response does not match the success contract");
             }
-            return objectMapper.treeToValue(root, AiProcessResponse.class);
-        } catch (JsonProcessingException exception) {
+            return jsonMapper.treeToValue(root, AiProcessResponse.class);
+        } catch (JacksonException exception) {
             throw new AiClientFatalException(AuditReason.INVALID_AI_RESPONSE, exception);
         }
     }
@@ -182,10 +182,10 @@ public class AiCoreClient {
         }
         for (JsonNode reason : routingDecision.get("audit_reasons")) {
             try {
-                if (!objectMapper.treeToValue(reason, AuditReason.class).isSemantic()) {
+                if (!jsonMapper.treeToValue(reason, AuditReason.class).isSemantic()) {
                     return false;
                 }
-            } catch (JsonProcessingException exception) {
+            } catch (JacksonException exception) {
                 return false;
             }
         }
@@ -240,7 +240,7 @@ public class AiCoreClient {
             return false;
         }
         for (JsonNode item : value) {
-            if (!item.isTextual()) {
+            if (!item.isString()) {
                 return false;
             }
         }
@@ -260,11 +260,11 @@ public class AiCoreClient {
     }
 
     private boolean isOptionalText(JsonNode value) {
-        return value == null || value.isNull() || value.isTextual();
+        return value == null || value.isNull() || value.isString();
     }
 
     private boolean isNonEmptyText(JsonNode value) {
-        return value != null && value.isTextual() && !value.textValue().isBlank();
+        return value != null && value.isString() && !value.stringValue().isBlank();
     }
 
     private boolean isOptionalObject(JsonNode value) {
@@ -280,10 +280,10 @@ public class AiCoreClient {
             return false;
         }
         try {
-            AiErrorResponse errorResponse = objectMapper.readValue(body, AiErrorResponse.class);
+            AiErrorResponse errorResponse = jsonMapper.readValue(body, AiErrorResponse.class);
             return errorResponse.getError() != null
                     && "AI_OUTPUT_INVALID".equals(errorResponse.getError().getCode());
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             return false;
         }
     }

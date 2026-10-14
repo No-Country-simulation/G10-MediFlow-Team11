@@ -42,6 +42,19 @@ public class ExtractedData {
     public static class Patient {
         private String name;
         private Integer age;
+
+        @JsonIgnore
+        private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+        @JsonAnySetter
+        public void setAdditionalProperty(String name, Object value) {
+            additionalProperties.put(name, value);
+        }
+
+        @JsonAnyGetter
+        public Map<String, Object> getAdditionalProperties() {
+            return additionalProperties;
+        }
     }
 
     @Getter
@@ -49,6 +62,19 @@ public class ExtractedData {
     public static class RequestingDoctor {
         private String name;
         private String licenseNumber;
+
+        @JsonIgnore
+        private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+        @JsonAnySetter
+        public void setAdditionalProperty(String name, Object value) {
+            additionalProperties.put(name, value);
+        }
+
+        @JsonAnyGetter
+        public Map<String, Object> getAdditionalProperties() {
+            return additionalProperties;
+        }
     }
 
     @Getter
@@ -56,5 +82,18 @@ public class ExtractedData {
     public static class Medication {
         private String name;
         private String dosage;
+
+        @JsonIgnore
+        private Map<String, Object> additionalProperties = new LinkedHashMap<>();
+
+        @JsonAnySetter
+        public void setAdditionalProperty(String name, Object value) {
+            additionalProperties.put(name, value);
+        }
+
+        @JsonAnyGetter
+        public Map<String, Object> getAdditionalProperties() {
+            return additionalProperties;
+        }
     }
 }
