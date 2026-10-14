@@ -5,9 +5,9 @@ import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
-  ArrowViewerIcon, AttachmentViewerIcon, BookmarkViewerIcon, DownloadViewerIcon,
-  FullScreenViewerIcon, MoreViewerIcon, PrintViewerIcon, SearchViewerIcon,
-  ThemeViewerIcon, ThumbnailViewerIcon, ZoomViewerIcon,
+  ArrowViewerIcon, DownloadViewerIcon, FullScreenViewerIcon, MoreViewerIcon,
+  PrintViewerIcon, SearchViewerIcon, ThemeViewerIcon, ThumbnailViewerIcon,
+  ZoomViewerIcon,
 } from "./ViewerIcons";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -19,7 +19,8 @@ type Load =
   | { blob: Blob; status: "ready"; pdf: PDFDocumentProxy; pages: PageSize[] };
 type ZoomMode = "fixed" | "fit-width" | "fit-page";
 type Action = { label: string; icon: ComponentType; onClick?: () => void; disabled?: boolean };
-type MenuAction = { key: string; label: string; icon: ComponentType; disabled?: boolean };
+type MenuAction = { key: string; label: string; icon: ComponentType };
+const RAIL_MIN_VIEWER_WIDTH = 680;
 const zoomSteps = [50, 75, 100, 125, 130, 150, 200, 300, 400];
 const zoomOptions = [
   ["actual", "Tamaño real"], ["page", "Ajustar a la página"],
@@ -121,7 +122,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
   const totalPages = pages.length;
   const compactToolbar = viewerWidth > 0 && viewerWidth <= 400;
   const secondaryHidden = viewerWidth > 0 && viewerWidth < 560;
-  const compactChrome = viewerWidth > 0 && viewerWidth < 760;
+  const compactChrome = viewerWidth > 0 && viewerWidth < RAIL_MIN_VIEWER_WIDTH;
   const firstPage = pages[0];
   const fitWidth = firstPage && canvasSize.width ? Math.max(1, (canvasSize.width - 16) / firstPage.width * 100) : 130;
   const fitPage = firstPage && canvasSize.width && canvasSize.height
@@ -173,7 +174,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
     if (!viewer) return;
     const update = () => {
       setViewerWidth(viewer.clientWidth);
-      if (viewer.clientWidth >= 760) setMoreMenuOpen(false);
+      if (viewer.clientWidth >= RAIL_MIN_VIEWER_WIDTH) setMoreMenuOpen(false);
     };
     update();
     const observer = new ResizeObserver(update);
@@ -189,7 +190,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
     const observer = new ResizeObserver(update);
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [status]);
+  }, [status, compactChrome]);
 
   useEffect(() => {
     if (!pdf || !searchQuery.trim()) return;
@@ -301,8 +302,6 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
     { key: "zoom-out", label: "Reducir zoom", icon: () => <ZoomViewerIcon type="minus" /> },
     { key: "zoom-in", label: "Aumentar zoom", icon: () => <ZoomViewerIcon type="plus" /> },
     { key: "thumbnails", label: "Miniaturas", icon: ThumbnailViewerIcon },
-    { key: "bookmarks", label: "Marcadores", icon: BookmarkViewerIcon, disabled: true },
-    { key: "attachments", label: "Adjuntos", icon: AttachmentViewerIcon, disabled: true },
     { key: "theme", label: dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro", icon: ThemeViewerIcon },
     { key: "fullscreen", label: "Pantalla completa", icon: FullScreenViewerIcon },
     { key: "download", label: "Descargar", icon: DownloadViewerIcon },
@@ -310,7 +309,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
   ];
   const overflowActions = actions.filter((action) =>
     (compactToolbar && ["search", "zoom-out", "zoom-in"].includes(action.key)) ||
-    (compactChrome && ["thumbnails", "bookmarks", "attachments"].includes(action.key)) ||
+    (compactChrome && action.key === "thumbnails") ||
     (secondaryHidden && ["theme", "fullscreen", "download", "print"].includes(action.key)));
   const handleAction = (key: string) => {
     if (key === "search") { setSearchOpen(true); requestAnimationFrame(() => searchRef.current?.focus()); }
@@ -331,7 +330,7 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
 
   if (status === "loading" && blob.size > 0) return <div className="document-viewer__message" role="status"><CircularProgress size={24} />Cargando PDF…</div>;
   if (status === "error" || blob.size === 0 || renderError || !pdf) return <Alert severity="error">No se pudo mostrar el PDF.</Alert>;
-  return <div ref={viewerRef} className={"document-viewer__pdf-viewer" + (dark ? " document-viewer__pdf-viewer--dark" : "")} aria-label={title}>
+  return <div ref={viewerRef} className={"document-viewer__pdf-viewer" + (dark ? " document-viewer__pdf-viewer--dark" : "") + (compactChrome ? " document-viewer__pdf-viewer--compact" : "")} aria-label={title}>
     <div className="document-viewer__toolbar">
       <div className="document-viewer__toolbar-start">
         <ToolButton label="Buscar en el documento" icon={SearchViewerIcon} className="document-viewer__search-button" buttonRef={searchTriggerRef} expanded={searchOpen} controls={searchOpen ? searchPopoverId : undefined} onClick={() => { setSearchOpen((open) => !open); requestAnimationFrame(() => searchRef.current?.focus()); }} />
@@ -348,14 +347,14 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
         <ToolButton label="Aumentar zoom" icon={() => <ZoomViewerIcon type="plus" />} className="document-viewer__zoom-step" onClick={() => changeZoom(1)} />
       </div>
       <div className="document-viewer__toolbar-end">
-        <span className="document-viewer__secondary-actions">{actions.slice(6).map((action) => <ToolButton key={action.key} label={action.label} icon={action.icon} onClick={() => handleAction(action.key)} />)}</span>
+        <span className="document-viewer__secondary-actions">{actions.slice(4).map((action) => <ToolButton key={action.key} label={action.label} icon={action.icon} onClick={() => handleAction(action.key)} />)}</span>
         {overflowActions.length > 0 && <ToolButton label="Más acciones" icon={MoreViewerIcon} buttonRef={moreTriggerRef} expanded={moreMenuOpen} controls={moreMenuOpen ? moreMenuId : undefined} onClick={() => setMoreMenuOpen((open) => !open)} />}
       </div>
       {zoomMenuOpen && <div ref={zoomMenuRef} id={zoomMenuId} className="document-viewer__zoom-menu" role="group" aria-label="Escala del documento">
         {zoomOptions.map(([value, label]) => <button key={value} type="button" aria-pressed={(value === "page" && zoomMode === "fit-page") || (value === "width" && zoomMode === "fit-width") || (value === "actual" && zoomMode === "fixed" && actualSizeSelected) || (zoomMode === "fixed" && !actualSizeSelected && (userZoomed || fitWidth >= 130) && value === String(zoomPercent))} onClick={() => { selectZoom(value); requestAnimationFrame(() => zoomTriggerRef.current?.focus()); }}>{label}</button>)}
       </div>}
       {moreMenuOpen && <div ref={moreMenuRef} id={moreMenuId} className="document-viewer__more-menu" role="group" aria-label="Más acciones">
-        {overflowActions.map((action) => { const Icon = action.icon; return <button key={action.key} type="button" disabled={action.disabled} onClick={() => { handleAction(action.key); setMoreMenuOpen(false); if (action.key !== "search") requestAnimationFrame(() => moreTriggerRef.current?.focus()); }}><Icon />{action.label}</button>; })}
+        {overflowActions.map((action) => { const Icon = action.icon; return <button key={action.key} type="button" onClick={() => { handleAction(action.key); setMoreMenuOpen(false); if (action.key !== "search") requestAnimationFrame(() => moreTriggerRef.current?.focus()); }}><Icon />{action.label}</button>; })}
       </div>}
       {searchOpen && <div id={searchPopoverId} className="document-viewer__search-popover" role="group" aria-label="Buscar en el documento">
         <div className="document-viewer__search-input"><input ref={searchRef} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setMatches([]); setMatchIndex(0); }} placeholder="Escribir para buscar" aria-label="Buscar en el documento" onKeyDown={(event) => { if (event.key === "Enter") nextMatch(); }} /><span className="document-viewer__search-count">{matchIndex ? String(matchIndex) + "/" + String(matches.length) : String(matches.length) + (matches.length === 1 ? " resultado" : " resultados")}</span></div>
@@ -367,8 +366,6 @@ function PdfDocument({ blob, title, fileName }: PdfDocumentProps) {
     <div className="document-viewer__body">
       <div className="document-viewer__rail">
         <ToolButton label="Miniaturas" icon={ThumbnailViewerIcon} active={thumbnailsOpen} onClick={() => setThumbnailsOpen((open) => !open)} />
-        <ToolButton label="Marcadores" icon={BookmarkViewerIcon} disabled />
-        <ToolButton label="Adjuntos" icon={AttachmentViewerIcon} disabled />
       </div>
       <div className={"document-viewer__thumbnails" + (thumbnailsOpen ? " document-viewer__thumbnails--open" : "")} aria-hidden={!thumbnailsOpen}>
         <div ref={thumbnailsRef} className="document-viewer__thumbnail-list">{pages.map((size, index) => <button key={index} type="button" tabIndex={thumbnailsOpen ? 0 : -1} aria-current={page === index + 1 ? "page" : undefined} className={"document-viewer__thumbnail" + (page === index + 1 ? " document-viewer__thumbnail--active" : "")} onClick={() => goToPage(index + 1)}>
