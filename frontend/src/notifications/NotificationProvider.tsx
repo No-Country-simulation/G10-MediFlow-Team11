@@ -4,6 +4,7 @@ import {
   NotificationContext,
   type NotificationOptions,
 } from "./NotificationContext";
+import "../styles/notifications.css";
 
 interface NotificationProviderProps {
   children: ReactNode;
@@ -29,8 +30,9 @@ function NotificationProvider({ children }: NotificationProviderProps) {
         open={notification !== null}
         autoHideDuration={5000}
         onClose={handleClose}
+        className="app-notification"
         anchorOrigin={{
-          vertical: "bottom",
+          vertical: "top",
           horizontal: "right",
         }}
       >

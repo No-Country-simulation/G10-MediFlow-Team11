@@ -1,0 +1,10 @@
+.app-notification.MuiSnackbar-root {
+  top: calc(var(--mediflow-shell-header-height) + 12px);
+}
+
+@media (max-width: 599.95px) {
+  .app-notification.MuiSnackbar-root {
+    right: 16px;
+    left: 16px;
+  }
+}

@@ -1,147 +1,148 @@
-import { Box, Card, Chip, Divider, Stack, Typography } from "@mui/material";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
-import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import { useId, type ReactNode } from "react";
+import {
+  destinationLabel,
+  storageStateLabel,
+} from "../../config/resultLabels";
 import type {
-  AuditReason,
-  DocumentStatus,
   RoutingDecision,
   RoutingDestination,
   Storage,
+  StorageState,
 } from "../../types/processing";
 
 interface RoutingCardProps {
-  status: DocumentStatus;
   routing: RoutingDecision;
   storage: Storage;
 }
 
-const destinationLabels: Record<RoutingDestination, string> = {
-  MEDICAL_EMERGENCY: "Emergencia médica",
-  PHARMACY: "Farmacia",
-  AUTHORIZATION_AUDIT: "Auditoría de autorizaciones",
-  MEDICAL_RECORD: "Historia clínica",
-  HUMAN_REVIEW: "Revisión humana",
+interface IconProps {
+  children: ReactNode;
+}
+
+function Icon({ children }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const destinationIcons: Record<RoutingDestination, ReactNode> = {
+  MEDICAL_EMERGENCY: (
+    <Icon>
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </Icon>
+  ),
+  PHARMACY: (
+    <Icon>
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="14" y="14" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" />
+    </Icon>
+  ),
+  AUTHORIZATION_AUDIT: (
+    <Icon>
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+    </Icon>
+  ),
+  MEDICAL_RECORD: (
+    <Icon>
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </Icon>
+  ),
+  HUMAN_REVIEW: (
+    <Icon>
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+    </Icon>
+  ),
 };
 
-const auditReasonLabels: Record<AuditReason, string> = {
-  LOW_CONFIDENCE: "Confianza insuficiente",
-  ILLEGIBLE_DOCUMENT: "Documento ilegible",
-  MISSING_CRITICAL_FIELDS: "Faltan campos críticos",
-  INCONSISTENT_DATA: "Datos inconsistentes",
-  INVALID_AI_RESPONSE: "Respuesta de IA inválida",
-  AI_TIMEOUT: "Tiempo de espera de IA agotado",
-  AI_UNAVAILABLE: "Servicio de IA no disponible",
+const storageIcons: Record<StorageState, ReactNode> = {
+  SUCCESS: (
+    <Icon>
+      <polyline points="20 6 9 17 4 12" />
+    </Icon>
+  ),
+  PENDING: (
+    <Icon>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </Icon>
+  ),
+  ERROR: (
+    <Icon>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </Icon>
+  ),
 };
 
-function RoutingCard({ status, routing, storage }: RoutingCardProps) {
-  const storageLabels = {
-    PENDING: "Almacenamiento pendiente",
-    SUCCESS: "Guardado correctamente",
-    ERROR: "Error de almacenamiento",
-  } as const;
-
-  const storageColors = {
-    PENDING: "warning.main",
-    SUCCESS: "success.main",
-    ERROR: "error.main",
-  } as const;
+function RoutingCard({ routing, storage }: RoutingCardProps) {
+  const titleId = useId();
 
   return (
-    <Card variant="outlined">
-      <Box sx={{ px: 2, py: 1.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+    <section className="result-card" aria-labelledby={titleId}>
+      <div className="result-card__header">
+        <h3 id={titleId} className="result-card__title">
           Enrutamiento
-        </Typography>
-      </Box>
+        </h3>
+      </div>
 
-      <Divider />
-
-      <Stack spacing={2} sx={{ p: 2 }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            p: 1.5,
-            bgcolor: "action.hover",
-            border: 1,
-            borderColor: "divider",
-            borderRadius: 2,
-          }}
-        >
-          <DescriptionOutlinedIcon color="primary" />
-
-          <Box>
-            <Typography variant="caption" color="text.secondary">
+      <div className="result-card__body result-card__body--stack">
+        <div className="result-routing__destination">
+          <span className="result-routing__destination-icon">
+            {destinationIcons[routing.primary_destination]}
+          </span>
+          <div>
+            <p className="result-routing__destination-label">
               Destino principal
-            </Typography>
+            </p>
+            <p className="result-routing__destination-value">
+              {destinationLabel(routing.primary_destination)}
+            </p>
+          </div>
+        </div>
 
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {destinationLabels[routing.primary_destination]}
-            </Typography>
-          </Box>
-        </Box>
+        {routing.requires_human_review && (
+          <div className="result-routing__review">
+            <span className="result-routing__review-label">
+              Revisión humana
+            </span>
+            <span className="result-routing__review-badge">Requerida</span>
+          </div>
+        )}
 
         {routing.justification && (
-          <>
-            <Divider />
-
-            <Box>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
-                Justificación
-              </Typography>
-
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {routing.justification}
-              </Typography>
-            </Box>
-          </>
+          <div className="result-routing__justification">
+            <p className="result-routing__justification-label">Justificación</p>
+            <p className="result-card__text">{routing.justification}</p>
+          </div>
         )}
 
-        {status !== "NEEDS_AUDIT" && routing.audit_reasons.length > 0 && (
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-              {status === "APPROVED" || status === "REJECTED"
-                ? "Motivos de auditoría registrados"
-                : "Motivos de auditoría"}
-            </Typography>
-
-            <Stack
-              direction="row"
-              spacing={1}
-              useFlexGap
-              sx={{ flexWrap: "wrap" }}
-            >
-              {routing.audit_reasons.map((reason) => (
-                <Chip
-                  key={reason}
-                  label={auditReasonLabels[reason]}
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                />
-              ))}
-            </Stack>
-          </Box>
-        )}
-
-        <Stack direction="row" sx={{ alignItems: "center" }} spacing={1}>
-          {storage.state === "SUCCESS" ? (
-            <CheckOutlinedIcon sx={{ color: storageColors[storage.state] }} />
-          ) : (
-            <InfoOutlinedIcon sx={{ color: storageColors[storage.state] }} />
-          )}
-
-          <Typography
-            variant="body2"
-            sx={{ color: storageColors[storage.state] }}
-          >
-            {storageLabels[storage.state]}
-          </Typography>
-        </Stack>
-      </Stack>
-    </Card>
+        <div
+          className={`result-routing__storage result-routing__storage--${storage.state.toLowerCase()}`}
+        >
+          {storageIcons[storage.state]}
+          <span>{storageStateLabel(storage.state)}</span>
+        </div>
+      </div>
+    </section>
   );
 }
 

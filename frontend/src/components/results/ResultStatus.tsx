@@ -1,34 +1,20 @@
-import { Chip } from "@mui/material";
-import type { ChipProps } from "@mui/material";
+import { statusLabel } from "../../config/resultLabels";
 import type { DocumentStatus } from "../../types/processing";
+import { getStatusTone } from "./resultPresentation";
 
 interface ResultStatusProps {
   status: DocumentStatus;
 }
 
-const statusConfig: Record<
-  DocumentStatus,
-  { label: string; color: ChipProps["color"] }
-> = {
-  RECEIVED: { label: "Recibido", color: "default" },
-  PROCESSING: { label: "Procesando", color: "info" },
-  PROCESSED: { label: "Procesado", color: "success" },
-  NEEDS_AUDIT: { label: "Requiere revisión", color: "warning" },
-  APPROVED: { label: "Aprobado", color: "success" },
-  REJECTED: { label: "Rechazado", color: "error" },
-  FAILED: { label: "Fallido", color: "error" },
-};
-
 function ResultStatus({ status }: ResultStatusProps) {
-  const config = statusConfig[status];
-
   return (
-    <Chip
-      label={config.label}
-      color={config.color}
-      variant="outlined"
-      size="medium"
-    />
+    <span
+      className={`result-status result-status--${getStatusTone(status)}`}
+      data-status={status}
+    >
+      <span className="result-status__dot" aria-hidden="true" />
+      {statusLabel(status)}
+    </span>
   );
 }
 
