@@ -13,10 +13,12 @@ import com.mediflow.backend.enums.PriorityLevel;
 import com.mediflow.backend.enums.StorageState;
 import com.mediflow.backend.enums.TriageEventType;
 import com.mediflow.backend.persistence.DocumentPersistenceService;
+import com.mediflow.backend.persistence.DurableCommitInspection;
 import com.mediflow.backend.persistence.FinalizedDocumentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
@@ -24,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -41,8 +45,6 @@ class DocumentFinalizationServiceTest {
 
     private DocumentPersistenceService persistenceService;
     private ObjectStorageService storageService;
-    private ObjectKeyGenerator keyGenerator;
-    private DocumentResponseMapper responseMapper;
     private JsonMapper jsonMapper;
     private DocumentFinalizationService service;
 
@@ -50,14 +52,15 @@ class DocumentFinalizationServiceTest {
     void setUp() {
         persistenceService = mock(DocumentPersistenceService.class);
         storageService = mock(ObjectStorageService.class);
-        keyGenerator = new ObjectKeyGenerator();
         jsonMapper = JacksonConfig.createJsonMapper();
-        responseMapper = new DocumentResponseMapper(jsonMapper);
         service = new DocumentFinalizationService(
-                persistenceService, storageService, keyGenerator, responseMapper, jsonMapper);
+                persistenceService,
+                storageService,
+                new ObjectKeyGenerator(),
+                new DocumentResponseMapper(jsonMapper),
+                jsonMapper,
+                new PassThroughDocumentExclusiveLock());
     }
-
-    // ── Prefix resolution (arquitectura §11) ──────────────────────────────
 
     @Test
     void processedUrgentResolvesToUrgentesPrefix() {
@@ -84,9 +87,21 @@ class DocumentFinalizationServiceTest {
     }
 
     @Test
+    void approvedRoutineResolvesToRutinaPrefix() {
+        assertEquals(ObjectKeyGenerator.PREFIJO_RUTINA,
+                service.resolvePrefix(DocumentStatus.APPROVED, PriorityLevel.ROUTINE));
+    }
+
+    @Test
     void rejectedResolvesToAuditoriaPrefix() {
         assertEquals(ObjectKeyGenerator.PREFIJO_AUDITORIA,
                 service.resolvePrefix(DocumentStatus.REJECTED, null));
+    }
+
+    @Test
+    void processedWithoutPriorityIsRejected() {
+        assertThrows(IllegalStateException.class,
+                () -> service.resolvePrefix(DocumentStatus.PROCESSED, null));
     }
 
     @Test
@@ -95,7 +110,13 @@ class DocumentFinalizationServiceTest {
                 () -> service.resolvePrefix(DocumentStatus.FAILED, null));
     }
 
-    // ── Success flow with prefix change ──────────────────────────────────
+    @Test
+    void invalidCommandIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> service.finalizeResult(null));
+        FinalizationCommand missingDecision = baseCommand(
+                DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, null);
+        assertThrows(IllegalArgumentException.class, () -> service.finalizeResult(missingDecision));
+    }
 
     @Test
     void finalizeResultWithPrefixChangePerformsOciThenPgThenCleanup() {
@@ -105,18 +126,17 @@ class DocumentFinalizationServiceTest {
         when(persistenceService.commitFinalization(
                 anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
                 any(), any(), any(Instant.class), anyInt()))
-                .thenReturn(historyEntry("DOC-1", 1, Instant.now()));
+                .thenReturn(historyEntry("DOC-1", 1, Instant.parse("2026-03-01T00:00:00Z")));
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null);
+        FinalizationOutcome outcome = service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null));
 
-        FinalizationOutcome outcome = service.finalizeResult(command);
-
-        assertNotNull(outcome);
-        assertEquals(DocumentStatus.PROCESSED, outcome.status());
+        assertEquals(FinalizationOutcome.Kind.CONFIRMED, outcome.kind());
+        assertEquals(StorageState.SUCCESS, outcome.storageState());
+        assertTrue(outcome.storageArtifactConfirmed());
         assertEquals(1, outcome.sequence());
 
-        var inOrder = inOrder(storageService, persistenceService);
+        InOrder inOrder = inOrder(storageService, persistenceService);
         inOrder.verify(storageService).copyWithinBucket(
                 "recibidos/DOC-1/original.pdf",
                 "procesados/urgentes/DOC-1/original.pdf");
@@ -127,45 +147,37 @@ class DocumentFinalizationServiceTest {
         inOrder.verify(storageService).deleteObject("recibidos/DOC-1/triage.json");
     }
 
-    // ── Success flow without prefix change ───────────────────────────────
-
     @Test
     void finalizeResultWithoutPrefixChangeKeepsOriginalAndOverwritesTriage() {
-        DocumentRecord document = baseDocument("procesados/urgentes/DOC-1/original.pdf");
+        DocumentRecord document = baseDocument("auditoria_humana/DOC-1/original.pdf");
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(2);
-        when(storageService.getObject("procesados/urgentes/DOC-1/triage.json"))
+        when(storageService.getObject("auditoria_humana/DOC-1/triage.json"))
                 .thenReturn("{\"sequence\":1}".getBytes());
         when(persistenceService.commitFinalization(
                 anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
                 any(), any(), any(Instant.class), anyInt()))
                 .thenReturn(historyEntry("DOC-1", 2, Instant.now()));
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null);
-
-        service.finalizeResult(command);
+        service.finalizeResult(baseCommand(
+                DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT));
 
         verify(storageService, never()).copyWithinBucket(anyString(), anyString());
         verify(storageService, never()).deleteObject(anyString());
-        verify(storageService).putJson(eq("procesados/urgentes/DOC-1/triage.json"), anyString());
+        verify(storageService).putJson(eq("auditoria_humana/DOC-1/triage.json"), anyString());
     }
 
-    // ── OCI failure compensation ─────────────────────────────────────────
-
     @Test
-    void ociFailureWithPrefixChangeDeletesDestinationAndSkipsPg() {
+    void ociFailureWithPrefixChangeDeletesDestinationAndSkipsPgForHumanReview() {
         DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
         doThrow(new ObjectStorageService.StorageOperationException("copy fail", new RuntimeException()))
                 .when(storageService).copyWithinBucket(anyString(), anyString());
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT);
-
         assertThrows(ObjectStorageService.StorageOperationException.class,
-                () -> service.finalizeResult(command));
+                () -> service.finalizeResult(baseCommand(
+                        DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT)));
 
         verify(persistenceService, never()).commitFinalization(anyString(), any(), any(), any(), any(), any(), anyInt());
         verify(storageService).deleteObject("auditoria_humana/DOC-1/original.pdf");
@@ -178,24 +190,54 @@ class DocumentFinalizationServiceTest {
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(2);
         when(storageService.getObject("auditoria_humana/DOC-1/triage.json"))
-                .thenReturn("PREVIOUS_JSON".getBytes());
-        // putJson fails when writing the new triage artifact
+                .thenReturn("PREVIOUS_JSON".getBytes())
+                .thenThrow(new ObjectStorageService.StorageOperationException("write not a get", new RuntimeException()));
         doThrow(new ObjectStorageService.StorageOperationException("write fail", new RuntimeException()))
                 .when(storageService).putJson(eq("auditoria_humana/DOC-1/triage.json"), anyString());
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT);
-
         assertThrows(ObjectStorageService.StorageOperationException.class,
-                () -> service.finalizeResult(command));
+                () -> service.finalizeResult(baseCommand(
+                        DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT)));
 
         verify(storageService).putJson("auditoria_humana/DOC-1/triage.json", "PREVIOUS_JSON");
     }
 
-    // ── PostgreSQL failure compensation ──────────────────────────────────
+    @Test
+    void previousArtifactReadFailureAbortsOverwrite() {
+        DocumentRecord document = baseDocument("auditoria_humana/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(2);
+        when(storageService.getObject("auditoria_humana/DOC-1/triage.json"))
+                .thenThrow(new ObjectStorageService.StorageOperationException("permission", new RuntimeException()));
+
+        assertThrows(ObjectStorageService.StorageOperationException.class,
+                () -> service.finalizeResult(baseCommand(
+                        DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT)));
+
+        verify(storageService, never()).putJson(anyString(), anyString());
+        verify(persistenceService, never()).commitFinalization(anyString(), any(), any(), any(), any(), any(), anyInt());
+    }
 
     @Test
-    void pgFailureWithSafeCompensationDeletesDestinationObjects() {
+    void previousArtifactMissingIsNotTreatedAsReadFailure() {
+        DocumentRecord document = baseDocument("auditoria_humana/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(2);
+        when(storageService.getObject("auditoria_humana/DOC-1/triage.json"))
+                .thenThrow(new ObjectStorageService.ObjectNotFoundException("missing", new RuntimeException()));
+        when(persistenceService.commitFinalization(
+                anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
+                any(), any(), any(Instant.class), anyInt()))
+                .thenReturn(historyEntry("DOC-1", 2, Instant.now()));
+
+        service.finalizeResult(baseCommand(
+                DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT));
+
+        verify(storageService).putJson(eq("auditoria_humana/DOC-1/triage.json"), anyString());
+    }
+
+    @Test
+    void pgFailureWithSafeInspectionDeletesDestinationObjects() {
         DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
@@ -203,20 +245,19 @@ class DocumentFinalizationServiceTest {
                 anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
                 any(), any(), any(Instant.class), anyInt()))
                 .thenThrow(new RuntimeException("db down"));
-        when(persistenceService.isCompensationSafe("DOC-1", 1)).thenReturn(true);
+        when(persistenceService.inspectDurableCommit("DOC-1", 1))
+                .thenReturn(DurableCommitInspection.NOT_COMMITTED);
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null);
+        assertThrows(RuntimeException.class, () -> service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null)));
 
-        assertThrows(RuntimeException.class, () -> service.finalizeResult(command));
-
-        verify(persistenceService).isCompensationSafe("DOC-1", 1);
+        verify(persistenceService).inspectDurableCommit("DOC-1", 1);
         verify(storageService).deleteObject("procesados/urgentes/DOC-1/original.pdf");
         verify(storageService).deleteObject("procesados/urgentes/DOC-1/triage.json");
     }
 
     @Test
-    void pgFailureWithUnsafeCompensationDoesNotTouchOci() {
+    void pgFailureWithNewerResultDoesNotTouchOci() {
         DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
@@ -224,37 +265,110 @@ class DocumentFinalizationServiceTest {
                 anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
                 any(), any(), any(Instant.class), anyInt()))
                 .thenThrow(new RuntimeException("db down"));
-        when(persistenceService.isCompensationSafe("DOC-1", 1)).thenReturn(false);
+        when(persistenceService.inspectDurableCommit("DOC-1", 1))
+                .thenReturn(DurableCommitInspection.NEWER_CONFIRMED);
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null);
+        assertThrows(RuntimeException.class, () -> service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null)));
 
-        assertThrows(RuntimeException.class, () -> service.finalizeResult(command));
-
-        verify(persistenceService).isCompensationSafe("DOC-1", 1);
         verify(storageService, never()).deleteObject(anyString());
     }
 
-    // ── Fallback for initial triage OCI failure (arquitectura §12.3) ───
+    @Test
+    void uncertainCommitThatActuallySucceededReturnsConfirmedOutcome() {
+        DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
+        when(persistenceService.commitFinalization(
+                anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
+                any(), any(), any(Instant.class), anyInt()))
+                .thenThrow(new RuntimeException("timeout after commit"));
+        when(persistenceService.inspectDurableCommit("DOC-1", 1))
+                .thenReturn(DurableCommitInspection.THIS_ATTEMPT_COMMITTED);
+
+        FinalizationOutcome outcome = service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null));
+
+        assertEquals(FinalizationOutcome.Kind.CONFIRMED, outcome.kind());
+        verify(storageService, never()).deleteObject("procesados/urgentes/DOC-1/original.pdf");
+        verify(storageService, never()).deleteObject("procesados/urgentes/DOC-1/triage.json");
+    }
 
     @Test
-    void initialTriageOciFailurePersistsNeedsAuditFallback() {
+    void indeterminateCommitDoesNotCompensate() {
+        DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
+        when(persistenceService.commitFinalization(
+                anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
+                any(), any(), any(Instant.class), anyInt()))
+                .thenThrow(new RuntimeException("db down"));
+        when(persistenceService.inspectDurableCommit("DOC-1", 1))
+                .thenThrow(new RuntimeException("still down"));
+
+        assertThrows(RuntimeException.class, () -> service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null)));
+
+        verify(storageService, never()).deleteObject(anyString());
+    }
+
+    @Test
+    void restoreFailureMarksStorageError() {
+        DocumentRecord document = baseDocument("auditoria_humana/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(2);
+        when(storageService.getObject("auditoria_humana/DOC-1/triage.json"))
+                .thenReturn("PREVIOUS_JSON".getBytes());
+        doThrow(new ObjectStorageService.StorageOperationException("write fail", new RuntimeException()))
+                .when(storageService).putJson(anyString(), anyString());
+
+        assertThrows(ObjectStorageService.StorageOperationException.class,
+                () -> service.finalizeResult(baseCommand(
+                        DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT)));
+
+        verify(persistenceService).markStorageErrorPreservingResult("DOC-1");
+    }
+
+    @Test
+    void postCommitCleanupFailureDoesNotInvalidateConfirmedResult() {
+        DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
+        when(persistenceService.commitFinalization(
+                anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
+                any(), any(), any(Instant.class), anyInt()))
+                .thenReturn(historyEntry("DOC-1", 1, Instant.now()));
+        doThrow(new ObjectStorageService.StorageOperationException("cleanup", new RuntimeException()))
+                .when(storageService).deleteObject(anyString());
+
+        FinalizationOutcome outcome = service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null));
+
+        assertEquals(FinalizationOutcome.Kind.CONFIRMED, outcome.kind());
+        assertEquals(StorageState.SUCCESS, outcome.storageState());
+    }
+
+    @Test
+    void initialTriageOciFailurePersistsNeedsAuditFallbackWithoutReportingSuccess() {
         DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
         doThrow(new ObjectStorageService.StorageOperationException("copy fail", new RuntimeException()))
                 .when(storageService).copyWithinBucket(anyString(), anyString());
+        when(storageService.getObject("recibidos/DOC-1/original.pdf")).thenReturn("pdf".getBytes());
         when(persistenceService.commitFinalization(
                 anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
                 any(), any(), any(Instant.class), anyInt()))
                 .thenReturn(historyEntry("DOC-1", 1, Instant.now()));
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null);
+        FinalizationOutcome outcome = service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null));
 
-        FinalizationOutcome outcome = service.finalizeResult(command);
-
+        assertEquals(FinalizationOutcome.Kind.FALLBACK_DURABLE, outcome.kind());
         assertEquals(DocumentStatus.NEEDS_AUDIT, outcome.status());
+        assertEquals(StorageState.ERROR, outcome.storageState());
+        assertTrue(outcome.persistenceConfirmed());
+        assertFalse(outcome.storageArtifactConfirmed() && outcome.kind() == FinalizationOutcome.Kind.CONFIRMED);
 
         ArgumentCaptor<FinalizedDocumentState> stateCaptor = ArgumentCaptor.forClass(FinalizedDocumentState.class);
         verify(persistenceService).commitFinalization(
@@ -266,12 +380,51 @@ class DocumentFinalizationServiceTest {
         assertEquals(StorageState.ERROR, persisted.storageState());
         assertEquals(PrimaryDestination.HUMAN_REVIEW, persisted.routingDestination());
         assertEquals("recibidos/DOC-1/original.pdf", persisted.objectKey());
+        assertTrue(persisted.routingJustification().contains("Fallo de almacenamiento OCI"));
+        assertEquals(List.of(AuditReason.LOW_CONFIDENCE), persisted.auditReasons());
     }
 
-    // ── Triage.json metadata ─────────────────────────────────────────────
+    @Test
+    void fallbackPersistenceFailureDoesNotClaimDurableTransition() {
+        DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
+        doThrow(new ObjectStorageService.StorageOperationException("copy fail", new RuntimeException()))
+                .when(storageService).copyWithinBucket(anyString(), anyString());
+        when(storageService.getObject("recibidos/DOC-1/original.pdf")).thenReturn("pdf".getBytes());
+        when(persistenceService.commitFinalization(
+                anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
+                any(), any(), any(Instant.class), anyInt()))
+                .thenThrow(new RuntimeException("pg down"));
+
+        assertThrows(RuntimeException.class, () -> service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null)));
+    }
 
     @Test
-    void humanReviewTriageArtifactIncludesHumanReviewDecision() throws Exception {
+    void unrecoverableOriginalRegistersFailed() {
+        DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
+        when(persistenceService.getDocument("DOC-1")).thenReturn(document);
+        when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
+        doThrow(new ObjectStorageService.StorageOperationException("copy fail", new RuntimeException()))
+                .when(storageService).copyWithinBucket(anyString(), anyString());
+        when(storageService.getObject("recibidos/DOC-1/original.pdf"))
+                .thenThrow(new ObjectStorageService.ObjectNotFoundException("gone", new RuntimeException()));
+        when(persistenceService.commitFinalization(
+                anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
+                any(), any(), any(Instant.class), anyInt()))
+                .thenReturn(historyEntry("DOC-1", 1, Instant.now()));
+
+        FinalizationOutcome outcome = service.finalizeResult(baseCommand(
+                DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null));
+
+        assertEquals(FinalizationOutcome.Kind.FAILED_UNRECOVERABLE, outcome.kind());
+        assertEquals(DocumentStatus.FAILED, outcome.status());
+        assertEquals(StorageState.ERROR, outcome.storageState());
+    }
+
+    @Test
+    void humanReviewTriageArtifactIncludesHumanReviewDecision() {
         DocumentRecord document = baseDocument("auditoria_humana/DOC-1/original.pdf");
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(2);
@@ -282,10 +435,8 @@ class DocumentFinalizationServiceTest {
                 any(), any(), any(Instant.class), anyInt()))
                 .thenReturn(historyEntry("DOC-1", 2, Instant.now()));
 
-        FinalizationCommand command = baseCommand(
-                DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT);
-
-        service.finalizeResult(command);
+        service.finalizeResult(baseCommand(
+                DocumentStatus.REJECTED, null, TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT));
 
         ArgumentCaptor<String> jsonCaptor = ArgumentCaptor.forClass(String.class);
         verify(storageService).putJson(eq("auditoria_humana/DOC-1/triage.json"), jsonCaptor.capture());
@@ -295,12 +446,16 @@ class DocumentFinalizationServiceTest {
         assertEquals(2, artifact.get("sequence"));
         assertNotNull(artifact.get("created_at"));
         assertNotNull(artifact.get("updated_at"));
+        assertFalse(artifact.containsKey("bucket"));
+        assertFalse(artifact.containsKey("object_key"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> storage = (Map<String, Object>) artifact.get("storage");
+        assertEquals("SUCCESS", storage.get("state"));
+        assertFalse(storage.containsKey("bucket"));
         @SuppressWarnings("unchecked")
         Map<String, Object> humanReview = (Map<String, Object>) artifact.get("human_review");
         assertEquals("REJECT", humanReview.get("decision"));
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────
 
     private DocumentRecord baseDocument(String objectKey) {
         DocumentRecord document = new DocumentRecord();
@@ -311,7 +466,7 @@ class DocumentFinalizationServiceTest {
         document.setMimeType("application/pdf");
         document.setFileName("document.pdf");
         document.setInputType(com.mediflow.backend.enums.InputType.FILE);
-        document.setStorageState(StorageState.SUCCESS);
+        document.setStorageState(StorageState.PENDING);
         document.setCreatedAt(Instant.parse("2026-01-01T00:00:00Z"));
         document.setUpdatedAt(Instant.parse("2026-01-01T00:00:00Z"));
         return document;

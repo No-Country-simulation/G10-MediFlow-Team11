@@ -5,6 +5,7 @@ import com.mediflow.backend.entity.DocumentTriageHistory;
 import com.mediflow.backend.entity.DocumentTriageHistoryId;
 import com.mediflow.backend.enums.DocumentStatus;
 import com.mediflow.backend.enums.HumanDecision;
+import com.mediflow.backend.enums.StorageState;
 import com.mediflow.backend.enums.TriageEventType;
 import com.mediflow.backend.repository.DocumentRepository;
 import com.mediflow.backend.repository.DocumentTriageHistoryRepository;
@@ -163,15 +164,13 @@ public class DocumentPersistenceService {
         document.touchUpdatedAt(confirmationTime);
         documentRepository.save(document);
         documentRepository.flush();
-        entityManager.refresh(document);
-        Instant persistedUpdatedAt = document.getUpdatedAt();
 
         DocumentTriageHistory entry = new DocumentTriageHistory();
         entry.setId(new DocumentTriageHistoryId(documentId, expectedNextSequence));
         entry.setDocument(document);
         entry.setEventType(eventType);
         entry.setDecision(decision);
-        entry.setOccurredAt(persistedUpdatedAt);
+        entry.setOccurredAt(confirmationTime);
         entry.setResult(resultSnapshot);
         historyRepository.save(entry);
         historyRepository.flush();
@@ -179,23 +178,49 @@ public class DocumentPersistenceService {
     }
 
     /**
-     * Verifica, en una transacción corta y bajo bloqueo de la fila, que es
-     * seguro compensar (eliminar o restaurar) los objetos OCI creados por un
-     * intento de finalización fallido (arquitectura §12.4).
+     * Inspecciona el estado durable bajo {@code SELECT ... FOR UPDATE} en una
+     * transacción corta e independiente del intento fallido (arquitectura §12.4).
      * <p>
-     * Es seguro cuando la secuencia vigente del historial sigue siendo
-     * {@code expectedNextSequence - 1}, es decir, ningún resultado más nuevo
-     * se confirmó después de que comenzara el intento fallido.
+     * No ejecuta operaciones OCI: solo permite decidir si una compensación
+     * destructiva sigue siendo de este intento.
      */
     @Transactional
-    public boolean isCompensationSafe(String documentId, int expectedNextSequence) {
+    public DurableCommitInspection inspectDurableCommit(String documentId, int expectedNextSequence) {
         DocumentRecord document = documentRepository.findById(documentId).orElse(null);
         if (document == null) {
-            return false;
+            return DurableCommitInspection.DOCUMENT_MISSING;
         }
         entityManager.lock(document, LockModeType.PESSIMISTIC_WRITE);
         int currentMax = historyRepository.findMaxSequence(documentId);
-        return currentMax == expectedNextSequence - 1;
+        if (currentMax > expectedNextSequence) {
+            return DurableCommitInspection.NEWER_CONFIRMED;
+        }
+        if (currentMax == expectedNextSequence) {
+            return DurableCommitInspection.THIS_ATTEMPT_COMMITTED;
+        }
+        return DurableCommitInspection.NOT_COMMITTED;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<DocumentTriageHistory> findHistoryEntry(String documentId, int sequence) {
+        return historyRepository.findById(new DocumentTriageHistoryId(documentId, sequence));
+    }
+
+    /**
+     * Marca {@code storage_state = ERROR} sin alterar el resultado de negocio
+     * ni {@code updated_at}, cuando una restauración/compensación dejó OCI
+     * inconsistente y PostgreSQL sigue disponible (arquitectura §12.5).
+     */
+    @Transactional
+    public void markStorageErrorPreservingResult(String documentId) {
+        DocumentRecord document = documentRepository.findById(documentId).orElse(null);
+        if (document == null) {
+            return;
+        }
+        entityManager.lock(document, LockModeType.PESSIMISTIC_WRITE);
+        document.setStorageState(StorageState.ERROR);
+        document.preserveCurrentUpdatedAt();
+        documentRepository.save(document);
     }
 
     private void validateEvent(TriageEventType eventType, HumanDecision decision) {

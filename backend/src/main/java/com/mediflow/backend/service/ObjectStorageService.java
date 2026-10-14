@@ -88,6 +88,12 @@ public class ObjectStorageService {
             }
 
         } catch (BmcException e) {
+            if (isNotFound(e)) {
+                throw new ObjectNotFoundException(
+                        "Objeto OCI inexistente",
+                        e
+                );
+            }
             throw new StorageOperationException(
                     "Fallo al leer objeto de OCI",
                     e
@@ -113,11 +119,18 @@ public class ObjectStorageService {
             client.deleteObject(request);
 
         } catch (BmcException e) {
+            if (isNotFound(e)) {
+                return;
+            }
             throw new StorageOperationException(
                     "Fallo al eliminar objeto de OCI",
                     e
             );
         }
+    }
+
+    static boolean isNotFound(BmcException exception) {
+        return exception.getStatusCode() == 404;
     }
 
     public void copyWithinBucket(
@@ -156,6 +169,17 @@ public class ObjectStorageService {
                 String message,
                 Throwable cause
         ) {
+            super(message, cause);
+        }
+    }
+
+    /**
+     * El objeto no existe (HTTP 404 del SDK). No representa un fallo de
+     * permisos, red o servicio; esos siguen siendo {@link StorageOperationException}.
+     */
+    public static class ObjectNotFoundException extends StorageOperationException {
+
+        public ObjectNotFoundException(String message, Throwable cause) {
             super(message, cause);
         }
     }

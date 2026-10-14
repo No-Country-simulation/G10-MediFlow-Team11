@@ -13,7 +13,9 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -115,6 +117,14 @@ public class DocumentRecord {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /**
+     * Si es {@code true}, {@link #onUpdate()} no reescribe {@code updated_at}.
+     * Lo activan {@link #touchUpdatedAt(Instant)} y {@link #preserveCurrentUpdatedAt()}
+     * para alinear confirmaciones de historial sin romper el resto de actualizaciones.
+     */
+    @Transient
+    private boolean preserveUpdatedAt;
+
     public List<AuditReason> getAuditReasons() {
         if (auditReasonValues == null || auditReasonValues.length == 0) {
             return List.of();
@@ -132,6 +142,11 @@ public class DocumentRecord {
 
     public void touchUpdatedAt(Instant instant) {
         this.updatedAt = instant;
+        this.preserveUpdatedAt = true;
+    }
+
+    public void preserveCurrentUpdatedAt() {
+        this.preserveUpdatedAt = true;
     }
 
     @PrePersist
@@ -151,12 +166,14 @@ public class DocumentRecord {
         }
     }
 
-    /**
-     * No existe {@code @PreUpdate}: {@code updated_at} se controla explícitamente
-     * mediante {@link #touchUpdatedAt(Instant)} para garantizar que coincida
-     * exactamente con {@code document_triage_history.occurred_at} y el
-     * {@code updated_at} del artefacto {@code triage.json} (arquitectura §10-11).
-     */
+    @PreUpdate
+    void onUpdate() {
+        if (preserveUpdatedAt) {
+            preserveUpdatedAt = false;
+            return;
+        }
+        updatedAt = Instant.now();
+    }
 
     public static Map<String, Object> defaultNotification() {
         Map<String, Object> body = new LinkedHashMap<>();
