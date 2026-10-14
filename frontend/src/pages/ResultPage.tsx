@@ -25,6 +25,7 @@ import NotificationSnackbar from "../components/results/NotificationSnackbar";
 import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
 import type { DocumentViewerState } from "../components/DocumentViewer/types";
 import { getDocumentContent } from "../services/documentService";
+import { env } from "../config/env";
 
 function getDocumentExtension(mimeType: string): string {
   switch (mimeType) {
@@ -102,6 +103,7 @@ function ResultPage() {
 
     async function loadDocument() {
       if (
+        env.useMocks &&
         navigationState?.sourceKind === "text" &&
         typeof navigationState.sourceText === "string"
       ) {
