@@ -46,6 +46,10 @@ services:
       SERVER_PORT: "8080"
       MEDIFLOW_AI_SERVICE_URL: http://ai-core:8000
       SPRING_MAIN_LAZY_INITIALIZATION: ${BACKEND_LAZY_INIT:-false}
+      OCI_BUCKET_NAME: ${OCI_BUCKET_NAME:-mediflow-documentos-clinicos}
+      OCI_NAMESPACE: ${OCI_NAMESPACE:-}
+      OCI_REGION: ${OCI_REGION:-us-ashburn-1}
+      OCI_AUTH_MODE: ${OCI_AUTH_MODE:-instance_principal}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:

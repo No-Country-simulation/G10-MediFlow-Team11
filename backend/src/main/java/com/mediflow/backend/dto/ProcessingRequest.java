@@ -1,5 +1,6 @@
 package com.mediflow.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mediflow.backend.enums.InputType;
 import lombok.Getter;
 import lombok.Setter;
@@ -20,6 +21,7 @@ public class ProcessingRequest {
     private String documentText;
     private String originChannel;
 
+    @JsonIgnore
     public boolean isValid() {
         if (inputType == InputType.FILE) {
             return contentBase64 != null && !contentBase64.isBlank();
