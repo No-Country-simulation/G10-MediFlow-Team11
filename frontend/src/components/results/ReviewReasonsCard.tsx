@@ -1,66 +1,71 @@
-import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
-import { Alert, AlertTitle, Box, Typography } from "@mui/material";
+import { useId } from "react";
+import { auditReasonLabel } from "../../config/auditLabels";
 import type { AuditReason } from "../../types/processing";
-import { alpha } from "@mui/material/styles";
 
 interface ReviewReasonsCardProps {
   reasons: AuditReason[];
+  requiresHumanReview: boolean;
 }
 
-const auditReasonLabels: Record<AuditReason, string> = {
-  LOW_CONFIDENCE: "Confianza de extracción por debajo del umbral requerido",
-  ILLEGIBLE_DOCUMENT: "El documento presenta información ilegible",
-  MISSING_CRITICAL_FIELDS: "Faltan campos críticos para validar el documento",
-  INCONSISTENT_DATA: "Se detectaron datos inconsistentes",
-  INVALID_AI_RESPONSE: "La respuesta del sistema no es válida",
-  AI_TIMEOUT: "Se agotó el tiempo de espera del procesamiento",
-  AI_UNAVAILABLE: "El servicio de procesamiento no está disponible",
-};
+function WarningIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
 
-function ReviewReasonsCard({ reasons }: ReviewReasonsCardProps) {
+function ReviewReasonsCard({
+  reasons,
+  requiresHumanReview,
+}: ReviewReasonsCardProps) {
+  const titleId = useId();
+
   if (reasons.length === 0) {
     return null;
   }
 
   return (
-    <Alert
-      severity="warning"
-      variant="outlined"
-      icon={<WarningAmberOutlinedIcon fontSize="inherit" />}
-      sx={{
-        alignItems: "flex-start",
-        backgroundColor: alpha("#FF9800", 0.03),
-      }}
+    <section
+      className="result-card result-card--attention result-card--dense"
+      aria-labelledby={titleId}
     >
-      <Box
-        sx={{
-          borderBottom: 1,
-          borderColor: alpha("#FF9800", 1),
-          mb: 1,
-        }}
-      >
-        <AlertTitle sx={{ fontWeight: 600, color: "warning.main" }}>
+      <div className="result-card__header result-card__header--icon">
+        <WarningIcon />
+        <h3 id={titleId} className="result-card__title">
           Motivos de revisión
-        </AlertTitle>
-      </Box>
-      <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
-        Este documento ha sido derivado a revisión manual. La información
-        disponible puede ser parcial o no verificada.
-      </Typography>
+        </h3>
+      </div>
 
-      <Box component="ul" sx={{ m: 0, pl: 2 }}>
-        {reasons.map((reason) => (
-          <Typography
-            component="li"
-            variant="body2"
-            key={reason}
-            sx={{ mb: 0.5 }}
-          >
-            {auditReasonLabels[reason]}
-          </Typography>
-        ))}
-      </Box>
-    </Alert>
+      <div className="result-card__body result-card__body--stack">
+        {requiresHumanReview && (
+          <p className="result-card__note">
+            Este documento ha sido derivado a revisión manual. La información
+            disponible puede ser parcial o no verificada.
+          </p>
+        )}
+        <ul className="result-reason-list">
+          {reasons.map((reason) => (
+            <li key={reason} className="result-reason-list__item">
+              <span className="result-reason-list__dot" aria-hidden="true" />
+              <span>{auditReasonLabel(reason)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 

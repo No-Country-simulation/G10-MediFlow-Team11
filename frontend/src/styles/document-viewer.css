@@ -434,3 +434,26 @@
 @media (prefers-reduced-motion: reduce) {
   .document-viewer__thumbnails { transition: none; }
 }
+
+.document-viewer__text-stage {
+  --viewer-text-size: 14px;
+  --viewer-text-line-height: 22px;
+  --viewer-text-padding: 24px;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  padding: var(--viewer-text-padding);
+  overflow: auto;
+  background: #ffffff;
+}
+.document-viewer__text {
+  max-width: 720px;
+  margin: 0;
+  color: #1a1a1a;
+  font-family: "Plus Jakarta Sans", Arial, sans-serif;
+  font-size: var(--viewer-text-size);
+  font-weight: 400;
+  line-height: var(--viewer-text-line-height);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

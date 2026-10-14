@@ -1,31 +1,23 @@
-import { useEffect, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Divider,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
-import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import PageHeader from "../components/PageHeader";
+import { useEffect, useId, useState } from "react";
+import { Clock3 } from "lucide-react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
 import ResultStatus from "../components/results/ResultStatus";
+import CopyIdButton from "../components/results/CopyIdButton";
 import ProcessingSummary from "../components/results/ProcessingSummary";
 import ReviewReasonsCard from "../components/results/ReviewReasonsCard";
 import ExtractedDataCard from "../components/results/ExtractedDataCard";
 import ValidationCard from "../components/results/ValidationCard";
 import RoutingCard from "../components/results/RoutingCard";
-import NotificationSnackbar from "../components/results/NotificationSnackbar";
+import NotificationCard from "../components/results/NotificationCard";
+import { getDocumentSourceLabels } from "../components/results/resultPresentation";
 import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
 import type { DocumentViewerState } from "../components/DocumentViewer/types";
 import { getDocumentContent } from "../services/documentService";
 import { env } from "../config/env";
+import "../styles/result-page.css";
+import "../styles/result-cards.css";
 
 function getDocumentExtension(mimeType: string): string {
   switch (mimeType) {
@@ -40,22 +32,59 @@ function getDocumentExtension(mimeType: string): string {
   }
 }
 
+interface ResultStateMessageProps {
+  title: string;
+  description?: string;
+  onRetry?: () => void;
+}
+
+function ResultLoadingState() {
+  return (
+    <div className="result-state" role="status">
+      <span className="result-state__spinner" aria-hidden="true" />
+      <p className="result-state__title">Cargando resultado…</p>
+    </div>
+  );
+}
+
+function ResultMessageState({
+  title,
+  description,
+  onRetry,
+}: ResultStateMessageProps) {
+  return (
+    <div
+      className={`result-state${onRetry ? " result-state--error" : ""}`}
+      role={onRetry ? "alert" : "status"}
+    >
+      <p className="result-state__title">{title}</p>
+      {description && <p className="result-state__description">{description}</p>}
+      {onRetry && (
+        <button type="button" className="result-state__retry" onClick={onRetry}>
+          Reintentar
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ResultPage() {
   const { documentId } = useParams<{ documentId: string }>();
   const location = useLocation();
   const navigationState = location.state as
     | { sourceKind?: "text" | "file"; sourceText?: string | null }
     | null;
+  const resultTitleId = useId();
+  const documentTitleId = useId();
 
   const [result, setResult] = useState<ProcessingResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadCount, setReloadCount] = useState(0);
   const [viewerState, setViewerState] = useState<DocumentViewerState>({
     status: "loading",
     documentKey: documentId ?? "",
   });
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
@@ -91,7 +120,7 @@ function ResultPage() {
     return () => {
       active = false;
     };
-  }, [documentId]);
+  }, [documentId, reloadCount]);
 
   useEffect(() => {
     if (!documentId) {
@@ -168,249 +197,139 @@ function ResultPage() {
     };
   }, [documentId, navigationState]);
 
+  const currentViewerState: DocumentViewerState | null = result
+    ? viewerState.documentKey === result.document_id
+      ? viewerState
+      : { status: "loading", documentKey: result.document_id }
+    : null;
+  const isTextSource = currentViewerState?.status === "text";
+  const sourceLabels = getDocumentSourceLabels(isTextSource);
+  const sourceName =
+    sourceLabels.subtitle ??
+    (result
+      ? `${result.document_id}${
+          currentViewerState?.status === "ready"
+            ? getDocumentExtension(currentViewerState.mimeType)
+            : ""
+        }`
+      : "");
+
   return (
-    <>
-      <PageHeader
-        title="Resultado del procesamiento"
-        description="Revise la clasificación, los datos extraídos y el destino asignado al documento."
-      />
-      <Divider sx={{ mb: 0.5 }} />
-      {loading ? (
-        <CircularProgress />
-      ) : error ? (
-        <Alert severity="error">{error}</Alert>
-      ) : !result ? (
-        <Alert severity="warning">
-          No se encontró el documento solicitado.
-        </Alert>
-      ) : (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              lg: "1fr 1fr",
-            },
-            gap: 2,
-            alignItems: "start",
-            height: { xs: "auto", lg: "calc(100dvh - 200px)" },
-            minHeight: { lg: 450 },
-          }}
-        >
-          <NotificationSnackbar
-            key={result.document_id}
-            notification={result.notification}
+    <div className="result-page">
+      <div className="result-page__content">
+        <header className="result-page__header">
+          <h1 className="result-page__title">Resultado del procesamiento</h1>
+          <p className="result-page__description">
+            Revise la clasificación, los datos extraídos y el destino asignado
+            al documento.
+          </p>
+        </header>
+
+        {loading ? (
+          <ResultLoadingState />
+        ) : error ? (
+          <ResultMessageState
+            title="No fue posible cargar el resultado."
+            description={error}
+            onRetry={() => setReloadCount((count) => count + 1)}
           />
-
-          <Paper
-            variant="outlined"
-            sx={{
-              minWidth: 0,
-              minHeight: 0,
-              height: { xs: "auto", lg: "100%" },
-              overflowY: { xs: "visible", lg: "auto" },
-              overscrollBehaviorY: "auto",
-              scrollbarWidth: "thin",
-              scrollbarColor: "#C8CDD3 transparent",
-              border: 0,
-              "&::-webkit-scrollbar": {
-                width: "4px",
-              },
-
-              "&::-webkit-scrollbar-track": {
-                backgroundColor: "transparent",
-              },
-
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: "#C8CDD3",
-                borderRadius: "8px",
-              },
-            }}
-          >
-            <Stack spacing={1.75} sx={{ p: 2 }}>
-              <Stack
-                direction="row"
-                sx={{ justifyContent: "space-between" }}
-                spacing={1}
+        ) : !result || !currentViewerState ? (
+          <ResultMessageState title="No se encontró el documento solicitado." />
+        ) : (
+          <div className="result-page__grid">
+            <div className="result-page__column result-page__column--result">
+              <section
+                className="result-panel"
+                aria-labelledby={resultTitleId}
               >
-                <Typography
-                  variant="subtitle1"
-                  sx={{ alignSelf: "flex-start", fontWeight: 600 }}
-                >
-                  Resultado
-                </Typography>
-
-                <Button
-                  size="small"
-                  sx={{ alignSelf: "flex-end" }}
-                  startIcon={<HistoryOutlinedIcon />}
-                  onClick={() =>
-                    navigate(
-                      `/history?documentId=${encodeURIComponent(result.document_id)}`,
-                    )
-                  }
-                >
-                  Ver historial
-                </Button>
-              </Stack>
-
-              <Divider />
-
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                sx={{
-                  justifyContent: "space-between",
-                  alignItems: { xs: "flex-start", sm: "center" },
-                }}
-                spacing={2}
-              >
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  sx={{
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    rowGap: 1,
-                    minWidth: 0,
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Documento
-                  </Typography>
-
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 600,
-                      overflowWrap: "anywhere",
-                    }}
+                <div className="result-panel__header">
+                  <h2
+                    id={resultTitleId}
+                    className="result-panel__title result-panel__title--result"
                   >
-                    {result.document_id}
-                  </Typography>
-
-                  <Button
-                    size="small"
-                    sx={{ alignSelf: "flex-end" }}
-                    startIcon={<ContentCopyOutlinedIcon />}
-                    onClick={() => {
-                      void navigator.clipboard.writeText(result.document_id);
-                    }}
+                    Resultado
+                  </h2>
+                  <Link
+                    className="result-history-link"
+                    to={`/history?documentId=${encodeURIComponent(result.document_id)}`}
                   >
-                    Copiar ID
-                  </Button>
-                </Stack>
+                    <Clock3 aria-hidden="true" size={14} strokeWidth={1.5} />
+                    Ver historial
+                  </Link>
+                </div>
 
-                <ResultStatus status={result.status} />
-              </Stack>
+                <div className="result-panel__body">
+                  <div className="result-meta">
+                    <div className="result-meta__reference">
+                      <span className="result-meta__label">Documento</span>
+                      <span className="result-meta__id">
+                        {result.document_id}
+                      </span>
+                      <CopyIdButton value={result.document_id} />
+                    </div>
+                    <ResultStatus status={result.status} />
+                  </div>
 
-              <Divider />
-
-              {result.status === "NEEDS_AUDIT" &&
-                result.routing_decision.audit_reasons.length > 0 && (
                   <ReviewReasonsCard
                     reasons={result.routing_decision.audit_reasons}
+                    requiresHumanReview={
+                      result.routing_decision.requires_human_review
+                    }
                   />
-                )}
+                  <ProcessingSummary
+                    classification={result.classification}
+                    confidence={result.confidence}
+                  />
+                  <NotificationCard notification={result.notification} />
+                  {result.extracted_data && (
+                    <ExtractedDataCard data={result.extracted_data} />
+                  )}
+                  {result.validation && (
+                    <ValidationCard validation={result.validation} />
+                  )}
+                  <RoutingCard
+                    routing={result.routing_decision}
+                    storage={result.storage}
+                  />
+                  {result.status === "NEEDS_AUDIT" && (
+                    // Issue #22 registrará /audit/:documentId/review; entonces
+                    // este enlace debe abrir la revisión de este documento.
+                    <Link className="result-audit-link" to="/audit">
+                      Ir a cola de auditoría
+                    </Link>
+                  )}
+                </div>
+              </section>
+            </div>
 
-              <ProcessingSummary
-                classification={result.classification}
-                confidence={result.confidence}
-              />
-              {result.extracted_data && (
-                <ExtractedDataCard data={result.extracted_data} />
-              )}
-              {result.validation && (
-                <ValidationCard validation={result.validation} />
-              )}
-              <RoutingCard
-                status={result.status}
-                routing={result.routing_decision}
-                storage={result.storage}
-              />
-              {result.status === "NEEDS_AUDIT" && (
-                <Button
-                  variant="contained"
-                  color="warning"
-                  onClick={() =>
-                    navigate(
-                      `/audit?documentId=${encodeURIComponent(result.document_id)}`,
-                    )
-                  }
-                >
-                  Continuar a auditoría
-                </Button>
-              )}
-            </Stack>
-          </Paper>
-
-          <Paper
-            variant="outlined"
-            sx={{
-              minWidth: 0,
-              minHeight: 0,
-              height: { xs: "auto", lg: "100%" },
-              border: 0,
-            }}
-          >
-            <Stack spacing={2} sx={{ p: 2 }}>
-              <Stack
-                direction="row"
-                spacing={2}
-                sx={{
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
+            <div className="result-page__column result-page__column--document">
+              <section
+                className="result-panel"
+                aria-labelledby={documentTitleId}
               >
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  Documento
-                </Typography>
+                <div className="result-panel__header result-panel__header--document">
+                  <h2
+                    id={documentTitleId}
+                    className="result-panel__title result-panel__title--document"
+                  >
+                    {sourceLabels.title}
+                  </h2>
+                  <span className="result-panel__subtitle">{sourceName}</span>
+                </div>
 
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    fontWeight: 500,
-                    overflowWrap: "anywhere",
-                  }}
-                >
-                  {result.document_id}
-                  {viewerState.documentKey === result.document_id &&
-                  viewerState.status === "ready"
-                    ? getDocumentExtension(viewerState.mimeType)
-                    : ""}
-                </Typography>
-              </Stack>
-
-              <Divider />
-
-              <Box
-                sx={{
-                  mt: 2,
-                  width: "100%",
-                  maxWidth: "100%",
-                  height: { xs: 480, lg: "calc(100dvh - 320px)" },
-                  minWidth: 0,
-                  overflow: "hidden",
-                }}
-              >
-                <DocumentViewer
-                  ariaLabel={`Vista previa del documento ${result.document_id}`}
-                  document={
-                    viewerState.documentKey === result.document_id
-                      ? viewerState
-                      : {
-                          status: "loading",
-                          documentKey: result.document_id,
-                        }
-                  }
-                />
-              </Box>
-            </Stack>
-          </Paper>
-        </Box>
-      )}
-    </>
+                <div className="result-panel__viewer">
+                  <DocumentViewer
+                    className="result-page__viewer"
+                    ariaLabel={`Vista previa del documento ${result.document_id}`}
+                    document={currentViewerState}
+                  />
+                </div>
+              </section>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
