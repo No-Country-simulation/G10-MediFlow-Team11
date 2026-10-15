@@ -15,7 +15,7 @@ import java.util.function.Predicate;
  * Doble determinista de Object Storage. No demuestra el SDK OCI real:
  * solo la coordinación de claves, copias y artefactos en memoria.
  */
-final class InMemoryObjectStorageService extends ObjectStorageService {
+class InMemoryObjectStorageService extends ObjectStorageService {
 
     private final ConcurrentHashMap<String, byte[]> objects = new ConcurrentHashMap<>();
     private final AtomicInteger concurrentPuts = new AtomicInteger();

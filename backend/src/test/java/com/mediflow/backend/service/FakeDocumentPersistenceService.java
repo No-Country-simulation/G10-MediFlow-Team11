@@ -25,9 +25,10 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
     private final ConcurrentHashMap<String, DocumentRecord> documents = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Object> mutexes = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<DocumentTriageHistory>> history = new ConcurrentHashMap<>();
-    private final AtomicBoolean failNextCommit = new AtomicBoolean(false);
+    private final AtomicInteger failingCommits = new AtomicInteger();
     private final AtomicBoolean throwAfterSuccessfulCommit = new AtomicBoolean(false);
     private final AtomicInteger commitAttempts = new AtomicInteger();
+    private final AtomicBoolean failInspection = new AtomicBoolean(false);
 
     FakeDocumentPersistenceService() {
         super(null, null, null);
@@ -39,7 +40,15 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
     }
 
     void failNextCommit() {
-        failNextCommit.set(true);
+        failNextCommits(1);
+    }
+
+    void failNextCommits(int count) {
+        failingCommits.set(count);
+    }
+
+    void failInspection() {
+        failInspection.set(true);
     }
 
     void throwAfterSuccessfulCommit() {
@@ -73,6 +82,23 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
     }
 
     @Override
+    public DocumentTriageHistory commitHumanReview(String documentId, int expectedHistorySequence,
+            Runnable prepareStorage, FinalizedDocumentState state, HumanDecision decision,
+            Map<String, Object> snapshot, Instant time) {
+        synchronized (lock(documentId)) {
+            DocumentRecord document = getDocument(documentId);
+            int current = nextSequenceFor(documentId) - 1;
+            if (document.getStatus() != com.mediflow.backend.enums.DocumentStatus.NEEDS_AUDIT
+                    || current != expectedHistorySequence) {
+                throw new ReviewConflictException(documentId, document.getStatus(), expectedHistorySequence, current);
+            }
+            prepareStorage.run();
+            return commitFinalization(documentId, state, TriageEventType.HUMAN_REVIEW, decision,
+                    snapshot, time, expectedHistorySequence + 1);
+        }
+    }
+
+    @Override
     public DocumentTriageHistory commitFinalization(
             String documentId,
             FinalizedDocumentState state,
@@ -84,7 +110,7 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
     ) {
         commitAttempts.incrementAndGet();
         synchronized (lock(documentId)) {
-            if (failNextCommit.compareAndSet(true, false)) {
+            if (failingCommits.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
                 throw new RuntimeException("induced postgres failure");
             }
             int actual = nextSequenceFor(documentId);
@@ -126,6 +152,9 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
 
     @Override
     public DurableCommitInspection inspectDurableCommit(String documentId, int expectedNextSequence) {
+        if (failInspection.get()) {
+            throw new RuntimeException("induced inspection failure");
+        }
         synchronized (lock(documentId)) {
             if (!documents.containsKey(documentId)) {
                 return DurableCommitInspection.DOCUMENT_MISSING;

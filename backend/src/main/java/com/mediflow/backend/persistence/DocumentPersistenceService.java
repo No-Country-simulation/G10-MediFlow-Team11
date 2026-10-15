@@ -4,6 +4,7 @@ import com.mediflow.backend.entity.DocumentRecord;
 import com.mediflow.backend.entity.DocumentTriageHistory;
 import com.mediflow.backend.entity.DocumentTriageHistoryId;
 import com.mediflow.backend.enums.DocumentStatus;
+import com.mediflow.backend.enums.BackendErrorCode;
 import com.mediflow.backend.enums.HumanDecision;
 import com.mediflow.backend.enums.StorageState;
 import com.mediflow.backend.enums.TriageEventType;
@@ -116,6 +117,30 @@ public class DocumentPersistenceService {
     @Transactional(readOnly = true)
     public int nextSequenceFor(String documentId) {
         return historyRepository.findMaxSequence(documentId) + 1;
+    }
+
+    /**
+     * #31 posee esta transacción: valida la versión preparada por #71 y retiene
+     * la fila hasta terminar OCI y confirmar la decisión. El llamador retiene
+     * además el advisory lock hasta el commit/rollback y su compensación.
+     */
+    @Transactional
+    public DocumentTriageHistory commitHumanReview(
+            String documentId, int expectedHistorySequence, Runnable prepareStorage,
+            FinalizedDocumentState state, HumanDecision decision,
+            Map<String, Object> snapshot, Instant confirmationTime
+    ) {
+        DocumentRecord document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Documento no encontrado: " + documentId));
+        entityManager.refresh(document, LockModeType.PESSIMISTIC_WRITE);
+        int currentSequence = historyRepository.findMaxSequence(documentId);
+        if (document.getStatus() != DocumentStatus.NEEDS_AUDIT || currentSequence != expectedHistorySequence) {
+            throw new ReviewConflictException(documentId, document.getStatus(), expectedHistorySequence, currentSequence);
+        }
+        prepareStorage.run();
+        // Participa en la transacción de este método; el proxy confirma al retornar.
+        return commitFinalization(documentId, state, TriageEventType.HUMAN_REVIEW, decision,
+                snapshot, confirmationTime, expectedHistorySequence + 1);
     }
 
     /**
@@ -271,5 +296,15 @@ public class DocumentPersistenceService {
         public String getDocumentId() { return documentId; }
         public int getExpectedSequence() { return expectedSequence; }
         public int getActualSequence() { return actualSequence; }
+    }
+
+    /** #71 traduce este conflicto de estado o versión a HTTP 409 INVALID_REVIEW_STATE. */
+    public static class ReviewConflictException extends IllegalStateException {
+        public ReviewConflictException(String id, DocumentStatus status, int expected, int actual) {
+            super("Revisión desactualizada para " + id + ": estado=" + status
+                    + ", secuencia esperada=" + expected + ", actual=" + actual);
+        }
+
+        public BackendErrorCode getErrorCode() { return BackendErrorCode.INVALID_REVIEW_STATE; }
     }
 }

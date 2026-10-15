@@ -35,6 +35,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -51,6 +52,13 @@ class DocumentFinalizationServiceTest {
     @BeforeEach
     void setUp() {
         persistenceService = mock(DocumentPersistenceService.class);
+        doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(2).run();
+            return persistenceService.commitFinalization(invocation.getArgument(0), invocation.getArgument(3),
+                    TriageEventType.HUMAN_REVIEW, invocation.getArgument(4), invocation.getArgument(5),
+                    invocation.getArgument(6), invocation.<Integer>getArgument(1) + 1);
+        }).when(persistenceService).commitHumanReview(anyString(), anyInt(), any(Runnable.class),
+                any(FinalizedDocumentState.class), any(), any(), any(Instant.class));
         storageService = mock(ObjectStorageService.class);
         jsonMapper = JacksonConfig.createJsonMapper();
         service = new DocumentFinalizationService(
@@ -239,6 +247,7 @@ class DocumentFinalizationServiceTest {
     @Test
     void pgFailureWithSafeInspectionDeletesDestinationObjects() {
         DocumentRecord document = baseDocument("recibidos/DOC-1/original.pdf");
+        document.setStatus(DocumentStatus.NEEDS_AUDIT); // Ya existe un resultado durable: no sustituirlo por fallback inicial.
         when(persistenceService.getDocument("DOC-1")).thenReturn(document);
         when(persistenceService.nextSequenceFor("DOC-1")).thenReturn(1);
         when(persistenceService.commitFinalization(
@@ -248,8 +257,10 @@ class DocumentFinalizationServiceTest {
         when(persistenceService.inspectDurableCommit("DOC-1", 1))
                 .thenReturn(DurableCommitInspection.NOT_COMMITTED);
 
-        assertThrows(RuntimeException.class, () -> service.finalizeResult(baseCommand(
+        RuntimeException failure = assertThrows(RuntimeException.class, () -> service.finalizeResult(baseCommand(
                 DocumentStatus.PROCESSED, PriorityLevel.URGENT, TriageEventType.INITIAL_TRIAGE, null)));
+        assertEquals("db down", failure.getMessage());
+        assertEquals(0, failure.getSuppressed().length);
 
         verify(persistenceService).inspectDurableCommit("DOC-1", 1);
         verify(storageService).deleteObject("procesados/urgentes/DOC-1/original.pdf");
@@ -356,6 +367,8 @@ class DocumentFinalizationServiceTest {
         doThrow(new ObjectStorageService.StorageOperationException("copy fail", new RuntimeException()))
                 .when(storageService).copyWithinBucket(anyString(), anyString());
         when(storageService.getObject("recibidos/DOC-1/original.pdf")).thenReturn("pdf".getBytes());
+        when(storageService.getObject("recibidos/DOC-1/triage.json"))
+                .thenThrow(new ObjectStorageService.ObjectNotFoundException("missing", new RuntimeException()));
         when(persistenceService.commitFinalization(
                 anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
                 any(), any(), any(Instant.class), anyInt()))
@@ -368,7 +381,7 @@ class DocumentFinalizationServiceTest {
         assertEquals(DocumentStatus.NEEDS_AUDIT, outcome.status());
         assertEquals(StorageState.ERROR, outcome.storageState());
         assertTrue(outcome.persistenceConfirmed());
-        assertFalse(outcome.storageArtifactConfirmed() && outcome.kind() == FinalizationOutcome.Kind.CONFIRMED);
+        assertTrue(outcome.storageArtifactConfirmed());
 
         ArgumentCaptor<FinalizedDocumentState> stateCaptor = ArgumentCaptor.forClass(FinalizedDocumentState.class);
         verify(persistenceService).commitFinalization(
@@ -392,6 +405,8 @@ class DocumentFinalizationServiceTest {
         doThrow(new ObjectStorageService.StorageOperationException("copy fail", new RuntimeException()))
                 .when(storageService).copyWithinBucket(anyString(), anyString());
         when(storageService.getObject("recibidos/DOC-1/original.pdf")).thenReturn("pdf".getBytes());
+        when(storageService.getObject("recibidos/DOC-1/triage.json"))
+                .thenThrow(new ObjectStorageService.ObjectNotFoundException("missing", new RuntimeException()));
         when(persistenceService.commitFinalization(
                 anyString(), any(FinalizedDocumentState.class), any(TriageEventType.class),
                 any(), any(), any(Instant.class), anyInt()))
@@ -441,19 +456,16 @@ class DocumentFinalizationServiceTest {
         ArgumentCaptor<String> jsonCaptor = ArgumentCaptor.forClass(String.class);
         verify(storageService).putJson(eq("auditoria_humana/DOC-1/triage.json"), jsonCaptor.capture());
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> artifact = jsonMapper.readValue(jsonCaptor.getValue(), Map.class);
+        Map<?, ?> artifact = jsonMapper.readValue(jsonCaptor.getValue(), Map.class);
         assertEquals(2, artifact.get("sequence"));
         assertNotNull(artifact.get("created_at"));
         assertNotNull(artifact.get("updated_at"));
         assertFalse(artifact.containsKey("bucket"));
         assertFalse(artifact.containsKey("object_key"));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> storage = (Map<String, Object>) artifact.get("storage");
+        Map<?, ?> storage = (Map<?, ?>) artifact.get("storage");
         assertEquals("SUCCESS", storage.get("state"));
         assertFalse(storage.containsKey("bucket"));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> humanReview = (Map<String, Object>) artifact.get("human_review");
+        Map<?, ?> humanReview = (Map<?, ?>) artifact.get("human_review");
         assertEquals("REJECT", humanReview.get("decision"));
     }
 
@@ -494,7 +506,8 @@ class DocumentFinalizationServiceTest {
                 null,
                 DocumentRecord.defaultNotification(),
                 eventType,
-                decision
+                decision,
+                eventType == TriageEventType.HUMAN_REVIEW ? 1 : null
         );
     }
 

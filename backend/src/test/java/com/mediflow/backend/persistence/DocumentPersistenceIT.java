@@ -14,6 +14,9 @@ import com.mediflow.backend.enums.TriageEventType;
 import com.mediflow.backend.repository.DocumentRepository;
 import com.mediflow.backend.repository.DocumentTriageHistoryRepository;
 import org.junit.jupiter.api.Test;
+import com.oracle.bmc.auth.BasicAuthenticationDetailsProvider;
+import com.oracle.bmc.objectstorage.ObjectStorageClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -23,27 +26,26 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create")
 class DocumentPersistenceIT {
+
+    @MockitoBean
+    private com.mediflow.backend.service.AiCoreClient aiCoreClient;
+
+    @MockitoBean
+    private BasicAuthenticationDetailsProvider authenticationDetailsProvider;
+
+    @MockitoBean
+    private ObjectStorageClient objectStorageClient;
 
     @SuppressWarnings("resource")
     @Container

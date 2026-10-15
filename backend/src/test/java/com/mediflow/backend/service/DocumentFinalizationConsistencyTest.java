@@ -77,12 +77,14 @@ class DocumentFinalizationConsistencyTest {
         assertThrows(RuntimeException.class,
                 () -> service.finalizeResult(processedCommand("DOC-PG-FAIL", PriorityLevel.URGENT)));
 
-        assertEquals(DocumentStatus.RECEIVED, persistence.stored("DOC-PG-FAIL").getStatus());
+        assertEquals(DocumentStatus.NEEDS_AUDIT, persistence.stored("DOC-PG-FAIL").getStatus());
         assertEquals("recibidos/DOC-PG-FAIL/original.pdf", persistence.stored("DOC-PG-FAIL").getObjectKey());
         assertTrue(storage.contains("recibidos/DOC-PG-FAIL/original.pdf"));
         assertFalse(storage.contains("procesados/urgentes/DOC-PG-FAIL/original.pdf"));
         assertFalse(storage.contains("procesados/urgentes/DOC-PG-FAIL/triage.json"));
-        assertTrue(persistence.historyOf("DOC-PG-FAIL").isEmpty());
+        assertEquals(1, persistence.historyOf("DOC-PG-FAIL").size());
+        assertEquals(StorageState.SUCCESS, persistence.stored("DOC-PG-FAIL").getStorageState());
+        assertTrue(storage.contains("recibidos/DOC-PG-FAIL/triage.json"));
     }
 
     @Test
@@ -123,10 +125,10 @@ class DocumentFinalizationConsistencyTest {
             assertTrue(storage.contains("procesados/rutina/DOC-RACE/triage.json"));
             assertTrue(storage.contains("procesados/rutina/DOC-RACE/original.pdf"));
             String triage = storage.readUtf8("procesados/rutina/DOC-RACE/triage.json");
-            assertTrue(triage.contains("\"sequence\":1") || triage.contains("\"sequence\": 1"));
-            assertEquals(1, persistence.historyOf("DOC-RACE").size());
+            assertEquals(2, jsonMapper.readValue(triage, Map.class).get("sequence"));
+            assertEquals(2, persistence.historyOf("DOC-RACE").size());
             assertEquals(persistence.stored("DOC-RACE").getUpdatedAt(),
-                    persistence.historyOf("DOC-RACE").getFirst().getOccurredAt());
+                    persistence.historyOf("DOC-RACE").getLast().getOccurredAt());
         } finally {
             pool.shutdownNow();
         }
@@ -181,7 +183,7 @@ class DocumentFinalizationConsistencyTest {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             Future<FinalizationOutcome> first = pool.submit(
-                    () -> service.finalizeResult(processedCommand("DOC-CONC", PriorityLevel.URGENT)));
+                    () -> service.finalizeResult(needsAuditCommand("DOC-CONC")));
             Future<FinalizationOutcome> second = pool.submit(
                     () -> service.finalizeResult(needsAuditCommand("DOC-CONC")));
 
@@ -248,8 +250,7 @@ class DocumentFinalizationConsistencyTest {
         assertFalse(snapshot.containsKey("bucket"));
         assertFalse(snapshot.containsKey("object_key"));
         assertFalse(snapshot.containsKey("namespace"));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> storageBlock = (Map<String, Object>) snapshot.get("storage");
+        Map<?, ?> storageBlock = (Map<?, ?>) snapshot.get("storage");
         assertEquals("ERROR", storageBlock.get("state"));
         assertEquals("OCI_OBJECT_STORAGE", storageBlock.get("provider"));
         assertNull(storageBlock.get("bucket"));
@@ -271,6 +272,67 @@ class DocumentFinalizationConsistencyTest {
         assertTrue(storage.contains(deriveTriage(stored.getObjectKey())));
         assertFalse(storage.deletedKeys().contains("procesados/urgentes/DOC-MATCH/original.pdf"));
         assertTrue(storage.deletedKeys().contains("recibidos/DOC-MATCH/original.pdf"));
+    }
+
+    @Test
+    void fallbackCommitFailureRemovesUnconfirmedFallbackArtifact() {
+        seedReceived("DOC-FB-PG");
+        storage.failPutsMatching(key -> key.contains("procesados") && key.endsWith("triage.json"));
+        persistence.failNextCommit();
+
+        assertThrows(RuntimeException.class,
+                () -> service.finalizeResult(processedCommand("DOC-FB-PG", PriorityLevel.URGENT)));
+
+        assertEquals(DocumentStatus.RECEIVED, persistence.stored("DOC-FB-PG").getStatus());
+        assertEquals("recibidos/DOC-FB-PG/original.pdf", persistence.stored("DOC-FB-PG").getObjectKey());
+        assertTrue(persistence.historyOf("DOC-FB-PG").isEmpty());
+        assertTrue(storage.contains("recibidos/DOC-FB-PG/original.pdf"));
+        assertFalse(storage.contains("recibidos/DOC-FB-PG/triage.json"));
+        assertFalse(storage.contains("procesados/urgentes/DOC-FB-PG/original.pdf"));
+    }
+
+    @Test
+    void fallbackCommitFailureRestoresPreviousArtifact() {
+        seedReceived("DOC-FB-PREV");
+        storage.seed("recibidos/DOC-FB-PREV/triage.json", "PREVIOUS");
+        storage.failPutsMatching(key -> key.contains("procesados") && key.endsWith("triage.json"));
+        persistence.failNextCommit();
+
+        assertThrows(RuntimeException.class,
+                () -> service.finalizeResult(processedCommand("DOC-FB-PREV", PriorityLevel.URGENT)));
+
+        assertEquals("PREVIOUS", storage.readUtf8("recibidos/DOC-FB-PREV/triage.json"));
+        assertTrue(persistence.historyOf("DOC-FB-PREV").isEmpty());
+    }
+
+    @Test
+    void fallbackUncertainCommitThatWasDurableKeepsArtifact() {
+        seedReceived("DOC-FB-UNC");
+        storage.failPutsMatching(key -> key.contains("procesados") && key.endsWith("triage.json"));
+        persistence.throwAfterSuccessfulCommit();
+
+        FinalizationOutcome outcome = service.finalizeResult(processedCommand("DOC-FB-UNC", PriorityLevel.URGENT));
+
+        assertEquals(FinalizationOutcome.Kind.FALLBACK_DURABLE, outcome.kind());
+        assertEquals(1, persistence.historyOf("DOC-FB-UNC").size());
+        assertEquals(DocumentStatus.NEEDS_AUDIT, persistence.stored("DOC-FB-UNC").getStatus());
+        String triage = storage.readUtf8("recibidos/DOC-FB-UNC/triage.json");
+        assertNotNull(triage);
+        assertTrue(triage.contains("\"sequence\":1"));
+    }
+
+    @Test
+    void fallbackCommitFailureWithUnverifiableCommitKeepsArtifact() {
+        seedReceived("DOC-FB-UNK");
+        storage.failPutsMatching(key -> key.contains("procesados") && key.endsWith("triage.json"));
+        persistence.failNextCommit();
+        persistence.failInspection();
+
+        assertThrows(RuntimeException.class,
+                () -> service.finalizeResult(processedCommand("DOC-FB-UNK", PriorityLevel.URGENT)));
+
+        assertTrue(storage.contains("recibidos/DOC-FB-UNK/triage.json"));
+        assertTrue(storage.contains("recibidos/DOC-FB-UNK/original.pdf"));
     }
 
     private void seedReceived(String id) {
@@ -305,7 +367,7 @@ class DocumentFinalizationConsistencyTest {
                 id, DocumentStatus.PROCESSED, DocumentType.DISCHARGE_SUMMARY, "medicina_general",
                 priority, 0.9, 0.9, 0.9, PrimaryDestination.MEDICAL_RECORD, "ok",
                 List.of(AuditReason.LOW_CONFIDENCE), null, null,
-                DocumentRecord.defaultNotification(), TriageEventType.INITIAL_TRIAGE, null);
+                DocumentRecord.defaultNotification(), TriageEventType.INITIAL_TRIAGE, null, null);
     }
 
     private static FinalizationCommand needsAuditCommand(String id) {
@@ -313,7 +375,7 @@ class DocumentFinalizationConsistencyTest {
                 id, DocumentStatus.NEEDS_AUDIT, DocumentType.DISCHARGE_SUMMARY, "medicina_general",
                 PriorityLevel.ROUTINE, 0.4, 0.4, 0.4, PrimaryDestination.HUMAN_REVIEW, "audit",
                 List.of(AuditReason.LOW_CONFIDENCE), null, null,
-                DocumentRecord.defaultNotification(), TriageEventType.INITIAL_TRIAGE, null);
+                DocumentRecord.defaultNotification(), TriageEventType.INITIAL_TRIAGE, null, null);
     }
 
     private static FinalizationCommand rejectedCommand(String id) {
@@ -321,6 +383,6 @@ class DocumentFinalizationConsistencyTest {
                 id, DocumentStatus.REJECTED, DocumentType.DISCHARGE_SUMMARY, "medicina_general",
                 null, 0.4, 0.4, 0.4, PrimaryDestination.HUMAN_REVIEW, "reject",
                 List.of(AuditReason.LOW_CONFIDENCE), null, null,
-                DocumentRecord.defaultNotification(), TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT);
+                DocumentRecord.defaultNotification(), TriageEventType.HUMAN_REVIEW, HumanDecision.REJECT, 0);
     }
 }

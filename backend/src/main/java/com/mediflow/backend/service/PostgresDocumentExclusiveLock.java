@@ -3,9 +3,10 @@ package com.mediflow.backend.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
 
-import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.function.Supplier;
@@ -21,15 +22,19 @@ public class PostgresDocumentExclusiveLock implements DocumentExclusiveLock {
 
     private static final Logger log = LoggerFactory.getLogger(PostgresDocumentExclusiveLock.class);
 
-    private final DataSource dataSource;
+    private final JdbcConnectionDetails connectionDetails;
 
-    public PostgresDocumentExclusiveLock(DataSource dataSource) {
-        this.dataSource = dataSource;
+    public PostgresDocumentExclusiveLock(JdbcConnectionDetails connectionDetails) {
+        this.connectionDetails = connectionDetails;
     }
 
     @Override
     public <T> T execute(String documentId, Supplier<T> work) {
-        try (Connection connection = dataSource.getConnection()) {
+        // Los titulares y los waiters del lock no deben ocupar el pool JPA:
+        // con dos conexiones, un titular y un waiter impedirían abrir el commit.
+        // Al cerrar esta sesión física también se libera el lock si unlock falla.
+        try (Connection connection = DriverManager.getConnection(
+                connectionDetails.getJdbcUrl(), connectionDetails.getUsername(), connectionDetails.getPassword())) {
             connection.setAutoCommit(true);
             acquire(connection, documentId);
             try {

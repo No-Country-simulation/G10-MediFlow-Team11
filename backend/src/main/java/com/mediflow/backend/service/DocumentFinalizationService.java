@@ -15,6 +15,9 @@ import com.mediflow.backend.persistence.FinalizedDocumentState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.IllegalTransactionStateException;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -70,12 +73,18 @@ public class DocumentFinalizationService {
     }
 
     public FinalizationOutcome finalizeResult(FinalizationCommand comando) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalTransactionStateException("La finalización debe invocarse sin transacción externa");
+        }
         validateCommand(comando);
         return exclusiveLock.execute(comando.documentId(), () -> finalizeLocked(comando));
     }
 
     private FinalizationOutcome finalizeLocked(FinalizationCommand comando) {
         DocumentRecord document = persistenceService.getDocument(comando.documentId());
+        if (comando.eventType() == TriageEventType.INITIAL_TRIAGE && isTerminal(document.getStatus())) {
+            throw new InitialTriageConflictException(comando.documentId(), document.getStatus());
+        }
 
         String destinationPrefix = resolvePrefix(comando.status(), comando.priority());
         String extension = keyGenerator.extensionForMime(document.getMimeType());
@@ -100,14 +109,23 @@ public class DocumentFinalizationService {
         PreviousArtifact previousArtifact = prefixChanged
                 ? PreviousArtifact.none()
                 : readPreviousArtifact(sourceTriageKey);
+        FinalizedDocumentState state = buildState(comando, destinationOriginalKey, StorageState.SUCCESS);
+        DocumentTriageHistory history;
+        Runnable prepareStorage = () -> prepareOci(prefixChanged, sourceObjectKey,
+                destinationOriginalKey, destinationTriageKey, triageJson);
         try {
-            prepareOci(
-                    prefixChanged,
-                    sourceObjectKey,
-                    destinationOriginalKey,
-                    destinationTriageKey,
-                    triageJson
-            );
+            if (comando.eventType() == TriageEventType.HUMAN_REVIEW) {
+                history = persistenceService.commitHumanReview(comando.documentId(),
+                        comando.expectedHistorySequence(), prepareStorage, state, comando.decision(),
+                        canonicalSnapshot, confirmationTime);
+            } else {
+                prepareStorage.run();
+                history = persistenceService.commitFinalization(comando.documentId(), state, comando.eventType(),
+                        comando.decision(), canonicalSnapshot, confirmationTime, nextSequence);
+            }
+        } catch (DocumentPersistenceService.ReviewConflictException conflict) {
+            // Se rechazó antes de cualquier escritura; no compensar objetos de otro resultado.
+            throw conflict;
         } catch (ObjectStorageService.StorageOperationException ociError) {
             compensateOciFailure(
                     prefixChanged,
@@ -122,26 +140,13 @@ public class DocumentFinalizationService {
                 return persistStorageFallback(comando, document, ociError);
             }
             throw ociError;
-        }
-
-        FinalizedDocumentState state = buildState(comando, destinationOriginalKey, StorageState.SUCCESS);
-        DocumentTriageHistory history;
-        try {
-            history = persistenceService.commitFinalization(
-                    comando.documentId(),
-                    state,
-                    comando.eventType(),
-                    comando.decision(),
-                    canonicalSnapshot,
-                    confirmationTime,
-                    nextSequence
-            );
         } catch (RuntimeException pgError) {
             FinalizationOutcome recovered = compensatePgFailure(
                     comando,
                     nextSequence,
                     confirmationTime,
                     prefixChanged,
+                    sourceObjectKey,
                     sourceTriageKey,
                     destinationOriginalKey,
                     destinationTriageKey,
@@ -154,10 +159,7 @@ public class DocumentFinalizationService {
             throw pgError;
         }
 
-        if (prefixChanged) {
-            safeDeleteAfterCommit(comando.documentId(), sourceObjectKey);
-            safeDeleteAfterCommit(comando.documentId(), sourceTriageKey);
-        }
+        cleanupSupersededCopies(comando.documentId(), prefixChanged, sourceObjectKey, sourceTriageKey);
 
         return FinalizationOutcome.confirmed(
                 comando.documentId(),
@@ -165,6 +167,13 @@ public class DocumentFinalizationService {
                 nextSequence,
                 history.getOccurredAt()
         );
+    }
+
+    private boolean isTerminal(DocumentStatus status) {
+        return status == DocumentStatus.PROCESSED
+                || status == DocumentStatus.APPROVED
+                || status == DocumentStatus.REJECTED
+                || status == DocumentStatus.FAILED;
     }
 
     String resolvePrefix(DocumentStatus status, PriorityLevel priority) {
@@ -216,7 +225,6 @@ public class DocumentFinalizationService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> buildCanonicalSnapshot(
             DocumentRecord source,
             FinalizationCommand comando,
@@ -239,7 +247,7 @@ public class DocumentFinalizationService {
         view.setNotification(comando.notification());
         view.setStorageState(storageState);
         DocumentoCanonicoResponse canonical = responseMapper.toResponse(view);
-        return jsonMapper.convertValue(canonical, Map.class);
+        return jsonMapper.convertValue(canonical, new TypeReference<Map<String, Object>>() {});
     }
 
     private String buildTriageJson(
@@ -345,6 +353,7 @@ public class DocumentFinalizationService {
             int expectedNextSequence,
             Instant confirmationTime,
             boolean prefixChanged,
+            String sourceObjectKey,
             String sourceTriageKey,
             String destinationOriginalKey,
             String destinationTriageKey,
@@ -365,6 +374,7 @@ public class DocumentFinalizationService {
         if (inspection == DurableCommitInspection.THIS_ATTEMPT_COMMITTED) {
             log.warn("Commit PostgreSQL reportó error pero la secuencia {} quedó confirmada para {}",
                     expectedNextSequence, comando.documentId());
+            cleanupSupersededCopies(comando.documentId(), prefixChanged, sourceObjectKey, sourceTriageKey);
             return FinalizationOutcome.confirmed(
                     comando.documentId(),
                     comando.status(),
@@ -394,6 +404,21 @@ public class DocumentFinalizationService {
             log.error("Error durante compensación de fallo PostgreSQL documentId={} keys={}, {}",
                     comando.documentId(), destinationOriginalKey, destinationTriageKey, e);
         }
+        if (comando.eventType() == TriageEventType.INITIAL_TRIAGE) {
+            try {
+                DocumentRecord current = persistenceService.getDocument(comando.documentId());
+                if ((current.getStatus() == DocumentStatus.RECEIVED || current.getStatus() == DocumentStatus.PROCESSING)
+                        && isOriginalRecoverable(current.getObjectKey())) {
+                    persistRecoverableFallback(comando, current,
+                            "Fallo de persistencia PostgreSQL durante la finalización; resultado recuperado para revisión", true);
+                }
+            } catch (RuntimeException fallbackError) {
+                if (fallbackError != pgError) pgError.addSuppressed(fallbackError);
+                log.error("No se pudo confirmar el fallback de persistencia para {}; se conserva el último estado durable",
+                        comando.documentId(), fallbackError);
+            }
+        }
+        // Incluso con fallback durable, #25 debe conservar HTTP 500 PERSISTENCE_ERROR.
         return null;
     }
 
@@ -418,7 +443,9 @@ public class DocumentFinalizationService {
             }
             return;
         }
-        safeDelete(triageKey);
+        if (!safeDelete(triageKey)) {
+            markStorageErrorQuietly(documentId);
+        }
     }
 
     private void markStorageErrorQuietly(String documentId) {
@@ -429,11 +456,25 @@ public class DocumentFinalizationService {
         }
     }
 
-    private void safeDelete(String key) {
+    private boolean safeDelete(String key) {
         try {
             storageService.deleteObject(key);
+            return true;
         } catch (ObjectStorageService.StorageOperationException e) {
             log.warn("No se pudo eliminar objeto OCI {} durante compensación", key, e);
+            return false;
+        }
+    }
+
+    private void cleanupSupersededCopies(
+            String documentId,
+            boolean prefixChanged,
+            String sourceObjectKey,
+            String sourceTriageKey
+    ) {
+        if (prefixChanged) {
+            safeDeleteAfterCommit(documentId, sourceObjectKey);
+            safeDeleteAfterCommit(documentId, sourceTriageKey);
         }
     }
 
@@ -460,14 +501,18 @@ public class DocumentFinalizationService {
         log.warn("Fallo OCI en finalización inicial para {}; aplicando fallback NEEDS_AUDIT con original recuperable",
                 comando.documentId(), cause);
 
+        FallbackCommit fallback = persistRecoverableFallback(comando, document,
+                "Fallo de almacenamiento OCI durante la finalización", false);
+        return FinalizationOutcome.fallbackDurable(comando.documentId(), fallback.sequence(),
+                fallback.occurredAt(), true, fallback.artifactWritten());
+    }
+
+    private FallbackCommit persistRecoverableFallback(
+            FinalizationCommand comando, DocumentRecord document, String justification, boolean persistenceRecovery
+    ) {
+
         Instant fallbackTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
         int fallbackSequence = persistenceService.nextSequenceFor(comando.documentId());
-
-        Map<String, Object> notification = comando.notification() != null
-                ? comando.notification()
-                : DocumentRecord.defaultNotification();
-
-        String justification = "Fallo de almacenamiento OCI durante la finalización";
 
         FinalizationCommand fallbackCommand = new FinalizationCommand(
                 comando.documentId(),
@@ -483,17 +528,25 @@ public class DocumentFinalizationService {
                 comando.auditReasons(),
                 comando.extractedData(),
                 comando.validation(),
-                notification,
+                DocumentRecord.defaultNotification(),
                 comando.eventType(),
+                null,
                 null
         );
 
-        FinalizedDocumentState fallbackState = buildState(
-                fallbackCommand, document.getObjectKey(), StorageState.ERROR);
-        Map<String, Object> fallbackSnapshot = buildCanonicalSnapshot(document, fallbackCommand, StorageState.ERROR);
-
-        boolean artifactWritten = tryWriteFallbackArtifact(
-                document, fallbackSnapshot, fallbackTime, fallbackSequence);
+        String fallbackTriageKey = deriveTriageKey(document.getObjectKey());
+        PreviousArtifact previousArtifact = readPreviousArtifactForFallback(fallbackTriageKey);
+        boolean artifactAttempted = previousArtifact.status() != PreviousArtifact.Status.UNREAD;
+        StorageState fallbackStorage = persistenceRecovery && artifactAttempted ? StorageState.SUCCESS : StorageState.ERROR;
+        Map<String, Object> fallbackSnapshot = buildCanonicalSnapshot(document, fallbackCommand, fallbackStorage);
+        boolean artifactWritten = artifactAttempted
+                && tryWriteFallbackArtifact(document, fallbackSnapshot, fallbackTime, fallbackSequence);
+        if (persistenceRecovery && !artifactWritten && fallbackStorage == StorageState.SUCCESS) {
+            fallbackStorage = StorageState.ERROR;
+            fallbackSnapshot = buildCanonicalSnapshot(document, fallbackCommand, fallbackStorage);
+            artifactWritten = tryWriteFallbackArtifact(document, fallbackSnapshot, fallbackTime, fallbackSequence);
+        }
+        FinalizedDocumentState fallbackState = buildState(fallbackCommand, document.getObjectKey(), fallbackStorage);
 
         DocumentTriageHistory history;
         try {
@@ -509,16 +562,70 @@ public class DocumentFinalizationService {
         } catch (RuntimeException persistenceError) {
             log.error("No se pudo persistir el fallback NEEDS_AUDIT para {}; no se afirma transición durable",
                     comando.documentId(), persistenceError);
+            // Un error de respuesta OCI no demuestra que el objeto no se haya escrito.
+            if (artifactAttempted
+                    && compensateFallbackArtifact(comando.documentId(), fallbackSequence, fallbackTriageKey, previousArtifact)) {
+                return new FallbackCommit(fallbackSequence, fallbackTime, artifactWritten);
+            }
             throw persistenceError;
         }
 
-        return FinalizationOutcome.fallbackDurable(
-                comando.documentId(),
-                fallbackSequence,
-                history.getOccurredAt(),
-                true,
-                artifactWritten
-        );
+        return new FallbackCommit(fallbackSequence, history.getOccurredAt(), artifactWritten);
+    }
+
+    private record FallbackCommit(int sequence, Instant occurredAt, boolean artifactWritten) {}
+
+    /**
+     * Compensa el {@code triage.json} de fallback cuando PostgreSQL no confirmó su
+     * transición (arquitectura §12.4). Solo restaura o elimina el artefacto si la
+     * inspección durable demuestra que este intento no se confirmó.
+     *
+     * @return {@code true} si la inspección demuestra que el fallback sí quedó
+     *         confirmado (commit incierto), por lo que el artefacto se conserva.
+     */
+    private boolean compensateFallbackArtifact(
+            String documentId,
+            int fallbackSequence,
+            String fallbackTriageKey,
+            PreviousArtifact previousArtifact
+    ) {
+        DurableCommitInspection inspection;
+        try {
+            inspection = persistenceService.inspectDurableCommit(documentId, fallbackSequence);
+        } catch (RuntimeException inspectionError) {
+            log.error("Commit PostgreSQL del fallback incierto para {}; se conserva el artefacto {} "
+                            + "para conciliación manual", documentId, fallbackTriageKey, inspectionError);
+            return false;
+        }
+
+        if (inspection == DurableCommitInspection.THIS_ATTEMPT_COMMITTED) {
+            log.warn("Commit del fallback reportó error pero la secuencia {} quedó confirmada para {}",
+                    fallbackSequence, documentId);
+            return true;
+        }
+        if (inspection != DurableCommitInspection.NOT_COMMITTED) {
+            log.warn("Compensación del fallback omitida para {}: inspección={} expectedSequence={}; clave no modificada: {}",
+                    documentId, inspection, fallbackSequence, fallbackTriageKey);
+            return false;
+        }
+
+        try {
+            restoreOrRemovePreparedArtifact(fallbackTriageKey, previousArtifact, documentId);
+        } catch (Exception e) {
+            log.error("Error durante compensación del artefacto de fallback documentId={} key={}",
+                    documentId, fallbackTriageKey, e);
+        }
+        return false;
+    }
+
+    private PreviousArtifact readPreviousArtifactForFallback(String triageKey) {
+        try {
+            return readPreviousArtifact(triageKey);
+        } catch (ObjectStorageService.StorageOperationException readError) {
+            log.warn("Artefacto de fallback no escrito para {}: no se pudo leer el artefacto vigente y no podría restaurarse",
+                    triageKey);
+            return PreviousArtifact.none();
+        }
     }
 
     private FinalizationOutcome persistUnrecoverable(
@@ -531,10 +638,6 @@ public class DocumentFinalizationService {
 
         Instant failedTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
         int sequence = persistenceService.nextSequenceFor(comando.documentId());
-
-        Map<String, Object> notification = comando.notification() != null
-                ? comando.notification()
-                : DocumentRecord.defaultNotification();
 
         FinalizationCommand failedCommand = new FinalizationCommand(
                 comando.documentId(),
@@ -550,8 +653,9 @@ public class DocumentFinalizationService {
                 comando.auditReasons(),
                 comando.extractedData(),
                 comando.validation(),
-                notification,
+                DocumentRecord.defaultNotification(),
                 comando.eventType(),
+                null,
                 null
         );
 
@@ -593,7 +697,7 @@ public class DocumentFinalizationService {
             storageService.putJson(fallbackTriageKey, json);
             return true;
         } catch (ObjectStorageService.StorageOperationException e) {
-            log.warn("Artefacto triage.json de fallback ausente para {} clave={}",
+            log.warn("No se pudo confirmar la escritura del triage.json de fallback para {} clave={}",
                     document.getId(), fallbackTriageKey, e);
             return false;
         }
@@ -628,6 +732,16 @@ public class DocumentFinalizationService {
         if (comando.eventType() == TriageEventType.HUMAN_REVIEW && comando.decision() == null) {
             throw new IllegalArgumentException("HUMAN_REVIEW requiere decision");
         }
+        if (comando.eventType() == TriageEventType.HUMAN_REVIEW) {
+            if (comando.expectedHistorySequence() == null || comando.expectedHistorySequence() < 0) {
+                throw new IllegalArgumentException("HUMAN_REVIEW requiere la secuencia base del historial");
+            }
+            DocumentStatus expectedStatus = comando.decision() == HumanDecision.APPROVE
+                    ? DocumentStatus.APPROVED : DocumentStatus.REJECTED;
+            if (comando.status() != expectedStatus) {
+                throw new IllegalArgumentException("Estado incompatible con la decisión humana");
+            }
+        }
         if (comando.eventType() == TriageEventType.INITIAL_TRIAGE && comando.decision() != null) {
             throw new IllegalArgumentException("INITIAL_TRIAGE no admite decision");
         }
@@ -650,6 +764,13 @@ public class DocumentFinalizationService {
 
         static PreviousArtifact present(String content) {
             return new PreviousArtifact(Status.PRESENT, content);
+        }
+    }
+
+    /** Un resultado inicial no puede reemplazar un estado terminal confirmado. */
+    public static class InitialTriageConflictException extends IllegalStateException {
+        public InitialTriageConflictException(String documentId, DocumentStatus currentStatus) {
+            super("Finalización inicial rechazada para " + documentId + ": estado terminal " + currentStatus);
         }
     }
 }
