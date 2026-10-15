@@ -1,0 +1,35 @@
+mediflow-core.duckdns.org {
+    handle /actuator/health {
+        reverse_proxy 127.0.0.1:8080
+    }
+
+    handle {
+        respond "Not found" 404
+    }
+}
+
+mediflowia.dev {
+    @reserved path /api /api/* /actuator /actuator/*
+    @assets path /assets/* /brand/* /favicon.svg /icons.svg
+
+    route {
+        handle /actuator/health {
+            reverse_proxy 127.0.0.1:8080
+        }
+
+        handle @reserved {
+            respond "Not found" 404
+        }
+
+        handle @assets {
+            root * /srv/mediflow/frontend/releases/issue88-initial
+            file_server
+        }
+
+        handle {
+            root * /srv/mediflow/frontend/releases/issue88-initial
+            try_files {path} /index.html
+            file_server
+        }
+    }
+}
