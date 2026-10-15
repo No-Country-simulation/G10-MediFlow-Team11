@@ -414,7 +414,9 @@ caddy_preparar
 
 Revisar el `diff` completo: solo deben cambiar las líneas previstas (por ejemplo, la ruta del release), sin ampliar rutas ni retirar ningún sitio. Si no es el previsto, no continuar y retirar el candidato como se indica en "Candidato residual".
 
-**Etapa 2: aplicar.** Solo después de esa revisión, en un comando separado. Comprueba que el candidato no cambió desde la revisión, pide escribir los 12 primeros caracteres de su SHA-256 mostrados en la etapa 1 y, si coinciden, valida, sustituye el Caddyfile activo y recarga Caddy. Una confirmación vacía o incorrecta, incluida la que resulte de pegar más comandos a continuación, aborta sin cambios.
+**Etapa 2: aplicar.** Solo después de esa revisión, en un comando separado. Comprueba que el candidato no cambió desde la revisión, pide escribir los 12 primeros caracteres de su SHA-256 mostrados en la etapa 1 y, si coinciden, valida el candidato y comprueba que el Caddyfile activo sigue idéntico al respaldo creado en la etapa 1; si difiere o no puede compararse, aborta sin modificarlo. Después sustituye el Caddyfile activo y recarga Caddy. Una confirmación vacía o incorrecta, incluida la que resulte de pegar más comandos a continuación, aborta sin cambios.
+
+Esa comparación reduce el riesgo de sobrescribir cambios que otro administrador haya hecho al activo entre ambas etapas, pero no es un bloqueo: queda una ventana breve entre la comparación y el renombrado, y compara solo el contenido, no propietario ni permisos. Coordinar con otros administradores los cambios del Caddyfile.
 
 La sustitución es atómica (`caddy_instalar`): copia el origen a un archivo temporal del mismo directorio conservando propietario, permisos y atributos, comprueba que es idéntico y lo escribe en disco, y solo entonces lo renombra sobre `/etc/caddy/Caddyfile`. Una copia interrumpida o con error solo deja el temporal, que se elimina, y el activo no cambia. Ante un fallo posterior a la sustitución (lectura, validación o recarga) se restaura el respaldo con el mismo mecanismo.
 
@@ -448,6 +450,15 @@ caddy_aplicar() {
     return 1
   fi
   sudo caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || return 1
+  sudo cmp -s -- /etc/caddy/Caddyfile "$caddy_backup/Caddyfile"
+  cmp_status=$?
+  if [ "$cmp_status" -eq 1 ]; then
+    echo 'La configuración activa cambió desde la preparación: no se aplicó nada. Retirar el candidato residual y repetir caddy_preparar y su revisión.' >&2
+    return 1
+  elif [ "$cmp_status" -ne 0 ]; then
+    echo "No se pudo comparar el Caddyfile activo con el respaldo (código $cmp_status): no se aplicó nada." >&2
+    return 1
+  fi
   caddy_instalar /etc/caddy/Caddyfile.candidate || {
     echo 'No se pudo sustituir el Caddyfile; el activo no se modificó.' >&2
     return 1
