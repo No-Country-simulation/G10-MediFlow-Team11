@@ -187,7 +187,7 @@ class DocumentPersistenceIT {
         assertTrue(persistenceService.findDocument("DOC-QUERY-MISSING").isEmpty());
 
         List<String> queryDocumentIds = persistenceService.listAuditDocuments().stream()
-                .map(DocumentRecord::getId)
+                .map(document -> document.getId())
                 .filter(id -> id.startsWith("DOC-QUERY-"))
                 .toList();
 
