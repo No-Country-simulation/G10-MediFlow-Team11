@@ -34,11 +34,11 @@ public class HumanReviewService {
         rejectUnknown(body, List.of("classification", "extracted_data", "validation", "routing_decision", "decision"));
         HumanDecision decision = enumValue(HumanDecision.class, body.get("decision"), "decision", true);
 
+        List<DocumentTriageHistory> history = persistence.listHistory(documentId);
+        int expectedSequence = history.isEmpty() ? 0 : history.getLast().getId().getSequence();
         Optional<DocumentRecord> optional = persistence.findDocument(documentId);
         if (optional.isEmpty()) throw new DocumentNotFoundException();
         DocumentRecord document = optional.get();
-        List<DocumentTriageHistory> history = persistence.listHistory(documentId);
-        int expectedSequence = history.isEmpty() ? 0 : history.getLast().getId().getSequence();
         if (document.getStatus() != DocumentStatus.NEEDS_AUDIT) throw new InvalidReviewStateException();
 
         Map<String, Object> classification = new LinkedHashMap<>();
@@ -71,7 +71,9 @@ public class HumanReviewService {
         if (body.containsKey("validation") && body.get("validation") != null) {
             validateValidation(mergeMap(null, body.get("validation"), "validation"));
         }
-        if (extracted != null) validateExtractedData(extracted);
+        if (extracted != null && (decision == HumanDecision.APPROVE || body.containsKey("extracted_data"))) {
+            validateExtractedData(extracted);
+        }
         if (decision == HumanDecision.APPROVE) {
             if (type == null || priority == null || extracted == null || destination == null
                     || destination == PrimaryDestination.HUMAN_REVIEW) throw new ReviewValidationException();

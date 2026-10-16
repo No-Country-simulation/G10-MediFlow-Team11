@@ -1,9 +1,8 @@
 package com.mediflow.backend.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -19,8 +18,6 @@ import java.util.function.Supplier;
  */
 @Component
 public class PostgresDocumentExclusiveLock implements DocumentExclusiveLock {
-
-    private static final Logger log = LoggerFactory.getLogger(PostgresDocumentExclusiveLock.class);
 
     private final JdbcConnectionDetails connectionDetails;
 
@@ -43,8 +40,8 @@ public class PostgresDocumentExclusiveLock implements DocumentExclusiveLock {
                 release(connection, documentId);
             }
         } catch (SQLException e) {
-            throw new IllegalStateException(
-                    "No se pudo serializar la finalización del documento " + documentId, e);
+            throw new DataAccessResourceFailureException(
+                    "No se pudo adquirir el advisory lock de finalización del documento " + documentId, e);
         }
     }
 
@@ -62,7 +59,8 @@ public class PostgresDocumentExclusiveLock implements DocumentExclusiveLock {
             statement.setString(1, documentId);
             statement.executeQuery().close();
         } catch (SQLException e) {
-            log.error("No se pudo liberar el advisory lock de finalización para {}", documentId, e);
+            throw new DataAccessResourceFailureException(
+                    "No se pudo liberar el advisory lock de finalización del documento " + documentId, e);
         }
     }
 }

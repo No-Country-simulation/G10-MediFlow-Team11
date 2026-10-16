@@ -6,6 +6,8 @@ import com.mediflow.backend.service.FinalizationOutcome;
 import com.mediflow.backend.service.HumanReviewService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -70,5 +72,29 @@ class DocumentReviewControllerTest {
                         .content("{not-json}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void mapsPostgresPersistenceFailureToArchitectureError() throws Exception {
+        when(service.review(eq("DOC-71"), any())).thenThrow(
+                new DataAccessResourceFailureException("No se pudo adquirir el advisory lock"));
+
+        mvc.perform(patch("/api/v1/documents/DOC-71/review")
+                        .contentType("application/json")
+                        .content("{\"decision\":\"REJECT\"}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").value("PERSISTENCE_ERROR"));
+    }
+
+    @Test
+    void mapsTransactionFailureToArchitectureError() throws Exception {
+        when(service.review(eq("DOC-71"), any())).thenThrow(
+                new TransactionSystemException("Falló la transacción PostgreSQL"));
+
+        mvc.perform(patch("/api/v1/documents/DOC-71/review")
+                        .contentType("application/json")
+                        .content("{\"decision\":\"REJECT\"}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").value("PERSISTENCE_ERROR"));
     }
 }

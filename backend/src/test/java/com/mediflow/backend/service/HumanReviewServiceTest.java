@@ -80,6 +80,28 @@ class HumanReviewServiceTest {
     }
 
     @Test
+    void readsHistorySequenceBeforeDocumentSnapshot() {
+        service.review("DOC-71", request(Map.of("decision", "REJECT")));
+
+        var order = inOrder(persistence);
+        order.verify(persistence).listHistory("DOC-71");
+        order.verify(persistence).findDocument("DOC-71");
+        assertEquals(0, captureCommand().expectedHistorySequence());
+    }
+
+    @Test
+    void rejectWithoutClinicalCorrectionAllowsMalformedLegacyExtractedData() {
+        Map<String, Object> legacyData = Map.of("patient", Map.of("age", -1));
+        document.setExtractedData(new LinkedHashMap<>(legacyData));
+
+        service.review("DOC-71", request(Map.of("decision", "REJECT")));
+
+        var command = captureCommand();
+        assertEquals(DocumentStatus.REJECTED, command.status());
+        assertEquals(legacyData, command.extractedData());
+    }
+
+    @Test
     void rejectCanExplicitlyClearNullableValidation() {
         HumanReviewRequest request = request(new LinkedHashMap<>(Map.of("decision", "REJECT")));
         request.add("validation", null);

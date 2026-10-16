@@ -4,7 +4,6 @@ import com.mediflow.backend.dto.request.HumanReviewRequest;
 import com.mediflow.backend.dto.response.ApiErrorResponse;
 import com.mediflow.backend.dto.response.HumanReviewResponse;
 import com.mediflow.backend.enums.BackendErrorCode;
-import com.mediflow.backend.service.DocumentFinalizationService;
 import com.mediflow.backend.service.FinalizationOutcome;
 import com.mediflow.backend.service.HumanReviewService;
 import com.mediflow.backend.service.ObjectStorageService;
@@ -18,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.transaction.TransactionException;
 
 @RestController
 @RequestMapping("/api/v1/documents")
@@ -53,7 +53,7 @@ public class DocumentReviewController {
         } catch (ObjectStorageService.StorageOperationException exception) {
             return ResponseEntity.internalServerError()
                     .body(new ApiErrorResponse(BackendErrorCode.STORAGE_ERROR, "No se pudo confirmar la revisión en almacenamiento."));
-        } catch (DataAccessException | jakarta.persistence.PersistenceException exception) {
+        } catch (DataAccessException | jakarta.persistence.PersistenceException | TransactionException exception) {
             return ResponseEntity.internalServerError()
                     .body(new ApiErrorResponse(BackendErrorCode.PERSISTENCE_ERROR, "No se pudo persistir la revisión."));
         }
