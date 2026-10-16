@@ -43,6 +43,16 @@ class InMemoryObjectStorageService extends ObjectStorageService {
         put(objectKey, json.getBytes(StandardCharsets.UTF_8));
     }
 
+    @Override
+    public void putRawBytesIfAbsent(String objectKey, byte[] content, String contentType) {
+        synchronized (objects) {
+            if (objects.containsKey(objectKey)) {
+                throw new ObjectAlreadyExistsException("exists " + objectKey, new RuntimeException("412"));
+            }
+            put(objectKey, content);
+        }
+    }
+
     private void put(String objectKey, byte[] content) {
         CyclicBarrier barrier = putBarrier;
         if (barrier != null) {
