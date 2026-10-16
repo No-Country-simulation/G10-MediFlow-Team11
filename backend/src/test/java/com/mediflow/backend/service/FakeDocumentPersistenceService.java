@@ -3,12 +3,14 @@ package com.mediflow.backend.service;
 import com.mediflow.backend.entity.DocumentRecord;
 import com.mediflow.backend.entity.DocumentTriageHistory;
 import com.mediflow.backend.entity.DocumentTriageHistoryId;
+import com.mediflow.backend.enums.DocumentStatus;
 import com.mediflow.backend.enums.HumanDecision;
 import com.mediflow.backend.enums.StorageState;
 import com.mediflow.backend.enums.TriageEventType;
 import com.mediflow.backend.persistence.DocumentPersistenceService;
 import com.mediflow.backend.persistence.DurableCommitInspection;
 import com.mediflow.backend.persistence.FinalizedDocumentState;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,6 +36,59 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
         super(null, null, null);
     }
 
+    private final AtomicBoolean failExists = new AtomicBoolean(false);
+    private final AtomicBoolean failCreate = new AtomicBoolean(false);
+    private final AtomicBoolean failMarkProcessing = new AtomicBoolean(false);
+
+    void failExists() {
+        failExists.set(true);
+    }
+
+    void failCreate() {
+        failCreate.set(true);
+    }
+
+    void failMarkProcessing() {
+        failMarkProcessing.set(true);
+    }
+
+    @Override
+    public boolean existsDocument(String documentId) {
+        if (failExists.get()) {
+            throw new DataAccessResourceFailureException("induced exists failure");
+        }
+        return documents.containsKey(documentId);
+    }
+
+    @Override
+    public DocumentRecord createReceived(DocumentRecord document) {
+        if (failCreate.get()) {
+            throw new DataAccessResourceFailureException("induced insert failure");
+        }
+        if (document.getCreatedAt() == null) {
+            document.setCreatedAt(Instant.now());
+            document.setUpdatedAt(document.getCreatedAt());
+        }
+        if (documents.putIfAbsent(document.getId(), document) != null) {
+            throw new DuplicateDocumentException(document.getId(), new RuntimeException("23505"));
+        }
+        history.putIfAbsent(document.getId(), new CopyOnWriteArrayList<>());
+        return document;
+    }
+
+    @Override
+    public boolean markProcessing(String documentId) {
+        if (failMarkProcessing.get()) {
+            throw new DataAccessResourceFailureException("induced update failure");
+        }
+        DocumentRecord document = documents.get(documentId);
+        if (document == null || document.getStatus() != DocumentStatus.RECEIVED) {
+            return false;
+        }
+        document.setStatus(DocumentStatus.PROCESSING);
+        return true;
+    }
+
     void seed(DocumentRecord document) {
         documents.put(document.getId(), document);
         history.putIfAbsent(document.getId(), new CopyOnWriteArrayList<>());
@@ -45,6 +100,13 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
 
     void failNextCommits(int count) {
         failingCommits.set(count);
+    }
+
+    private volatile RuntimeException nextCommitFailure;
+
+    void failNextCommitWith(RuntimeException failure) {
+        this.nextCommitFailure = failure;
+        failingCommits.set(1);
     }
 
     void failInspection() {
@@ -111,7 +173,9 @@ final class FakeDocumentPersistenceService extends DocumentPersistenceService {
         commitAttempts.incrementAndGet();
         synchronized (lock(documentId)) {
             if (failingCommits.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
-                throw new RuntimeException("induced postgres failure");
+                RuntimeException failure = nextCommitFailure;
+                nextCommitFailure = null;
+                throw failure != null ? failure : new RuntimeException("induced postgres failure");
             }
             int actual = nextSequenceFor(documentId);
             if (actual != expectedNextSequence) {
