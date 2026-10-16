@@ -293,14 +293,14 @@ class DocumentProcessingControllerTest {
     }
 
     @Test
-    void unclassifiedFailureReturnsSafeInternalErrorWithoutInventingACode() throws Exception {
+    void unclassifiedFailureReturnsSafeInternalErrorWithInternalErrorCode() throws Exception {
         when(service.processText(any())).thenThrow(new IllegalStateException(SECRET));
 
         String body = mvc.perform(post("/api/v1/documents/process-text").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"document_text\":\"Texto\",\"origin_channel\":\"Guardia\"}"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.message").value("Error interno del servidor."))
-                .andExpect(jsonPath("$.error.code").doesNotExist())
+                .andExpect(jsonPath("$.error.code").value("INTERNAL_ERROR"))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertFalse(body.contains("bucket"));
         assertFalse(body.contains("namespace"));

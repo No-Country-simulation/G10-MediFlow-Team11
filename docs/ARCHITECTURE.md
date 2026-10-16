@@ -784,9 +784,10 @@ Códigos mínimos para el MVP (incluyendo consultas y revisiones sobre IDs inexi
 413 FILE_TOO_LARGE
 500 STORAGE_ERROR
 500 PERSISTENCE_ERROR
+500 INTERNAL_ERROR
 ```
 
-`REVIEW_VALIDATION_FAILED` cubre el merge que no cumple invariantes de aprobación o validación final requerida. `INVALID_REVIEW_STATE` rechaza revisiones repetidas/atrasadas desde cualquier estado distinto de `NEEDS_AUDIT`. `STORAGE_ERROR` identifica fallos OCI y `PERSISTENCE_ERROR` fallos PostgreSQL; sus compensaciones se describen en la sección 12. Los errores del servicio IA usan el contrato separado de la sección 5 y se traducen según la sección 12; no se propagan como errores de Backend si se pudo persistir el fallback recuperable.
+`REVIEW_VALIDATION_FAILED` cubre el merge que no cumple invariantes de aprobación o validación final requerida. `INVALID_REVIEW_STATE` rechaza revisiones repetidas/atrasadas desde cualquier estado distinto de `NEEDS_AUDIT`. `STORAGE_ERROR` identifica fallos OCI y `PERSISTENCE_ERROR` fallos PostgreSQL; sus compensaciones se describen en la sección 12. `INTERNAL_ERROR` cubre excepciones inesperadas no clasificadas como las anteriores y su mensaje es genérico, sin detalles internos. Los errores del servicio IA usan el contrato separado de la sección 5 y se traducen según la sección 12; no se propagan como errores de Backend si se pudo persistir el fallback recuperable.
 
 ---
 

@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Map;
 import java.util.function.Supplier;
 
 @RestController
@@ -62,7 +61,7 @@ public class DocumentProcessingController {
         } catch (RuntimeException exception) {
             log.error("Error no clasificado al procesar un documento", exception);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", Map.of("message", "Error interno del servidor.")));
+                    .body(new ApiErrorResponse(BackendErrorCode.INTERNAL_ERROR, "Error interno del servidor."));
         }
     }
 
@@ -72,7 +71,7 @@ public class DocumentProcessingController {
             case DOCUMENT_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case DOCUMENT_ID_ALREADY_EXISTS, INVALID_REVIEW_STATE -> HttpStatus.CONFLICT;
             case FILE_TOO_LARGE -> HttpStatus.CONTENT_TOO_LARGE;
-            case STORAGE_ERROR, PERSISTENCE_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
+            case STORAGE_ERROR, PERSISTENCE_ERROR, INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }
 }
