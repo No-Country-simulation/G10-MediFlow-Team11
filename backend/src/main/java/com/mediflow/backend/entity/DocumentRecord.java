@@ -15,6 +15,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -116,6 +117,14 @@ public class DocumentRecord {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /**
+     * Si es {@code true}, {@link #onUpdate()} no reescribe {@code updated_at}.
+     * Lo activan {@link #touchUpdatedAt(Instant)} y {@link #preserveCurrentUpdatedAt()}
+     * para alinear confirmaciones de historial sin romper el resto de actualizaciones.
+     */
+    @Transient
+    private boolean preserveUpdatedAt;
+
     public List<AuditReason> getAuditReasons() {
         if (auditReasonValues == null || auditReasonValues.length == 0) {
             return List.of();
@@ -133,6 +142,11 @@ public class DocumentRecord {
 
     public void touchUpdatedAt(Instant instant) {
         this.updatedAt = instant;
+        this.preserveUpdatedAt = true;
+    }
+
+    public void preserveCurrentUpdatedAt() {
+        this.preserveUpdatedAt = true;
     }
 
     @PrePersist
@@ -154,6 +168,10 @@ public class DocumentRecord {
 
     @PreUpdate
     void onUpdate() {
+        if (preserveUpdatedAt) {
+            preserveUpdatedAt = false;
+            return;
+        }
         updatedAt = Instant.now();
     }
 

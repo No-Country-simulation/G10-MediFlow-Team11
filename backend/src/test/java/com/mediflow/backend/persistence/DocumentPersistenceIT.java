@@ -14,6 +14,9 @@ import com.mediflow.backend.enums.TriageEventType;
 import com.mediflow.backend.repository.DocumentRepository;
 import com.mediflow.backend.repository.DocumentTriageHistoryRepository;
 import org.junit.jupiter.api.Test;
+import com.oracle.bmc.auth.BasicAuthenticationDetailsProvider;
+import com.oracle.bmc.objectstorage.ObjectStorageClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -34,6 +37,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create")
 class DocumentPersistenceIT {
+
+    @MockitoBean
+    private com.mediflow.backend.service.AiCoreClient aiCoreClient;
+
+    @MockitoBean
+    private BasicAuthenticationDetailsProvider authenticationDetailsProvider;
+
+    @MockitoBean
+    private ObjectStorageClient objectStorageClient;
 
     @SuppressWarnings("resource")
     @Container
@@ -175,7 +187,7 @@ class DocumentPersistenceIT {
         assertTrue(persistenceService.findDocument("DOC-QUERY-MISSING").isEmpty());
 
         List<String> queryDocumentIds = persistenceService.listAuditDocuments().stream()
-                .map(DocumentRecord::getId)
+                .map(document -> document.getId())
                 .filter(id -> id.startsWith("DOC-QUERY-"))
                 .toList();
 

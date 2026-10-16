@@ -1,4 +1,9 @@
-:where(.app-shell, .app-shell__drawer, .app-shell__tooltip) {
+:where(
+  .app-shell,
+  .app-shell__drawer,
+  .app-shell__tooltip,
+  .app-notification
+) {
   --mediflow-shell-font: "Plus Jakarta Sans", system-ui, sans-serif;
   --mediflow-shell-text: #1a1a1a;
   --mediflow-shell-muted: #737373;

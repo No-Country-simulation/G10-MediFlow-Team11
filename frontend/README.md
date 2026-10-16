@@ -226,6 +226,13 @@ src/mocks/processingMocks.ts
 
 El modo mock está destinado al desarrollo y pruebas del Frontend cuando los demás servicios todavía no están disponibles.
 
+### Limitaciones del modo mock
+
+* `processFile()` ignora el archivo seleccionado y devuelve siempre el resultado `DOC-2026-0002`. `getDocumentContent()` asocia cada identificador a un archivo estático de `public/mocks` (`mockDocumentFiles`). Por eso, en Resultado el visor muestra el documento de muestra y no el archivo elegido en Procesamiento, sea PDF, JPG o PNG.
+* En modo texto, el texto ingresado llega a Resultado mediante `location.state` y solo si `VITE_USE_MOCKS=true`. Con el Backend real, el contenido se consulta en `GET /api/v1/documents/{id}/content`.
+* Los resultados de `DOC-2026-0001` a `DOC-2026-0005` están fijos en `src/mocks/resultMocks.ts`.
+* La coherencia entre el archivo enviado y el visor solo puede verificarse con el Backend real (`VITE_USE_MOCKS=false`).
+
 ## Convenciones
 
 * El código y los identificadores técnicos se escriben en **inglés**.

@@ -1,12 +1,33 @@
-import { Box, Card, Divider, Stack, Typography } from "@mui/material";
+import { useId } from "react";
 import type { ExtractedData } from "../../types/processing";
-import { buildExtractedDataRows } from "./extractedDataRows";
+import { buildExtractedDataRows, type DataRow } from "./extractedDataRows";
+import { getDataRowLayout } from "./resultPresentation";
 
 interface ExtractedDataCardProps {
   data: ExtractedData;
 }
 
+function DataRowValue({ value }: { value: DataRow["value"] }) {
+  if (Array.isArray(value)) {
+    return (
+      <ul className="result-data__list">
+        {value.map((item, index) => (
+          <li key={`${item}-${index}`} className="result-data__list-item">
+            <span className="result-data__bullet" aria-hidden="true">
+              •
+            </span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <span>{value}</span>;
+}
+
 function ExtractedDataCard({ data }: ExtractedDataCardProps) {
+  const titleId = useId();
   const rows = buildExtractedDataRows(data);
 
   if (rows.length === 0) {
@@ -14,66 +35,27 @@ function ExtractedDataCard({ data }: ExtractedDataCardProps) {
   }
 
   return (
-    <Card variant="outlined">
-      <Box sx={{ px: 2, py: 1.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+    <section className="result-card" aria-labelledby={titleId}>
+      <div className="result-card__header">
+        <h3 id={titleId} className="result-card__title">
           Datos clínicos extraídos
-        </Typography>
-      </Box>
+        </h3>
+      </div>
 
-      <Divider />
-
-      <Stack divider={<Divider flexItem />}>
+      <div className="result-data">
         {rows.map((row) => (
-          <Box
+          <div
             key={row.label}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "minmax(140px, 35%) 1fr",
-              },
-              gap: { xs: 0.5, sm: 2 },
-              px: 2,
-              py: 1.5,
-            }}
+            className={`result-data__row result-data__row--${getDataRowLayout(row)}`}
           >
-            <Typography variant="body2" color="text.secondary">
-              {row.label}
-            </Typography>
-
-            {Array.isArray(row.value) ? (
-              <Box
-                component="ul"
-                sx={{
-                  m: 0,
-                  pl: 2,
-                  overflowWrap: "anywhere",
-                }}
-              >
-                {row.value.map((item, index) => (
-                  <Typography
-                    component="li"
-                    variant="body2"
-                    key={`${item}-${index}`}
-                    sx={{ fontWeight: 600, mb: 0.5 }}
-                  >
-                    {item}
-                  </Typography>
-                ))}
-              </Box>
-            ) : (
-              <Typography
-                variant="body2"
-                sx={{ fontWeight: 600, overflowWrap: "anywhere" }}
-              >
-                {row.value}
-              </Typography>
-            )}
-          </Box>
+            <span className="result-data__label">{row.label}</span>
+            <div className="result-data__content">
+              <DataRowValue value={row.value} />
+            </div>
+          </div>
         ))}
-      </Stack>
-    </Card>
+      </div>
+    </section>
   );
 }
 
