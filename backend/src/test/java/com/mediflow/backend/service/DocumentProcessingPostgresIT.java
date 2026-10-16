@@ -59,7 +59,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** HTTP real (Tomcat), PostgreSQL real y lock advisory real; OCI en memoria e IA simulada. */
 @Testcontainers
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

@@ -5,11 +5,6 @@ import com.mediflow.backend.enums.InputType;
 
 import java.util.Base64;
 
-/**
- * Entrada ya validada, con {@code document_id} resuelto. {@code originalBytes} es el objeto
- * que se almacena en {@code recibidos/} y {@code storedMimeType} su tipo (para TEXT,
- * {@code application/json}).
- */
 public record IncomingDocument(
         String documentId,
         InputType inputType,

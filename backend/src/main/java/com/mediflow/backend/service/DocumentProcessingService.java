@@ -21,12 +21,8 @@ import org.springframework.transaction.TransactionException;
 import java.sql.SQLException;
 
 /**
- * Orquestador único de {@code process-file} y {@code process-text} (arquitectura §1, §3, §12).
- * <p>
- * No es transaccional: {@link DocumentFinalizationService} rechaza una transacción externa. El
- * lock exclusivo solo cubre la recepción (existencia, subida sin sobrescritura e insert inicial)
- * y se libera antes de invocar al finalizador, que toma el suyo; anidarlos bloquearía la
- * solicitud contra su propia sesión.
+ * No utiliza una transacción externa. El lock de recepción debe liberarse
+ * antes de invocar al finalizador para evitar un deadlock.
  */
 @Service
 public class DocumentProcessingService {

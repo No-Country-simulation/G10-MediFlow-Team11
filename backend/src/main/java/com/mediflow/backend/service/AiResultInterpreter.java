@@ -15,10 +15,6 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Traduce el desenlace de la llamada a IA Core en el {@link FinalizationCommand} de
- * {@code INITIAL_TRIAGE} (arquitectura §5, §7, §8 y §12).
- */
 @Component
 public class AiResultInterpreter {
 

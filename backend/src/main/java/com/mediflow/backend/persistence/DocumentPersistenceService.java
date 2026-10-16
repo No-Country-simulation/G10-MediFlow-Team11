@@ -53,11 +53,7 @@ public class DocumentPersistenceService {
         return documentRepository.existsById(documentId);
     }
 
-    /**
-     * Inserta el registro inicial sin posibilidad de reemplazar uno existente:
-     * usa {@code persist}, no {@code merge}, y traduce la violación de clave
-     * primaria a {@link DuplicateDocumentException}.
-     */
+    /** Usa {@code persist}, no {@code merge}: un id existente falla en lugar de sobrescribirse. */
     @Transactional
     public DocumentRecord createReceived(DocumentRecord document) {
         try {
@@ -72,11 +68,6 @@ public class DocumentPersistenceService {
         }
     }
 
-    /**
-     * Transición {@code RECEIVED → PROCESSING} bajo bloqueo de fila.
-     *
-     * @return {@code false} si el documento no existe o ya no está en {@code RECEIVED}
-     */
     @Transactional
     public boolean markProcessing(String documentId) {
         DocumentRecord document = documentRepository.findById(documentId).orElse(null);
