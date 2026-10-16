@@ -54,6 +54,7 @@ export const SECONDARY_NAVIGATION: NavigationItem[] = [
         aria-hidden="true"
       />
     ),
+    to: "/help",
   },
   {
     label: "Configuración",
