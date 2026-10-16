@@ -5,6 +5,7 @@ import LoginPage from "../pages/LoginPage";
 import ProcessingPage from "../pages/ProcessingPage";
 import ResultPage from "../pages/ResultPage";
 import HistoryPage from "../pages/HistoryPage";
+import HelpPage from "../pages/HelpPage";
 
 function AppRoutes() {
   return (
@@ -18,6 +19,7 @@ function AppRoutes() {
           <Route path="results/:documentId" element={<ResultPage />} />
           <Route path="audit" element={<AuditPage />} />
           <Route path="history" element={<HistoryPage />} />
+          <Route path="help" element={<HelpPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
