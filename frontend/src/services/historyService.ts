@@ -2,6 +2,8 @@ import { env } from "../config/env";
 import type { DocumentHistoryResponse } from "../types/history";
 import { ApiError } from "./processingService";
 import { historyMocks } from "../mocks/historyMocks";
+import type { DocumentHistoryApiResponse } from "../types/history";
+import { adaptDocumentHistory } from "../utils/historyAdapter";
 
 export async function getDocumentHistory(
   documentId: string,
@@ -10,7 +12,7 @@ export async function getDocumentHistory(
   if (env.useMocks) {
     const history = historyMocks[documentId];
 
-    return history ? structuredClone(history) : null;
+    return history ? adaptDocumentHistory(structuredClone(history)) : null;
   }
   const endpoint = `/api/v1/documents/${encodeURIComponent(documentId)}/history`;
 
@@ -34,5 +36,7 @@ export async function getDocumentHistory(
     );
   }
 
-  return (await response.json()) as DocumentHistoryResponse;
+  const data = (await response.json()) as DocumentHistoryApiResponse;
+
+  return adaptDocumentHistory(data);
 }

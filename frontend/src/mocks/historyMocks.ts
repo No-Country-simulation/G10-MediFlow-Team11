@@ -4,43 +4,43 @@ import {
   processedResultMock,
   rejectedResultMock,
 } from "./resultMocks";
-import type { DocumentHistoryResponse } from "../types/history";
+import type { DocumentHistoryApiResponse } from "../types/history";
 
-export const historyMocks: Record<string, DocumentHistoryResponse> = {
+export const historyMocks: Record<string, DocumentHistoryApiResponse> = {
   "DOC-2026-0001": {
-    documentId: "DOC-2026-0001",
+    document_id: "DOC-2026-0001",
     entries: [
       {
         sequence: 1,
-        eventType: "INITIAL_TRIAGE",
+        event_type: "INITIAL_TRIAGE",
         decision: null,
-        occurredAt: "2026-10-10T09:30:00Z",
+        occurred_at: "2026-10-10T09:30:00Z",
         result: structuredClone(processedResultMock),
       },
     ],
   },
 
   "DOC-2026-0002": {
-    documentId: "DOC-2026-0002",
+    document_id: "DOC-2026-0002",
     entries: [
       {
         sequence: 1,
-        eventType: "INITIAL_TRIAGE",
+        event_type: "INITIAL_TRIAGE",
         decision: null,
-        occurredAt: "2026-10-10T10:15:00Z",
+        occurred_at: "2026-10-10T10:15:00Z",
         result: structuredClone(needsAuditResultMock),
       },
     ],
   },
 
   "DOC-2026-0003": {
-    documentId: "DOC-2026-0003",
+    document_id: "DOC-2026-0003",
     entries: [
       {
         sequence: 1,
-        eventType: "INITIAL_TRIAGE",
+        event_type: "INITIAL_TRIAGE",
         decision: null,
-        occurredAt: "2026-10-11T08:20:00Z",
+        occurred_at: "2026-10-11T08:20:00Z",
         result: {
           ...structuredClone(approvedResultMock),
           status: "NEEDS_AUDIT",
@@ -55,22 +55,22 @@ export const historyMocks: Record<string, DocumentHistoryResponse> = {
       },
       {
         sequence: 2,
-        eventType: "HUMAN_REVIEW",
+        event_type: "HUMAN_REVIEW",
         decision: "APPROVE",
-        occurredAt: "2026-10-11T11:45:00Z",
+        occurred_at: "2026-10-11T11:45:00Z",
         result: structuredClone(approvedResultMock),
       },
     ],
   },
 
   "DOC-2026-0004": {
-    documentId: "DOC-2026-0004",
+    document_id: "DOC-2026-0004",
     entries: [
       {
         sequence: 1,
-        eventType: "INITIAL_TRIAGE",
+        event_type: "INITIAL_TRIAGE",
         decision: null,
-        occurredAt: "2026-10-12T09:10:00Z",
+        occurred_at: "2026-10-12T09:10:00Z",
         result: {
           ...structuredClone(rejectedResultMock),
           status: "NEEDS_AUDIT",
@@ -85,9 +85,9 @@ export const historyMocks: Record<string, DocumentHistoryResponse> = {
       },
       {
         sequence: 2,
-        eventType: "HUMAN_REVIEW",
+        event_type: "HUMAN_REVIEW",
         decision: "REJECT",
-        occurredAt: "2026-10-12T12:30:00Z",
+        occurred_at: "2026-10-12T12:30:00Z",
         result: structuredClone(rejectedResultMock),
       },
     ],

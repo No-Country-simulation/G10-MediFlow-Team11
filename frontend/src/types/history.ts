@@ -14,3 +14,16 @@ export interface DocumentHistoryResponse {
   documentId: string;
   entries: HistoryEntry[];
 }
+
+export interface HistoryEntryApi {
+  sequence: number;
+  event_type: HistoryEventType;
+  decision: HumanDecision | null;
+  occurred_at: string;
+  result: Record<string, unknown>;
+}
+
+export interface DocumentHistoryApiResponse {
+  document_id: string;
+  entries: HistoryEntryApi[];
+}
