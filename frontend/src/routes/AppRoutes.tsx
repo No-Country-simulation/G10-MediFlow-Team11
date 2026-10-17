@@ -1,6 +1,7 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
 import AuditPage from "../pages/AuditPage";
+import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import ProcessingPage from "../pages/ProcessingPage";
 import ResultPage from "../pages/ResultPage";
@@ -13,7 +14,7 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
 
         <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/processing" replace />} />
+          <Route index element={<HomePage />} />
           <Route path="processing" element={<ProcessingPage />} />
           <Route path="results/:documentId" element={<ResultPage />} />
           <Route path="audit" element={<AuditPage />} />
