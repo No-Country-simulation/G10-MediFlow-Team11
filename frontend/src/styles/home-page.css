@@ -1,0 +1,155 @@
+/* Home owns its content spacing; the shared shell and all other views are unchanged. */
+.app-shell__main:has(> .home-page) {
+  padding: 0;
+}
+
+.home-page {
+  --home-page-background: #f4faff;
+  --home-page-surface: #ffffff;
+  --home-page-text: #0b1749;
+  --home-page-text-secondary: #496698;
+  --home-page-border: #d9e7fa;
+  --home-page-action: #006cff;
+  --home-page-action-text: #005bd7;
+  --home-page-action-focus-text: #004099;
+  --home-page-action-subtle: #e5f1ff;
+  --home-page-on-action: #ffffff;
+  --home-page-focus: #006cff;
+  --home-page-accent: #1688df;
+  --home-page-card: rgba(255, 255, 255, 0.78);
+  --home-page-icon: #e4f1ff;
+  --home-page-trust-icon: var(--home-page-text);
+  --home-page-trust-divider: #a9cfff;
+  --home-page-workflow-halo: #c7ecff;
+  --home-page-workflow-orbit: #b8e5ff;
+  --home-page-workflow-blue: #0785ff;
+  --home-page-workflow-connector: #62b9ff;
+  --home-page-workflow-card: #ffffff;
+  --home-page-workflow-card-border: #d4ecff;
+  --home-page-workflow-paper-top: #ffffff;
+  --home-page-workflow-paper-bottom: #ffffff;
+  --home-page-workflow-paper-border: #b7dfff;
+  --home-page-workflow-fold: #f0f8ff;
+  --home-page-workflow-lines: #c5daff;
+  --home-page-capability-blue: #0078ff;
+  --home-page-capability-cyan: #00adcb;
+  --home-page-capability-tint: #d0ecff;
+  --home-page-capability-core: #ffffff;
+  min-width: 0;
+  min-height: 100%;
+  color: var(--home-page-text);
+  background: var(--home-page-background);
+  font-family: var(--mediflow-shell-font, "Plus Jakarta Sans", system-ui, sans-serif);
+  font-size: 14px;
+}
+
+/* This attribute is derived exclusively from the surrounding MUI ThemeProvider. */
+.home-page[data-color-mode="dark"] {
+  --home-page-background: #0c192b;
+  --home-page-surface: #0f1e32;
+  --home-page-text: #f3f6fc;
+  --home-page-text-secondary: #b7cfee;
+  --home-page-border: #2a4666;
+  --home-page-action: #299cff;
+  --home-page-action-text: #299cff;
+  --home-page-action-focus-text: var(--home-page-action);
+  --home-page-action-subtle: #102e55;
+  --home-page-focus: #78c9ff;
+  --home-page-accent: #38b7f9;
+  --home-page-card: rgba(24, 39, 59, 0.68);
+  --home-page-icon: #142e50;
+  --home-page-trust-icon: #82b5ff;
+  --home-page-workflow-halo: #003e74;
+  --home-page-workflow-orbit: #153f66;
+  --home-page-workflow-blue: #36a5ff;
+  --home-page-workflow-connector: #3f9ff1;
+  --home-page-workflow-card: #13273e;
+  --home-page-workflow-card-border: #305576;
+  --home-page-workflow-paper-top: #1b3d65;
+  --home-page-workflow-paper-bottom: #19283e;
+  --home-page-workflow-paper-border: #4c85ba;
+  --home-page-workflow-fold: #233d5b;
+  --home-page-workflow-lines: #507bbf;
+  --home-page-capability-blue: #2da6ff;
+  --home-page-capability-cyan: #20c6e1;
+  --home-page-capability-tint: #1d4265;
+}
+
+.home-page *, .home-page *::before, .home-page *::after { box-sizing: border-box; }
+.home-page__content { max-width: 1240px; margin: 0 auto; padding: 44px 30px 28px; }
+.home-page__hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; min-height: 384px; }
+.home-page__hero-copy { position: relative; z-index: 1; min-width: 0; }
+.home-page .home-page__welcome { margin: 0 0 16px; color: var(--home-page-action-text); font-family: inherit; font-size: 14px; line-height: 22px; font-weight: 600; letter-spacing: normal; }
+.home-page .home-page__title { margin: 0; color: var(--home-page-text); font-family: inherit; font-size: clamp(28px, 3.45vw, 46px); font-weight: 700; line-height: 1.2; letter-spacing: -1.55px; }
+.home-page__title span { color: var(--home-page-accent); }
+.home-page .home-page__description { margin: 17px 0 0; color: var(--home-page-text-secondary); font-family: inherit; font-size: 17px; line-height: 1.6; font-weight: 500; letter-spacing: normal; }
+.home-page__actions { display: flex; align-items: stretch; gap: 16px; margin-top: 24px; }
+.home-page .home-page__cta { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; padding: 16px 28px; border: 1px solid var(--home-page-action); border-radius: 10px; white-space: nowrap; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 22px; letter-spacing: normal; text-transform: none; text-decoration: none; transition: background-color 150ms; }
+.home-page .home-page__cta--primary { color: var(--home-page-on-action); background: #006cff; border-color: #0782ff; }
+.home-page .home-page__cta--primary:hover { background: #005bd7; }
+.home-page .home-page__cta--secondary { color: var(--home-page-action); background: var(--home-page-card); }
+.home-page .home-page__cta--secondary:hover { color: var(--home-page-action-text); background: var(--home-page-action-subtle); }
+.home-page .home-page__cta:focus-visible { outline: 3px solid var(--home-page-focus); outline-offset: 4px; }
+/* Keep keyboard-focus text legible beneath MUI's translucent focus ripple. */
+.home-page .home-page__cta--secondary:focus-visible { color: var(--home-page-action-focus-text); }
+.home-page__cta > svg { flex-shrink: 0; }
+.home-page__illustration { width: 100%; min-width: 0; }
+.home-page__illustration > svg { display: block; width: 100%; height: auto; }
+.home-page__illustration > .home-page__workflow-mobile { display: none; }
+.home-page__workflow-card { fill: var(--home-page-workflow-card); stroke: var(--home-page-workflow-card-border); filter: drop-shadow(0 4px 7px #008aff12); }
+.home-page__workflow-paper { stroke: var(--home-page-workflow-paper-border); stroke-width: 1.2; filter: drop-shadow(0 6px 8px #008aff20); }
+.home-page__workflow-label { fill: var(--home-page-text); font-size: 12px; font-weight: 600; }
+.home-page__workflow-review { fill: var(--home-page-text); font-size: 14px; font-weight: 600; }
+.home-page__workflow-caption { fill: var(--home-page-text-secondary); font-size: 13px; }
+.home-page__workflow-mobile .home-page__workflow-review { font-size: 12px; }
+.home-page__workflow-mobile .home-page__workflow-caption { font-size: 11px; }
+.home-page__capabilities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+.home-page__feature-card { min-width: 0; padding: 19px 26px 22px; border: 1px solid var(--home-page-border); border-radius: 10px; background: var(--home-page-card); }
+.home-page__icon-frame { display: flex; align-items: center; justify-content: center; width: 58px; height: 58px; border-radius: 50%; background: var(--home-page-icon); margin-bottom: 10px; }
+.home-page .home-page__feature-title { margin: 0; font-family: inherit; font-size: 16px; font-weight: 600; line-height: 24px; letter-spacing: -0.4px; }
+.home-page .home-page__feature-description { margin: 6px 0 0; font-family: inherit; font-size: 14px; line-height: 1.5; letter-spacing: normal; color: var(--home-page-text-secondary); }
+.home-page__trust { display: flex; align-items: center; gap: 18px; margin-top: 28px; padding: 18px 28px; min-height: 64px; border: 1px solid transparent; border-radius: 10px; background: var(--home-page-action-subtle); }
+.home-page__trust > svg { flex-shrink: 0; color: var(--home-page-trust-icon); }
+.home-page .home-page__trust-text { margin: 0; border-left: 1px solid var(--home-page-trust-divider); padding-left: 18px; font-family: inherit; font-size: 13px; line-height: 20px; letter-spacing: normal; color: var(--home-page-text-secondary); }
+.home-page[data-color-mode="dark"] .home-page__trust { border-color: var(--home-page-border); background: var(--home-page-surface); }
+
+@media (min-width: 1101px) {
+  .home-page__hero-copy { top: -16px; }
+}
+
+@media (min-width: 900px) and (max-width: 1100px) {
+  .home-page__content { padding: 32px 24px; }
+  .home-page .home-page__title { font-size: 29px; letter-spacing: -1px; }
+  .home-page__actions { gap: 10px; flex-wrap: wrap; }
+  .home-page .home-page__cta { padding: 12px 16px; }
+  .home-page__feature-card { padding: 18px; }
+}
+
+@media (max-width: 899px) {
+  .home-page__content { max-width: 640px; padding: 12px 24px 22px; }
+  .home-page__hero { display: flex; flex-direction: column; min-height: 0; }
+  .home-page .home-page__welcome { margin-bottom: 6px; font-size: 12px; line-height: 18px; }
+  .home-page .home-page__title { font-size: clamp(24px, 7.5vw, 36px); line-height: 1.2; letter-spacing: -1px; }
+  .home-page .home-page__description { margin-top: 8px; font-size: 14px; line-height: 1.5; font-weight: 400; }
+  .home-page__actions { flex-direction: column; gap: 8px; margin-top: 15px; }
+  .home-page .home-page__cta { min-height: 42px; padding: 9px 16px; border-radius: 8px; font-size: 14px; line-height: 20px; }
+  .home-page__cta--secondary > svg { width: 20px; height: 20px; }
+  .home-page__illustration { max-width: 420px; margin: 4px auto 8px; }
+  .home-page__illustration > .home-page__workflow-desktop { display: none; }
+  .home-page__illustration > .home-page__workflow-mobile { display: block; }
+  .home-page__capabilities { grid-template-columns: minmax(0, 1fr); margin-top: 0; gap: 7px; }
+  .home-page__feature-card { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 9px; }
+  .home-page__icon-frame { flex-shrink: 0; width: 46px; height: 46px; margin: 0; }
+  .home-page__icon-frame > svg { width: 27px; height: 27px; }
+  .home-page .home-page__feature-title { font-size: 13px; line-height: 18px; letter-spacing: -0.2px; }
+  .home-page .home-page__feature-description { margin-top: 3px; font-size: 12px; line-height: 1.45; }
+  .home-page__trust { gap: 12px; margin-top: 7px; padding: 12px; min-height: 54px; border-radius: 9px; }
+  .home-page .home-page__trust-text { padding-left: 12px; font-size: 11px; line-height: 16px; }
+  .home-page__trust > svg { width: 22px; height: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page .home-page__cta { transition: none; }
+  .home-page .home-page__cta .MuiTouchRipple-ripple,
+  .home-page .home-page__cta .MuiTouchRipple-child { animation: none; }
+}
