@@ -125,6 +125,17 @@
   .home-page__feature-card { padding: 18px; }
 }
 
+/* Short viewports (typical desktop and tablet-landscape heights): the horizontal layout is kept and
+   only the vertical rhythm is compressed so the whole Home fits under the shell header. */
+@media (min-width: 900px) and (max-height: 900px) {
+  .home-page__content { padding-block: 16px 12px; }
+  .home-page__hero { min-height: 0; align-items: flex-start; padding-top: 8px; }
+  .home-page__illustration > svg { height: clamp(180px, calc(100dvh - 420px), 340px); width: auto; max-width: 100%; margin-inline: auto; }
+  .home-page__capabilities { margin-top: 14px; gap: 10px; }
+  .home-page__feature-card { padding: 14px 20px; }
+  .home-page__trust { margin-top: 14px; min-height: 48px; padding: 10px 24px; }
+}
+
 @media (max-width: 899px) {
   .home-page__content { max-width: 640px; padding: 12px 24px 22px; }
   .home-page__hero { display: flex; flex-direction: column; min-height: 0; }
