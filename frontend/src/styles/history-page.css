@@ -17,6 +17,8 @@
   --hist-gap: calc(var(--hist-u) * 3);
 
   box-sizing: border-box;
+  max-width: 1120px;
+  margin-inline: auto;
   padding-inline: var(--hist-gutter);
   font-family: var(
     --mediflow-shell-font,
@@ -604,6 +606,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--hist-u) * 3);
+  grid-column: 1 / -1;
   margin-top: calc(var(--hist-u) * 6);
   padding-top: calc(var(--hist-u) * 4);
   border-top: 1px solid var(--hist-border);
@@ -651,4 +654,32 @@
   color: var(--hist-text);
   font-size: 0.8rem;
   line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .history-page__event-toggle {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: calc(var(--hist-u) * 3);
+  }
+
+  .history-page__event-info {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .history-page__status {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .history-page__event-action {
+    grid-column: 1;
+    justify-self: end;
+  }
+
+  .history-page__event-chevron {
+    grid-column: 2;
+  }
 }
