@@ -19,11 +19,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockMultipartFile;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
@@ -73,11 +75,15 @@ class DocumentProcessingServiceTest {
     }
 
     private DocumentProcessingService newService(DocumentFinalizationService finalizer) {
+        return newService(finalizer, lock);
+    }
+
+    private DocumentProcessingService newService(DocumentFinalizationService finalizer, DocumentExclusiveLock receptionLock) {
         OciProperties oci = new OciProperties();
         oci.setBucketName("test-bucket");
         return new DocumentProcessingService(
                 new IncomingDocumentFactory(json),
-                lock,
+                receptionLock,
                 storage,
                 new ObjectKeyGenerator(),
                 persistence,
@@ -372,6 +378,32 @@ class DocumentProcessingServiceTest {
         verify(ai, never()).process(any());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void receptionLockFailureReportsPersistenceErrorWithoutStoringOrCallingAi(boolean dataAccessFailure) {
+        RuntimeException lockFailure = dataAccessFailure
+                ? new DataAccessResourceFailureException("lock unavailable", new SQLException("connection refused"))
+                : new IllegalStateException("lock unavailable", new SQLException("connection refused"));
+        service = newService(realFinalizer(), new FailingLock(lockFailure));
+
+        DocumentProcessingException error = failure(() -> service.processFile(pdfRequest(ID)));
+
+        assertEquals(BackendErrorCode.PERSISTENCE_ERROR, error.getCode());
+        assertSame(lockFailure, error.getCause());
+        assertTrue(storage.putKeys().isEmpty());
+        assertFalse(persistence.existsDocument(ID));
+        verify(ai, never()).process(any());
+    }
+
+    @Test
+    void unrelatedLockFailureIsNotMappedToPersistenceError() {
+        IllegalStateException unrelated = new IllegalStateException("inesperado");
+        service = newService(realFinalizer(), new FailingLock(unrelated));
+
+        assertSame(unrelated, assertThrows(IllegalStateException.class, () -> service.processFile(pdfRequest(ID))));
+        assertTrue(storage.putKeys().isEmpty());
+    }
+
     @Test
     void markProcessingFailureKeepsReceivedRecordAndOriginalWithoutCallingAi() {
         persistence.failMarkProcessing();
@@ -472,6 +504,13 @@ class DocumentProcessingServiceTest {
         assertTrue(storage.putKeys().isEmpty());
         assertFalse(persistence.existsDocument(ID));
         verify(ai, never()).process(any());
+    }
+
+    private record FailingLock(RuntimeException failure) implements DocumentExclusiveLock {
+        @Override
+        public <T> T execute(String documentId, Supplier<T> work) {
+            throw failure;
+        }
     }
 
     private static final class StrictLock implements DocumentExclusiveLock {

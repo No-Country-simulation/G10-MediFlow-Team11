@@ -90,6 +90,9 @@ public class DocumentProcessingService {
                 receiveLocked(document, objectKey);
                 return null;
             });
+        } catch (DataAccessException lockFailure) {
+            log.error("No se pudo obtener el lock de recepción de {}", documentId, lockFailure);
+            throw persistenceError(lockFailure);
         } catch (IllegalStateException lockFailure) {
             if (lockFailure.getCause() instanceof SQLException) {
                 log.error("No se pudo obtener el lock de recepción de {}", documentId, lockFailure);
