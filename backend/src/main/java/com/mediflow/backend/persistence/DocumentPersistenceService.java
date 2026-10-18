@@ -12,9 +12,11 @@ import com.mediflow.backend.repository.DocumentRepository;
 import com.mediflow.backend.repository.DocumentTriageHistoryRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,53 @@ public class DocumentPersistenceService {
     @Transactional
     public DocumentRecord saveDocument(DocumentRecord document) {
         return documentRepository.save(document);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean existsDocument(String documentId) {
+        return documentRepository.existsById(documentId);
+    }
+
+    /** Usa {@code persist}, no {@code merge}: un id existente falla en lugar de sobrescribirse. */
+    @Transactional
+    public DocumentRecord createReceived(DocumentRecord document) {
+        try {
+            entityManager.persist(document);
+            entityManager.flush();
+            return document;
+        } catch (PersistenceException exception) {
+            if (isUniqueViolation(exception)) {
+                throw new DuplicateDocumentException(document.getId(), exception);
+            }
+            throw exception;
+        }
+    }
+
+    @Transactional
+    public boolean markProcessing(String documentId) {
+        DocumentRecord document = documentRepository.findById(documentId).orElse(null);
+        if (document == null) {
+            return false;
+        }
+        entityManager.lock(document, LockModeType.PESSIMISTIC_WRITE);
+        if (document.getStatus() != DocumentStatus.RECEIVED) {
+            return false;
+        }
+        document.setStatus(DocumentStatus.PROCESSING);
+        documentRepository.save(document);
+        return true;
+    }
+
+    private static boolean isUniqueViolation(Throwable exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+                return true;
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+        }
+        return false;
     }
 
     @Transactional(readOnly = true)
@@ -296,6 +345,12 @@ public class DocumentPersistenceService {
         public String getDocumentId() { return documentId; }
         public int getExpectedSequence() { return expectedSequence; }
         public int getActualSequence() { return actualSequence; }
+    }
+
+    public static class DuplicateDocumentException extends RuntimeException {
+        public DuplicateDocumentException(String documentId, Throwable cause) {
+            super("Ya existe un documento con id " + documentId, cause);
+        }
     }
 
     /** #71 traduce este conflicto de estado o versión a HTTP 409 INVALID_REVIEW_STATE. */

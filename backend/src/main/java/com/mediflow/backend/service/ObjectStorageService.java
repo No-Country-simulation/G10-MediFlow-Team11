@@ -35,6 +35,23 @@ public class ObjectStorageService {
             byte[] content,
             String contentType
     ) {
+        put(objectKey, content, contentType, false);
+    }
+
+    public void putRawBytesIfAbsent(
+            String objectKey,
+            byte[] content,
+            String contentType
+    ) {
+        put(objectKey, content, contentType, true);
+    }
+
+    private void put(
+            String objectKey,
+            byte[] content,
+            String contentType,
+            boolean onlyIfAbsent
+    ) {
         Objects.requireNonNull(content, "El contenido es obligatorio");
 
         if (contentType == null || contentType.isBlank()) {
@@ -44,18 +61,26 @@ public class ObjectStorageService {
         }
 
         try {
-            PutObjectRequest request = PutObjectRequest.builder()
+            PutObjectRequest.Builder request = PutObjectRequest.builder()
                     .namespaceName(properties.getNamespace())
                     .bucketName(properties.getBucketName())
                     .objectName(objectKey)
                     .contentType(contentType)
                     .contentLength((long) content.length)
-                    .putObjectBody(new ByteArrayInputStream(content))
-                    .build();
+                    .putObjectBody(new ByteArrayInputStream(content));
+            if (onlyIfAbsent) {
+                request.ifNoneMatch("*");
+            }
 
-            client.putObject(request);
+            client.putObject(request.build());
 
         } catch (BmcException e) {
+            if (onlyIfAbsent && e.getStatusCode() == 412) {
+                throw new ObjectAlreadyExistsException(
+                        "El objeto OCI ya existe",
+                        e
+                );
+            }
             throw new StorageOperationException(
                     "Fallo al subir objeto a OCI",
                     e
@@ -180,6 +205,13 @@ public class ObjectStorageService {
     public static class ObjectNotFoundException extends StorageOperationException {
 
         public ObjectNotFoundException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static class ObjectAlreadyExistsException extends StorageOperationException {
+
+        public ObjectAlreadyExistsException(String message, Throwable cause) {
             super(message, cause);
         }
     }
