@@ -50,14 +50,21 @@ function HistoryPage() {
       setCurrentResult(null);
 
       try {
-        const [response, result] = await Promise.all([
+        const [historyResult, documentResult] = await Promise.allSettled([
           getDocumentHistory(documentId!, controller.signal),
           getDocumentResult(documentId!),
         ]);
 
         if (!controller.signal.aborted) {
-          setHistory(response);
-          setCurrentResult(result);
+          if (historyResult.status === "fulfilled") {
+            setHistory(historyResult.value);
+
+            if (documentResult.status === "fulfilled") {
+              setCurrentResult(documentResult.value);
+            }
+          } else {
+            setError("No fue posible cargar el historial del documento.");
+          }
         }
       } catch {
         if (!controller.signal.aborted) {
