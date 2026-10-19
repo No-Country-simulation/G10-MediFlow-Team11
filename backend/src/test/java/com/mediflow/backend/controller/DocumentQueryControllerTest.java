@@ -39,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -126,6 +127,61 @@ class DocumentQueryControllerTest {
                 .thenThrow(new DataAccessResourceFailureException("database unavailable"));
 
         mvc().perform(get("/api/v1/documents/DOC-70/history"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").value("PERSISTENCE_ERROR"));
+    }
+
+    @Test
+    void listRouteReturnsSelectionMetadataInCreatedAtDescThenIdOrderWithoutStoragePaths() throws Exception {
+        DocumentRecord later = selectionDocument("DOC-0", DocumentStatus.APPROVED, "2026-09-15T19:00:00Z");
+        later.setFileName("alta.pdf");
+        later.setDocumentType(DocumentType.DISCHARGE_SUMMARY);
+        DocumentRecord first = selectionDocument("DOC-A", DocumentStatus.PROCESSED, "2026-09-15T18:00:00Z");
+        first.setFileName(null);
+        first.setDocumentType(null);
+        DocumentRecord second = selectionDocument("DOC-B", DocumentStatus.NEEDS_AUDIT, "2026-09-15T18:00:00Z");
+        second.setFileName("informe.pdf");
+        second.setDocumentType(DocumentType.IMAGING_REPORT);
+        when(persistenceService.listDocuments()).thenReturn(List.of(later, first, second));
+
+        String json = mvc().perform(get("/api/v1/documents"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].document_id").value("DOC-0"))
+                .andExpect(jsonPath("$[1].document_id").value("DOC-A"))
+                .andExpect(jsonPath("$[2].document_id").value("DOC-B"))
+                .andExpect(jsonPath("$[1].file_name").value((Object) null))
+                .andExpect(jsonPath("$[1].document_type").value((Object) null))
+                .andExpect(jsonPath("$[2].document_type").value("IMAGING_REPORT"))
+                .andExpect(jsonPath("$[0].created_at").value("2026-09-15T19:00:00Z"))
+                .andReturn().getResponse().getContentAsString();
+
+        var firstJson = JacksonConfig.createJsonMapper().readTree(json).get(1);
+        assertEquals(7, firstJson.size());
+        assertEquals("PROCESSED", firstJson.get("status").asString());
+        assertEquals("TEXT", firstJson.get("input_type").asString());
+        assertEquals("2026-09-15T18:01:00Z", firstJson.get("updated_at").asString());
+        assertFalse(json.contains("private-bucket"));
+        assertFalse(json.contains("private-key"));
+        verify(persistenceService, never()).findDocument("documents");
+        verify(persistenceService, never()).listAuditDocuments();
+        verify(persistenceService, never()).listHistory("documents");
+    }
+
+    @Test
+    void listRouteReturnsEmptyArrayWhenNoDocumentsExist() throws Exception {
+        when(persistenceService.listDocuments()).thenReturn(List.of());
+
+        mvc().perform(get("/api/v1/documents"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    @Test
+    void listRouteReturnsPersistenceErrorEnvelopeOnDatabaseFailure() throws Exception {
+        when(persistenceService.listDocuments())
+                .thenThrow(new DataAccessResourceFailureException("database unavailable"));
+
+        mvc().perform(get("/api/v1/documents"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.code").value("PERSISTENCE_ERROR"));
     }
@@ -300,6 +356,19 @@ class DocumentQueryControllerTest {
         document.setMimeType(mimeType);
         document.setObjectKey("stored-original-key");
         document.setBucket("private-bucket");
+        return document;
+    }
+
+    private static DocumentRecord selectionDocument(String id, DocumentStatus status, String createdAt) {
+        DocumentRecord document = new DocumentRecord();
+        document.setId(id);
+        document.setStatus(status);
+        document.setInputType("DOC-A".equals(id) ? InputType.TEXT : InputType.FILE);
+        document.setMimeType("DOC-A".equals(id) ? "application/json" : "application/pdf");
+        document.setCreatedAt(Instant.parse(createdAt));
+        document.setUpdatedAt(Instant.parse("2026-09-15T18:01:00Z"));
+        document.setBucket("private-bucket");
+        document.setObjectKey("private-key");
         return document;
     }
 

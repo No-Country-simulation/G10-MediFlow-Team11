@@ -6,6 +6,7 @@ import com.mediflow.backend.entity.DocumentRecord;
 import com.mediflow.backend.enums.AuditReason;
 import com.mediflow.backend.enums.DocumentStatus;
 import com.mediflow.backend.enums.DocumentType;
+import com.mediflow.backend.enums.InputType;
 import com.mediflow.backend.enums.PrimaryDestination;
 import com.mediflow.backend.enums.PriorityLevel;
 import com.mediflow.backend.enums.StorageState;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -82,6 +84,26 @@ class DocumentResponseMapperTest {
         document.setStatus(DocumentStatus.APPROVED);
         assertFalse(responseMapper.toResponse(document).getRoutingDecision().isRequiresHumanReview());
         assertEquals(List.of(AuditReason.AI_TIMEOUT), responseMapper.toResponse(document).getRoutingDecision().getAuditReasons());
+    }
+
+    @Test
+    void selectionResponseExposesPublicMetadataWithoutStoragePaths() {
+        DocumentRecord document = baseDocument(DocumentStatus.APPROVED);
+        document.setInputType(InputType.FILE);
+        document.setFileName("informe.pdf");
+        document.setDocumentType(DocumentType.IMAGING_REPORT);
+        document.setCreatedAt(Instant.parse("2026-09-15T18:00:00Z"));
+        document.setUpdatedAt(Instant.parse("2026-09-15T18:01:00Z"));
+
+        JsonNode json = jsonMapper.readTree(jsonMapper.writeValueAsString(responseMapper.toSelectionResponse(document)));
+        assertEquals(7, json.size());
+        assertEquals("DOC-70", json.get("document_id").asString());
+        assertEquals("APPROVED", json.get("status").asString());
+        assertEquals("FILE", json.get("input_type").asString());
+        assertEquals("informe.pdf", json.get("file_name").asString());
+        assertEquals("IMAGING_REPORT", json.get("document_type").asString());
+        assertFalse(json.toString().contains("private-bucket"));
+        assertFalse(json.toString().contains("recibidos/"));
     }
 
     @Test
