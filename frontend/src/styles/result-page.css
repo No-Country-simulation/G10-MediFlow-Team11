@@ -5,9 +5,30 @@
  */
 .app-shell__main:has(> .result-page) {
   padding: 0;
+  background: var(--mui-palette-mediflow-background);
 }
 
 .result-page {
+  --res-primary-fill: var(--res-primary);
+  --res-on-primary: #ffffff;
+  --res-success-surface: #eaf7f5;
+  --res-attention-surface: rgba(255, 107, 53, 0.1);
+  --res-error-surface: #faeeee;
+  --res-neutral-surface: #f5f5f5;
+  --res-neutral-text: #666666;
+  --res-action-hover: rgba(26, 95, 208, 0.08);
+  --res-attention-border: rgba(255, 107, 53, 0.35);
+  --res-notification-surface: #fffbf7;
+  --res-notification-divider: rgba(255, 107, 53, 0.2);
+  --res-urgent-border: rgba(255, 107, 53, 0.3);
+  --res-rail-line: #d9d9d9;
+  --res-rail-tick: #c7c7c7;
+  --res-validation-danger: #c2410c;
+  --res-inconsistency-dot: #f97316;
+  --res-validation-dash: #c8d4e6;
+  --res-storage-pending: #b45309;
+  --res-storage-error: #e11d48;
+  --res-scrollbar: #d3d3d3;
   --res-primary: #1a5fd0;
   --res-primary-hover: #174fa9;
   --res-accent: #ff6b35;
@@ -170,7 +191,7 @@
   padding: calc(var(--res-u) * 5) calc(var(--res-u) * 3);
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #d3d3d3 transparent;
+  scrollbar-color: var(--res-scrollbar) transparent;
 }
 
 .result-panel__body > * {
@@ -307,12 +328,12 @@
 }
 
 .result-status--success {
-  background: #eaf7f5;
+  background: var(--res-success-surface);
   color: var(--res-success);
 }
 
 .result-status--attention {
-  background: rgba(255, 107, 53, 0.1);
+  background: var(--res-attention-surface);
   color: var(--res-attention-text);
 }
 
@@ -321,13 +342,13 @@
 }
 
 .result-status--danger {
-  background: #faeeee;
+  background: var(--res-error-surface);
   color: var(--res-danger);
 }
 
 .result-status--neutral {
-  background: #f5f5f5;
-  color: #666666;
+  background: var(--res-neutral-surface);
+  color: var(--res-neutral-text);
 }
 
 .result-history-link {
@@ -347,7 +368,7 @@
 }
 
 .result-history-link:hover {
-  background: rgba(26, 95, 208, 0.08);
+  background: var(--res-action-hover);
 }
 
 .result-audit-link {
@@ -357,8 +378,8 @@
   height: calc(var(--res-u) * 9);
   padding-inline: calc(var(--res-u) * 4);
   border-radius: var(--res-radius);
-  background: var(--res-primary);
-  color: #ffffff;
+  background: var(--res-primary-fill);
+  color: var(--res-on-primary);
   font-size: var(--res-text-sm);
   font-weight: 500;
   text-decoration: none;
@@ -383,7 +404,7 @@
 }
 
 .result-state--error {
-  border-color: rgba(255, 107, 53, 0.35);
+  border-color: var(--res-attention-border);
 }
 
 .result-state__title {
@@ -491,4 +512,61 @@
     height: 100%;
     min-height: 0;
   }
+}
+
+[data-mediflow-color-scheme="dark"] .result-page {
+  --res-primary: var(--mui-palette-mediflow-actionText);
+  --res-primary-fill: var(--mui-palette-mediflow-action);
+  --res-primary-hover: var(--mui-palette-mediflow-actionHover);
+  --res-on-primary: var(--mui-palette-mediflow-onAction);
+  --res-accent: var(--mui-palette-mediflow-warningText);
+  --res-attention-text: var(--mui-palette-mediflow-warningText);
+  --res-border: var(--mui-palette-mediflow-border);
+  --res-border-soft: var(--mui-palette-mediflow-border);
+  --res-surface: var(--mui-palette-mediflow-surface);
+  --res-surface-muted: var(--mui-palette-mediflow-surfaceMuted);
+  --res-text: var(--mui-palette-mediflow-textPrimary);
+  --res-muted: var(--mui-palette-mediflow-textSecondary);
+  --res-subtle: var(--mui-palette-mediflow-textSecondary);
+  --res-success: var(--mui-palette-mediflow-successText);
+  --res-danger: var(--mui-palette-mediflow-errorText);
+  --res-hover-surface: var(--mui-palette-mediflow-actionSurface);
+  --res-success-surface: var(--mui-palette-mediflow-successSurface);
+  --res-attention-surface: var(--mui-palette-mediflow-warningSurface);
+  --res-error-surface: var(--mui-palette-mediflow-errorSurface);
+  --res-neutral-surface: var(--mui-palette-mediflow-surfaceMuted);
+  --res-neutral-text: var(--mui-palette-mediflow-textSecondary);
+  --res-action-hover: var(--mui-palette-mediflow-actionSurface);
+  --res-attention-border: var(--mui-palette-mediflow-warningText);
+  --res-notification-surface: var(--mui-palette-mediflow-warningSurface);
+  --res-notification-divider: var(--mui-palette-mediflow-border);
+  --res-urgent-border: var(--mui-palette-mediflow-warningText);
+  --res-rail-line: var(--mui-palette-mediflow-borderStrong);
+  --res-rail-tick: var(--mui-palette-mediflow-illustrationDetail);
+  --res-validation-danger: var(--mui-palette-mediflow-errorText);
+  --res-inconsistency-dot: var(--mui-palette-mediflow-errorText);
+  --res-validation-dash: var(--mui-palette-mediflow-illustrationDetail);
+  --res-storage-pending: var(--mui-palette-mediflow-warningText);
+  --res-storage-error: var(--mui-palette-mediflow-errorText);
+  --res-scrollbar: var(--mui-palette-mediflow-illustrationDetail);
+}
+
+.result-page__viewer {
+  color-scheme: light;
+  scrollbar-color: auto;
+  color: #1a1a1a;
+}
+.result-page__viewer .document-viewer__pdf-viewer--dark {
+  color-scheme: dark;
+}
+[data-mediflow-color-scheme="dark"] .result-page__viewer .document-viewer__message {
+  color: var(--res-text);
+  background: var(--res-surface);
+}
+[data-mediflow-color-scheme="dark"] .result-page__viewer .document-viewer__message .MuiCircularProgress-root {
+  color: var(--res-primary);
+}
+[data-mediflow-color-scheme="dark"] .result-panel__body,
+[data-mediflow-color-scheme="dark"] .app-shell__main:has(> .result-page) {
+  scrollbar-color: var(--res-scrollbar, var(--mui-palette-mediflow-illustrationDetail)) var(--mui-palette-mediflow-background);
 }

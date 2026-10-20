@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
 import AuditPage from "../pages/AuditPage";
+import SettingsPage from "../pages/SettingsPage";
 import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import ProcessingPage from "../pages/ProcessingPage";
@@ -19,6 +20,7 @@ function AppRoutes() {
           <Route path="results/:documentId" element={<ResultPage />} />
           <Route path="audit" element={<AuditPage />} />
           <Route path="history" element={<HistoryPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

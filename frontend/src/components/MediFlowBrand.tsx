@@ -1,13 +1,16 @@
 import { Box } from "@mui/material"
+import { useTheme } from "@mui/material/styles"
 
-const BRAND_SRC = `${import.meta.env.BASE_URL}brand/mediflow-horizontal-compact.svg`
+const BRAND_BASE = `${import.meta.env.BASE_URL}brand/mediflow-horizontal-compact`
 
 function MediFlowBrand() {
+  const theme = useTheme()
+  const source = `${BRAND_BASE}${theme.palette.mode === "dark" ? "-dark" : ""}.svg`
   return (
     <Box className="app-shell__brand">
       <Box
         component="img"
-        src={BRAND_SRC}
+        src={source}
         alt="MediFlow"
         className="app-shell__brand-image"
       />
