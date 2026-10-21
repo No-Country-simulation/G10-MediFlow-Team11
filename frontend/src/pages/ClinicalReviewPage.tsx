@@ -372,15 +372,18 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                       const missingDescriptionId = `clinical-missing-${field.path.join("-")}`;
                       const hintId = `clinical-hint-${field.path.join("-")}`;
                       return <label key={field.path.join(".")} className={missing ? "clinical-review__missing" : ""}>{field.label}
-                        <input type={field.number ? "number" : "text"} min={field.number ? 0 : undefined}
-                          step={field.number ? 1 : undefined} value={typeof current === "string" || typeof current === "number" ? current : ""} placeholder="Sin valor"
-                          aria-describedby={[missing && missingDescriptionId, field.hint && hintId].filter(Boolean).join(" ") || undefined}
-                          disabled={saving || !!success}
-                          onChange={(event) => {
-                            const raw = event.target.value;
-                            if (field.number && raw !== "" && (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)))) return;
-                            updateExtraction(field.path, raw === "" ? null : field.number ? Number(raw) : raw);
-                          }} />
+                        <span className="clinical-review__input-wrap">
+                          {missing && <span aria-hidden="true" className="clinical-review__missing-indicator" />}
+                          <input type={field.number ? "number" : "text"} min={field.number ? 0 : undefined}
+                            step={field.number ? 1 : undefined} value={typeof current === "string" || typeof current === "number" ? current : ""} placeholder="Sin valor"
+                            aria-describedby={[missing && missingDescriptionId, field.hint && hintId].filter(Boolean).join(" ") || undefined}
+                            disabled={saving || !!success}
+                            onChange={(event) => {
+                              const raw = event.target.value;
+                              if (field.number && raw !== "" && (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)))) return;
+                              updateExtraction(field.path, raw === "" ? null : field.number ? Number(raw) : raw);
+                            }} />
+                        </span>
                         {missing && <span id={missingDescriptionId} className="clinical-review__missing-note">La IA señaló este dato como ausente. Complételo solo si consta en el documento original.</span>}
                         {field.hint && <small id={hintId} className="clinical-review__hint">{field.hint}</small>}
                       </label>;
