@@ -29,7 +29,7 @@
 .help-page__contents li:hover::before { box-shadow: 0 0 0 4px var(--help-primary-soft); }
 .help-page__contents a { color: var(--help-primary); text-decoration: none; text-underline-offset: 3px; }
 .help-page__contents a:hover { text-decoration: underline; text-decoration-thickness: 2px; }
-.help-page a:focus-visible, .help-page summary:focus-visible { outline: 2px solid var(--help-primary); outline-offset: 3px; border-radius: 4px; }
+.help-page a:focus-visible, .help-page button:focus-visible, .help-page summary:focus-visible { outline: 2px solid var(--help-primary); outline-offset: 3px; border-radius: 4px; }
 
 .help-page__sections { display: grid; gap: 16px; }
 .help-page__card { scroll-margin-top: 72px; padding: 22px; border: 1px solid var(--help-border); border-radius: 12px; background: var(--help-surface); }
@@ -39,15 +39,44 @@
 .help-page__prose { display: grid; gap: 10px; max-width: 90ch; }
 .help-page code { color: var(--help-primary); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.9em; font-weight: 600; overflow-wrap: anywhere; }
 
-.help-page__process-guides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.help-page__process-guide { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(150px, 0.75fr); align-items: center; gap: 14px; margin: 0; padding: 12px; border: 1px solid var(--help-border); border-radius: 10px; background: var(--help-surface); }
-.help-page__guide-image-link { display: block; min-width: 0; overflow: hidden; border-radius: 8px; }
-.help-page__guide-image-link:focus-visible { outline-offset: 3px; }
-.help-page__process-guide img { display: block; width: 100%; height: auto; border: 1px solid var(--help-border); border-radius: 8px; }
-.help-page__process-guide figcaption { color: var(--help-muted); }
-.help-page__process-guide figcaption h3 { color: var(--help-text); font-size: 16px; font-weight: 600; }
-.help-page__process-guide figcaption p { margin-top: 7px; }
-.help-page__process-guide figcaption a { display: inline-block; margin-top: 12px; color: var(--help-primary); font-weight: 600; text-underline-offset: 3px; }
+.help-page__process-guides { display: grid; gap: 16px; }
+.help-page__section-action { margin-bottom: 14px; color: var(--help-muted); }
+.help-page__inline-link { color: var(--help-primary); font-weight: 600; text-underline-offset: 3px; }
+.help-guide { min-width: 0; padding: 16px; border: 1px solid var(--help-border); border-radius: 10px; background: var(--help-surface); }
+.help-guide > h3 { margin-bottom: 12px; color: var(--help-text); font-size: 16px; font-weight: 600; }
+.help-guide__layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr); align-items: start; gap: 16px; }
+.help-guide__screen { position: relative; aspect-ratio: 1366 / 768; min-width: 0; overflow: hidden; border: 1px solid var(--help-border); border-radius: 8px; background: #f6f8fb; }
+.help-guide__screen img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.help-guide__highlight { position: absolute; z-index: 2; border: 3px solid #d92d20; border-radius: 5px; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 12px rgba(217, 45, 32, 0.9); pointer-events: none; }
+.help-guide__arrow { position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.help-guide__arrow line:not(.help-guide__arrow-halo) { stroke: #d92d20; stroke-width: 5; }
+.help-guide__arrow-halo { stroke: #ffffff; stroke-width: 10; }
+.help-guide__arrow polygon { fill: #d92d20; }
+.help-guide__steps { display: grid; gap: 7px; min-width: 0; padding: 0; list-style: none; }
+.help-guide__step { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; width: 100%; padding: 9px; border: 1px solid var(--help-border); border-radius: 8px; background: var(--help-surface); color: var(--help-text); font: inherit; text-align: left; cursor: pointer; }
+.help-guide__step:hover { border-color: rgba(26, 95, 208, 0.45); background: var(--help-primary-soft); }
+.help-guide__step[aria-current="step"] { border-color: var(--help-primary); background: var(--help-primary-soft); box-shadow: inset 3px 0 0 var(--help-primary); }
+.help-guide__step-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: #eef3fb; color: var(--help-primary); font-size: 12px; font-weight: 700; }
+.help-guide__step[aria-current="step"] .help-guide__step-number { background: var(--help-primary); color: #ffffff; }
+.help-guide__step strong, .help-guide__step span span { display: block; }
+.help-guide__step strong { font-size: 13px; line-height: 1.35; }
+.help-guide__step span span { margin-top: 2px; color: var(--help-muted); font-size: 12px; line-height: 1.4; }
+.help-guide__layout > .help-guide__steps .help-guide__step:not([aria-current="step"]) span span { display: none; }
+.help-guide__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; color: var(--help-muted); font-size: 12px; }
+.help-guide__primary-button, .help-guide__secondary-button, .help-guide__detail-button { min-height: 40px; padding: 8px 14px; border: 1px solid var(--help-primary); border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; }
+.help-guide__primary-button { background: var(--help-primary); color: #ffffff; }
+.help-guide__secondary-button, .help-guide__detail-button { background: var(--help-surface); color: var(--help-primary); }
+.help-guide__secondary-button:disabled { border-color: var(--help-border); color: #9ca3af; cursor: not-allowed; }
+.help-guide__overlay { position: fixed; inset: 0; z-index: 1400; display: flex; align-items: center; justify-content: center; padding: 18px; overflow: hidden; overscroll-behavior: contain; background: rgba(8, 19, 36, 0.72); }
+.help-guide__dialog { display: flex; width: min(1320px, 100%); max-height: calc(100dvh - 36px); flex-direction: column; overflow: hidden; padding: 18px; border-radius: 14px; background: var(--help-surface); box-shadow: 0 24px 60px rgba(8, 19, 36, 0.32); }
+.help-guide__dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.help-guide__dialog-header h2 { font-size: 19px; line-height: 1.35; }
+.help-guide__dialog-content { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.65fr); grid-template-rows: auto auto; align-items: start; gap: 14px 18px; min-height: 0; overflow: auto; }
+.help-guide__image-scroller { width: 100%; min-width: 0; overflow: hidden; border-radius: 8px; }
+.help-guide__image-scroller .help-guide__screen { width: 100%; }
+.help-guide__dialog-steps { min-width: 0; overflow-y: auto; }
+.help-guide__controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; grid-column: 2; }
+.help-guide__detail-button, .help-guide__mobile-step { display: none; }
 .help-page__note { margin-top: 14px; padding: 12px 14px; border-left: 3px solid #a9a9a9; border-radius: 0 8px 8px 0; background: var(--help-surface-alt); }
 .help-page__note--info { border-left-color: var(--help-primary); background: var(--help-primary-soft); }
 
@@ -107,16 +136,63 @@
 
 @media (max-width: 719px) {
   .app-shell__main:has(> .help-page) { padding: 18px 14px; }
-  .help-page__contents ul, .help-page__process-guides, .help-page__process-guide, .help-page__result-groups, .help-page__state-list, .help-page__problem-list, .help-page__faq-list { grid-template-columns: 1fr; }
+  .help-page__contents ul, .help-page__process-guides, .help-page__result-groups, .help-page__state-list, .help-page__problem-list, .help-page__faq-list { grid-template-columns: 1fr; }
   .help-page__card { padding: 18px; }
+  .help-guide { padding: 12px; }
+  .help-guide__layout { grid-template-columns: 1fr; }
+  .help-guide__layout > .help-guide__screen { position: sticky; top: calc(var(--mediflow-shell-header-height, 49px) + 6px); z-index: 4; box-shadow: 0 5px 16px rgba(8, 19, 36, 0.14); }
+  .help-guide__steps { gap: 4px; }
+  .help-guide__step { grid-template-columns: 23px minmax(0, 1fr); gap: 6px; padding: 6px; }
+  .help-guide__step-number { width: 21px; height: 21px; font-size: 11px; }
+  .help-guide__step strong { font-size: 11px; }
+  .help-guide__step span span { font-size: 10px; line-height: 1.35; }
+  .help-guide__footer { align-items: flex-start; flex-direction: column; }
+  .help-guide__footer .help-guide__primary-button { width: 100%; }
+  .help-guide__overlay { align-items: stretch; padding: max(4px, env(safe-area-inset-top)) max(3px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(3px, env(safe-area-inset-left)); }
+  .help-guide__dialog { width: 100%; height: 100%; max-height: 100dvh; padding: 8px; border-radius: 10px; }
+  .help-guide__dialog-header { flex: 0 0 auto; margin-bottom: 8px; }
+  .help-guide__dialog-header h2 { font-size: 16px; }
+  .help-guide__dialog-content { display: flex; flex: 1 1 auto; flex-direction: column; gap: 9px; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+  .help-guide__image-scroller { flex: 0 0 auto; width: 100%; overflow-x: auto; overflow-y: hidden; }
+  .help-guide__image-scroller--expanded .help-guide__screen { width: 760px; max-width: none; }
+  .help-guide__detail-button, .help-guide__mobile-step { display: block; }
+  .help-guide__detail-button { width: 100%; flex: 0 0 auto; }
+  .help-guide__mobile-step { padding: 10px 12px; border: 1px solid var(--help-border); border-radius: 8px; }
+  .help-guide__mobile-step p { margin-top: 3px; color: var(--help-muted); }
+  .help-guide__dialog-steps { display: none; }
+  .help-guide__controls { position: sticky; bottom: 0; z-index: 4; flex: 0 0 auto; width: 100%; padding: 8px 0 max(2px, env(safe-area-inset-bottom)); background: var(--help-surface); }
   .help-page__back-to-top { right: 16px; bottom: 16px; }
 }
 
+@media (min-width: 1024px) {
+  .help-guide__dialog { height: calc(100dvh - 36px); }
+  .help-guide__dialog-content { flex: 1 1 auto; grid-template-rows: minmax(0, 1fr) auto; overflow-x: hidden; overflow-y: auto; }
+  .help-guide__image-scroller { display: flex; min-height: 0; height: 100%; align-items: center; justify-content: center; }
+  .help-guide__image-scroller .help-guide__screen { width: auto; max-width: 100%; height: 100%; max-height: 100%; }
+  .help-guide__dialog-steps { min-height: 0; height: 100%; overflow: visible; }
+  .help-guide__dialog-steps .help-guide__steps { gap: 4px; }
+  .help-guide__dialog-steps .help-guide__step { grid-template-columns: 25px minmax(0, 1fr); gap: 7px; padding: 6px; }
+  .help-guide__dialog-steps .help-guide__step-number { width: 23px; height: 23px; }
+  .help-guide__dialog-steps .help-guide__step strong { font-size: 12px; }
+  .help-guide__dialog-steps .help-guide__step span span { font-size: 11px; line-height: 1.35; }
+}
+
 @media (min-width: 720px) and (max-width: 1023px) {
-  .help-page__process-guides { grid-template-columns: 1fr; }
+  .help-guide__layout { grid-template-columns: 1fr; }
   .help-page__state-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+@media (min-width: 1200px) {
+  .help-page__process-guides { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .help-guide { padding: 10px; }
+  .help-guide__layout { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); align-items: center; gap: 8px; }
+  .help-guide__steps { gap: 4px; }
+  .help-guide__step { grid-template-columns: 23px minmax(0, 1fr); gap: 6px; padding: 5px; }
+  .help-guide__step-number { width: 21px; height: 21px; font-size: 11px; }
+  .help-guide__step strong { font-size: 11px; }
+  .help-guide__step span span { font-size: 10px; line-height: 1.35; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .help-page__back-to-top { transition: none; }
+  .help-page__back-to-top, .help-guide__step { transition: none; }
 }

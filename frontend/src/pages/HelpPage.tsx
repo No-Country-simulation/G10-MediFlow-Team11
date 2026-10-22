@@ -9,32 +9,33 @@ import {
   ArrowUp,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import fileGuideImage from "../assets/help/guia-archivo.png";
-import textGuideImage from "../assets/help/guia-texto.png";
+import { Link } from "react-router-dom";
 import {
   scrollHelpPageToTop,
   shouldShowBackToTop,
 } from "./helpBackToTop";
+import HelpGuide from "./HelpGuide";
 import "../styles/help-page.css";
 
 const documentStates = [
   ["RECEIVED", "Recibido", "MediFlow recibió el documento y lo registró para comenzar su tratamiento."],
   ["PROCESSING", "En procesamiento", "El documento está siendo analizado."],
   ["PROCESSED", "Procesado", "El procesamiento terminó y no requiere una revisión humana pendiente."],
-  ["NEEDS_AUDIT", "Requiere auditoría", "El documento necesita una revisión humana antes de confirmar su resultado."],
+  ["NEEDS_AUDIT", "Requiere revisión", "El documento necesita una revisión humana antes de confirmar su resultado."],
   ["APPROVED", "Aprobado", "Una persona autorizada revisó y aprobó el documento."],
   ["REJECTED", "Rechazado", "El documento fue rechazado durante la revisión humana."],
-  ["FAILED", "Fallido", "El procesamiento no pudo completarse y el documento no quedó disponible para una revisión recuperable dentro del flujo."],
+  ["FAILED", "Fallido", "El procesamiento no pudo completarse debido a un problema técnico y el documento original no pudo recuperarse."],
 ] as const;
 
 const frequentProblems = [
-  ["Archivo no admitido", "Utiliza un documento en formato PDF, JPG o PNG."],
-  ["Archivo vacío o dañado", "Comprueba que el archivo contenga información y pueda abrirse correctamente."],
-  ["Texto vacío", "Escribe o pega contenido clínico en el campo correspondiente."],
-  ["Falta el Canal de origen", "Selecciona el Canal de origen. Si eliges Otro, completa también la información adicional solicitada."],
-  ["Error de comunicación", "Comprueba la conexión e intenta nuevamente cuando corresponda."],
-  ["Documento en auditoría", "Consulta la sección Auditoría para revisar los documentos pendientes."],
-  ["Procesamiento no completado", "Revisa el archivo y los datos ingresados. Un documento Fallido no pudo completar el procesamiento; uno que Requiere auditoría sí puede ser comprobado por una persona."],
+  ["No puedo cargar un documento", "Comprueba que el archivo sea PDF, JPG o PNG, que tenga contenido y que no supere el tamaño permitido. Después, vuelve a seleccionarlo."],
+  ["No puedo comenzar el procesamiento", "Comprueba que hayas ingresado el documento o texto, seleccionado el canal de origen y completado los campos solicitados."],
+  ["No fue posible procesar el documento", "Si MediFlow muestra un error durante el procesamiento, la información ingresada se conserva. Selecciona «Reintentar» para realizar un nuevo intento."],
+  ["Una receta u orden de examen no se interpretó correctamente", <>Revisa el resultado del documento. Si MediFlow indica que necesita revisión, entra a <Link className="help-page__inline-link" to="/audit">Auditoría</Link> para consultar el documento y continuar con su revisión.</>],
+  ["La información extraída no coincide con el documento original", <>Si la información extraída no coincide con el documento original, comprueba el resultado. Si el documento está pendiente de revisión humana, entra a <Link className="help-page__inline-link" to="/audit">Auditoría</Link>, abre Revisión Clínica y corrige los campos permitidos antes de registrar la decisión.</>],
+  ["Un documento quedó pendiente de revisión", <>Entra a <Link className="help-page__inline-link" to="/audit">Auditoría</Link> para consultar los documentos pendientes. Si tienes esa responsabilidad, abre el documento y realiza la revisión correspondiente.</>],
+  ["No puedo consultar el resultado de un documento", "Si aparece el mensaje «No fue posible cargar el resultado», selecciona «Reintentar» para volver a consultar la información."],
+  ["Necesito consultar los cambios realizados a un documento", <>Puedes consultar los cambios de un documento desde su resultado, seleccionando «Ver historial». También puedes entrar a «<Link className="help-page__inline-link" to="/history">Historial</Link>» desde el menú lateral, buscar el documento por su identificador o nombre de archivo y seleccionar «Consultar historial».</>],
 ] as const;
 
 const faqs = [
@@ -43,9 +44,10 @@ const faqs = [
   ["¿Debo ingresar un identificador?", "No. MediFlow genera automáticamente un identificador para cada documento procesado."],
   ["¿Qué significa URGENT?", "Significa que MediFlow clasificó el documento con prioridad urgente. Esta clasificación no sustituye una evaluación clínica profesional."],
   ["¿Qué significa revisión humana?", "Significa que una persona debe comprobar la información del documento antes de confirmar el resultado."],
-  ["¿Por qué un documento puede requerir auditoría?", "Porque puede existir baja confianza, información ilegible, datos faltantes o inconsistentes, o una dificultad durante el procesamiento."],
+  ["¿Por qué un documento puede requerir auditoría?", "Porque MediFlow puede detectar información poco clara, datos faltantes o inconsistentes, o dificultades durante el procesamiento."],
   ["¿Qué ocurre si falla el procesamiento?", "Depende de la situación. Si el documento puede recuperarse y revisarse, MediFlow puede enviarlo a auditoría. Si no puede completarse ni conservarse de forma recuperable, puede quedar en estado Fallido."],
-  ["¿Qué significa el estado de mi documento?", "Indica su etapa actual. Recibido significa que ingresó al sistema; En procesamiento, que está siendo analizado; y Procesado, que terminó sin una revisión humana pendiente."],
+  ["¿Qué significa el estado de mi documento?", "El estado indica en qué etapa se encuentra tu documento. «Recibido» significa que ingresó al sistema; «En procesamiento», que está siendo analizado; y «Procesado», que terminó sin una revisión humana pendiente."],
+  ["¿Cómo puedo consultar el historial de un documento?", <>Entra a «<Link className="help-page__inline-link" to="/history">Historial</Link>» desde el menú lateral. Busca el documento por su identificador o nombre de archivo y selecciona «Consultar historial» para revisar los registros disponibles. No necesitas volver a procesar el documento.</>],
 ] as const;
 
 function SectionTitle({
@@ -101,37 +103,23 @@ export function HelpPageContent({
             <div className="help-page__prose">
               <p>MediFlow es una herramienta que ayuda a organizar y procesar documentos clínicos.</p>
               <p>Permite ingresar documentos como archivos o texto, identificar su contenido, extraer información relevante y determinar su prioridad y destino.</p>
-              <p>También evalúa qué tan confiable es el resultado. Cuando detecta información insuficiente, dudas o dificultades, puede enviar el documento a revisión humana.</p>
+              <p>También evalúa el nivel de confianza del resultado. Cuando detecta información insuficiente, dudas o dificultades, puede enviar el documento a revisión humana.</p>
               <p>De esta manera, facilita la organización de la información y permite identificar los casos que requieren atención adicional.</p>
+              <div className="help-page__note help-page__note--info">
+                <strong>Limitaciones del MVP.</strong> Este MVP utiliza únicamente datos clínicos sintéticos. MediFlow simula el envío de documentos a distintas áreas hospitalarias, pero no los envía realmente ni está conectado con sistemas hospitalarios externos. Sus resultados no sustituyen la evaluación de profesionales de salud.
+              </div>
             </div>
           </section>
 
           <section id="process" className="help-page__card" aria-labelledby="process-title">
             <SectionTitle id="process-title" icon={<FileUp size={20} />}>Procesar un documento</SectionTitle>
+            <p className="help-page__section-action">Utiliza las siguientes guías o ve a <Link className="help-page__inline-link" to="/processing">Procesamiento</Link> para comenzar.</p>
             <div className="help-page__process-guides">
-              <figure className="help-page__process-guide">
-                <a className="help-page__guide-image-link" href={fileGuideImage} target="_blank" rel="noreferrer" aria-label="Abrir guía para procesar un archivo en tamaño completo">
-                  <img src={fileGuideImage} alt="Guía de MediFlow para procesar un archivo: seleccionar Archivo, cargar un PDF, JPG o PNG, elegir el Canal de origen e iniciar el procesamiento." />
-                </a>
-                <figcaption>
-                  <h3>Procesar un archivo</h3>
-                  <p>Consulta la guía visual para cargar un documento clínico en formato PDF, JPG o PNG.</p>
-                  <a href={fileGuideImage} target="_blank" rel="noreferrer">Abrir guía de archivo en tamaño completo</a>
-                </figcaption>
-              </figure>
-              <figure className="help-page__process-guide">
-                <a className="help-page__guide-image-link" href={textGuideImage} target="_blank" rel="noreferrer" aria-label="Abrir guía para procesar texto en tamaño completo">
-                  <img src={textGuideImage} alt="Guía de MediFlow para procesar texto: seleccionar Texto, escribir o pegar contenido clínico, elegir el Canal de origen e iniciar el procesamiento." />
-                </a>
-                <figcaption>
-                  <h3>Procesar texto</h3>
-                  <p>Consulta la guía visual para ingresar o pegar contenido clínico directamente en MediFlow.</p>
-                  <a href={textGuideImage} target="_blank" rel="noreferrer">Abrir guía de texto en tamaño completo</a>
-                </figcaption>
-              </figure>
+              <HelpGuide mode="file" />
+              <HelpGuide mode="text" />
             </div>
             <div className="help-page__note"><strong>Canal de origen obligatorio.</strong> Debes seleccionarlo en ambos modos. Si eliges Otro, completa la información adicional solicitada por el formulario.</div>
-            <div className="help-page__note help-page__note--info"><strong>Identificador.</strong> No necesitas crear uno. MediFlow genera automáticamente un ID para cada documento procesado y lo utiliza para mantener su trazabilidad.</div>
+            <div className="help-page__note help-page__note--info"><strong>Identificador.</strong> No necesitas crear un identificador. MediFlow asigna uno automáticamente a cada documento para poder identificarlo y consultar su seguimiento.</div>
           </section>
 
           <section id="results" className="help-page__card" aria-labelledby="results-title">
@@ -152,7 +140,7 @@ export function HelpPageContent({
               </section>
               <section className="help-page__result-group" aria-labelledby="decision-title">
                 <h3 id="decision-title">Decisión del flujo</h3>
-                <dl><div><dt>Destino asignado</dt><dd>Indica hacia dónde se ha determinado dirigir el documento. Cuando requiere auditoría, la confirmación del destino queda pendiente de revisión.</dd></div><div><dt>Estado</dt><dd>Muestra la etapa actual del documento.</dd></div></dl>
+                <dl><div><dt>Destino asignado</dt><dd>Indica el destino sugerido para el documento. En esta versión de MediFlow, la asignación es simulada. Si requiere auditoría, el destino queda pendiente de confirmación.</dd></div><div><dt>Estado</dt><dd>Muestra la etapa actual del documento.</dd></div></dl>
               </section>
             </div>
             <div className="help-page__notice"><TriangleAlert size={18} aria-hidden="true" /><p>La clasificación y la prioridad son resultados del procesamiento y no sustituyen la evaluación de un profesional de salud.</p></div>
@@ -161,9 +149,10 @@ export function HelpPageContent({
           <section id="audit" className="help-page__card" aria-labelledby="audit-title">
             <SectionTitle id="audit-title" icon={<ShieldCheck size={20} />}>Revisión humana / Auditoría</SectionTitle>
             <div className="help-page__prose">
-              <p>MediFlow puede necesitar una revisión humana antes de confirmar un resultado. Cuando esto ocurre, el documento pasa a <code>NEEDS_AUDIT</code> — Requiere auditoría.</p>
+              <p>En algunos casos, MediFlow necesita que una persona revise el documento antes de confirmar el resultado. Cuando esto ocurre, el documento queda pendiente de revisión en Auditoría.</p>
               <p>Puede deberse a confianza insuficiente, un documento ilegible, información importante faltante, datos inconsistentes o dificultades temporales durante el procesamiento.</p>
-              <p>Consulta la sección Auditoría para revisar los documentos pendientes.</p>
+              <p>Consulta <Link className="help-page__inline-link" to="/audit">Auditoría</Link> para revisar los documentos pendientes.</p>
+              <p>Desde Auditoría puedes abrir un documento pendiente de revisión y acceder a Revisión Clínica. Allí podrás consultar el documento original, comprobar la información procesada y corregir los campos permitidos. Al finalizar, podrás aprobar o rechazar el documento según corresponda.</p>
             </div>
             <div className="help-page__note help-page__note--info"><strong>Ten en cuenta:</strong> un documento enviado a auditoría no significa necesariamente que su contenido sea incorrecto. Significa que necesita una comprobación adicional.</div>
           </section>

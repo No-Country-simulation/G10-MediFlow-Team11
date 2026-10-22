@@ -5,6 +5,7 @@ import {
   type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { Link, MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import AppSidebar from "../components/AppSidebar";
 import SidebarNavItem from "../components/SidebarNavItem";
@@ -15,7 +16,19 @@ import {
   scrollHelpPageToTop,
   shouldShowBackToTop,
 } from "./helpBackToTop";
+import HelpGuide, {
+  HelpGuideSteps,
+  HelpGuideView,
+} from "./HelpGuide";
 import HelpPage, { HelpPageContent } from "./HelpPage";
+
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return {
+    ...actual,
+    createBrowserRouter: (routes: unknown) => ({ routes }),
+  };
+});
 
 type ElementProps = {
   children?: ReactNode;
@@ -66,6 +79,7 @@ const expectedFaqs = [
   "¿Por qué un documento puede requerir auditoría?",
   "¿Qué ocurre si falla el procesamiento?",
   "¿Qué significa el estado de mi documento?",
+  "¿Cómo puedo consultar el historial de un documento?",
 ];
 
 const expectedStates = [
@@ -78,12 +92,59 @@ const expectedStates = [
   "FAILED",
 ];
 
+const expectedFileSteps = [
+  "Ingresa a Procesamiento",
+  "Selecciona Archivo",
+  "Carga el documento",
+  "Selecciona el Canal de origen",
+  "Inicia el procesamiento",
+  "Consulta el resultado",
+];
+
+const expectedTextSteps = [
+  "Ingresa a Procesamiento",
+  "Selecciona Texto",
+  "Escribe o pega el contenido",
+  "Selecciona el Canal de origen",
+  "Inicia el procesamiento",
+  "Consulta el resultado",
+];
+
+function guideMarkup(mode: "file" | "text", activeStep = 0, expanded = false) {
+  return renderToStaticMarkup(
+    <HelpGuideView
+      mode={mode}
+      activeStep={activeStep}
+      expanded={expanded}
+      detailExpanded={false}
+      onStepChange={vi.fn()}
+      onOpen={vi.fn()}
+      onClose={vi.fn()}
+      onPrevious={vi.fn()}
+      onNext={vi.fn()}
+      onRestart={vi.fn()}
+      onToggleDetail={vi.fn()}
+    />,
+  );
+}
+
+const expectedProblems = [
+  ["No puedo cargar un documento", "Comprueba que el archivo sea PDF, JPG o PNG, que tenga contenido y que no supere el tamaño permitido. Después, vuelve a seleccionarlo."],
+  ["No puedo comenzar el procesamiento", "Comprueba que hayas ingresado el documento o texto, seleccionado el canal de origen y completado los campos solicitados."],
+  ["No fue posible procesar el documento", "Si MediFlow muestra un error durante el procesamiento, la información ingresada se conserva. Selecciona «Reintentar» para realizar un nuevo intento."],
+  ["Una receta u orden de examen no se interpretó correctamente", "Revisa el resultado del documento. Si MediFlow indica que necesita revisión, entra a Auditoría para consultar el documento y continuar con su revisión."],
+  ["La información extraída no coincide con el documento original", "Si la información extraída no coincide con el documento original, comprueba el resultado. Si el documento está pendiente de revisión humana, entra a Auditoría, abre Revisión Clínica y corrige los campos permitidos antes de registrar la decisión."],
+  ["Un documento quedó pendiente de revisión", "Entra a Auditoría para consultar los documentos pendientes. Si tienes esa responsabilidad, abre el documento y realiza la revisión correspondiente."],
+  ["No puedo consultar el resultado de un documento", "Si aparece el mensaje «No fue posible cargar el resultado», selecciona «Reintentar» para volver a consultar la información."],
+  ["Necesito consultar los cambios realizados a un documento", "Puedes consultar los cambios de un documento desde su resultado, seleccionando «Ver historial». También puedes entrar a «Historial» desde el menú lateral, buscar el documento por su identificador o nombre de archivo y seleccionar «Consultar historial»."],
+];
+
 describe("Ticket #76 - Centro de ayuda", () => {
   const page = HelpPageContent({});
   const pageElements = walkElements(page);
 
   it("T76-01 renderiza HelpPage con el encabezado oficial", () => {
-    const markup = renderToStaticMarkup(page);
+    const markup = renderToStaticMarkup(<MemoryRouter>{page}</MemoryRouter>);
 
     expect(markup).toContain("<h1>Centro de ayuda</h1>");
     expect(markup).toContain(
@@ -120,7 +181,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
     }
   });
 
-  it("T76-04 contiene las ocho preguntas frecuentes aprobadas", () => {
+  it("T76-04 conserva las ocho preguntas aprobadas y añade la pregunta de Historial", () => {
     const details = pageElements.filter((element) => element.type === "details");
     const questions = details.map((detail) => {
       const summary = walkElements(detail).find((element) => element.type === "summary");
@@ -133,7 +194,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
   it("T76-05 usa disclosures nativos cerrados inicialmente", () => {
     const details = pageElements.filter((element) => element.type === "details");
 
-    expect(details).toHaveLength(8);
+    expect(details).toHaveLength(9);
     for (const detail of details) {
       expect(detail.props.open).toBeUndefined();
       expect(walkElements(detail).some((element) => element.type === "summary")).toBe(true);
@@ -166,40 +227,119 @@ describe("Ticket #76 - Centro de ayuda", () => {
     expect(priorities).toEqual(["ROUTINE", "URGENT"]);
   });
 
-  it("T76-08 muestra ambas guías y permite abrirlas en tamaño completo", () => {
-    const images = pageElements.filter((element) => element.type === "img");
-    expect(images).toHaveLength(2);
+  it("T76-08 integra las dos visitas guiadas con seis pasos seleccionables", () => {
+    const guides = pageElements.filter((element) => element.type === HelpGuide);
+    expect(guides.map((guide) => guide.props.mode)).toEqual(["file", "text"]);
 
-    for (const image of images) {
-      expect(image.props.src).toMatch(/guia-(archivo|texto)\.png$/);
-      expect(image.props.alt).toEqual(expect.any(String));
-      expect(String(image.props.alt).length).toBeGreaterThan(30);
+    const expectedGuides = [
+      { mode: "file" as const, heading: "Procesar un archivo", steps: expectedFileSteps, image: "procedimiento-archivo.png" },
+      { mode: "text" as const, heading: "Procesar texto", steps: expectedTextSteps, image: "procedimiento-texto.png" },
+    ];
 
-      const matchingLinks = pageElements.filter(
-        (element) =>
-          element.type === "a" &&
-          element.props.href === image.props.src &&
-          element.props.target === "_blank" &&
-          element.props.rel === "noreferrer",
-      );
-      expect(matchingLinks).toHaveLength(2);
+    for (const guide of expectedGuides) {
+      const markup = guideMarkup(guide.mode);
+      expect(markup).toContain(`<h3>${guide.heading}</h3>`);
+      expect(markup).toContain(guide.image);
+      expect(markup.match(/<li>/g)).toHaveLength(6);
+      expect(markup.match(/class="help-guide__step"/g)).toHaveLength(6);
+      for (const step of guide.steps) expect(markup).toContain(`<strong>${step}</strong>`);
+      expect(markup).toContain("Ampliar guía");
+      expect(markup).not.toContain('role="dialog"');
     }
   });
 
+  it("marca el paso activo y actualiza el resaltado según la modalidad", () => {
+    const fileStepThree = guideMarkup("file", 2);
+    const textStepThree = guideMarkup("text", 2);
+
+    expect(fileStepThree.match(/aria-current="step"/g)).toHaveLength(1);
+    expect(fileStepThree).toContain("help-guide__highlight");
+    expect(fileStepThree).toContain("help-guide__arrow");
+    expect(textStepThree).toContain("help-guide__highlight");
+    expect(textStepThree).not.toContain("help-guide__arrow");
+  });
+
+  it("permite seleccionar individualmente un paso", () => {
+    const onStepChange = vi.fn();
+    const steps = HelpGuideSteps({ mode: "file", activeStep: 0, onStepChange });
+    const buttons = walkElements(steps).filter((element) => element.type === "button");
+
+    expect(buttons).toHaveLength(6);
+    expect(buttons[0].props["aria-current"]).toBe("step");
+    expect(buttons[1].props["aria-current"]).toBeUndefined();
+    (buttons[2].props.onClick as () => void)();
+    expect(onStepChange).toHaveBeenCalledWith(2);
+  });
+
+  it("usa el texto aprobado del paso final sin un resaltado falso", () => {
+    const markup = guideMarkup("file", 5);
+
+    expect(markup).toContain("Consulta el resultado");
+    expect(markup).toContain("Al finalizar el procesamiento, MediFlow te llevará automáticamente a «Resultado».");
+    expect(markup).not.toContain("help-guide__highlight");
+    expect(markup).not.toContain("help-guide__arrow");
+  });
+
+  it("expone un modal accesible con cierre y controles de recorrido", () => {
+    const intermediate = guideMarkup("file", 2, true);
+    const finalStep = guideMarkup("text", 5, true);
+
+    expect(intermediate).toContain('role="dialog"');
+    expect(intermediate).toContain('aria-modal="true"');
+    expect(intermediate).toContain(">Cerrar</button>");
+    expect(intermediate).toContain(">Anterior</button>");
+    expect(intermediate).toContain(">Siguiente</button>");
+    expect(intermediate).toContain("Ampliar detalle");
+    expect(finalStep).toContain(">Reiniciar</button>");
+  });
+
+  it("conecta apertura, cierre y controles del diálogo con sus acciones", () => {
+    const actions = {
+      onStepChange: vi.fn(),
+      onOpen: vi.fn(),
+      onClose: vi.fn(),
+      onPrevious: vi.fn(),
+      onNext: vi.fn(),
+      onRestart: vi.fn(),
+      onToggleDetail: vi.fn(),
+    };
+    const closedView = HelpGuideView({ mode: "file", activeStep: 0, expanded: false, detailExpanded: false, ...actions });
+    const openButton = walkElements(closedView).find((element) => textContent(element) === "Ampliar guía" && element.type === "button");
+    (openButton?.props.onClick as () => void)();
+    expect(actions.onOpen).toHaveBeenCalledOnce();
+
+    const openView = HelpGuideView({ mode: "file", activeStep: 2, expanded: true, detailExpanded: false, ...actions });
+    const buttons = walkElements(openView).filter((element) => element.type === "button");
+    for (const [label, action] of [
+      ["Cerrar", actions.onClose],
+      ["Anterior", actions.onPrevious],
+      ["Siguiente", actions.onNext],
+      ["Ampliar detalle", actions.onToggleDetail],
+    ] as const) {
+      const button = buttons.find((candidate) => textContent(candidate) === label);
+      (button?.props.onClick as () => void)();
+      expect(action).toHaveBeenCalledOnce();
+    }
+
+    const finalView = HelpGuideView({ mode: "file", activeStep: 5, expanded: true, detailExpanded: false, ...actions });
+    const restart = walkElements(finalView).find((element) => element.type === "button" && textContent(element) === "Reiniciar");
+    (restart?.props.onClick as () => void)();
+    expect(actions.onRestart).toHaveBeenCalledOnce();
+  });
+
   it("T76-09 registra /help dentro de AppLayout con HelpPage", () => {
-    const routeElements = walkElements(AppRoutes()).filter(
-      (element) => element.props.path !== undefined || element.props.element !== undefined,
+    type RouteConfig = { path?: string; element?: ReactNode; children?: RouteConfig[] };
+    const provider = AppRoutes() as ReactElement<{ router: { routes: RouteConfig[] } }>;
+    const routes = provider.props.router.routes;
+    const layoutRoute = routes.find(
+      (route) => isValidElement(route.element) && route.element.type === AppLayout,
     );
-    const layoutRoute = routeElements.find(
-      (element) => isValidElement(element.props.element) && element.props.element.type === AppLayout,
-    );
-    const helpRoute = routeElements.find((element) => element.props.path === "help");
+    const helpRoute = layoutRoute?.children?.find((route) => route.path === "help");
 
     expect(layoutRoute).toBeDefined();
     expect(helpRoute).toBeDefined();
-    expect(isValidElement(helpRoute?.props.element)).toBe(true);
-    expect((helpRoute?.props.element as ReactElement).type).toBe(HelpPage);
-    expect(walkElements(layoutRoute).some((element) => element === helpRoute)).toBe(true);
+    expect(isValidElement(helpRoute?.element)).toBe(true);
+    expect((helpRoute?.element as ReactElement).type).toBe(HelpPage);
   });
 
   it("T76-10 habilita Centro de ayuda, mantiene Configuración deshabilitada y conecta el cierre móvil", () => {
@@ -227,6 +367,77 @@ describe("Ticket #76 - Centro de ayuda", () => {
       (element) => element.props.onClick === onNavigate,
     );
     expect(clickableNode).toBeDefined();
+  });
+
+  it("explica las limitaciones del MVP sin afirmar una integración hospitalaria efectiva", () => {
+    const aboutSection = pageElements.find((element) => element.props.id === "about");
+    const aboutText = textContent(aboutSection);
+
+    expect(aboutText).toContain("datos clínicos sintéticos");
+    expect(aboutText).toContain("simula el envío de documentos a distintas áreas hospitalarias");
+    expect(aboutText).toContain("no los envía realmente ni está conectado con sistemas hospitalarios externos");
+    expect(aboutText).toContain("no sustituyen la evaluación de profesionales de salud");
+    expect(aboutText).not.toContain("envía documentos a hospitales");
+    expect(aboutText).not.toContain("atiende pacientes reales");
+  });
+
+  it("presenta exactamente los ocho problemas aprobados en el orden indicado", () => {
+    const problemsSection = pageElements.find((element) => element.props.id === "problems");
+    const problemList = walkElements(problemsSection).find(
+      (element) => element.props.className === "help-page__problem-list",
+    );
+    const problems = walkElements(problemList)
+      .filter((element) => element.type === "li")
+      .map((problem) => {
+        const elements = walkElements(problem);
+        const title = elements.find((element) => element.type === "h3");
+        const description = elements.find((element) => element.type === "p");
+        return [textContent(title), textContent(description)];
+      });
+
+    expect(problems).toEqual(expectedProblems);
+    expect(textContent(problemsSection)).not.toContain("Problemas que puedes corregir");
+    expect(textContent(problemsSection)).not.toContain("Problemas técnicos o internos");
+    expect(textContent(problemsSection)).not.toContain("Estados que requieren atención o revisión");
+
+    const problemLinks = walkElements(problemsSection)
+      .filter((element) => element.type === Link)
+      .map((element) => ({ to: element.props.to, label: textContent(element) }));
+    expect(problemLinks).toEqual([
+      { to: "/audit", label: "Auditoría" },
+      { to: "/audit", label: "Auditoría" },
+      { to: "/audit", label: "Auditoría" },
+      { to: "/history", label: "Historial" },
+    ]);
+  });
+
+  it("define navegación interna hacia Procesamiento, Auditoría e Historial", () => {
+    const routeLinks = pageElements
+      .filter((element) => element.type === Link)
+      .map((element) => ({ to: element.props.to, label: textContent(element) }));
+
+    expect(routeLinks).toEqual([
+      { to: "/processing", label: "Procesamiento" },
+      { to: "/audit", label: "Auditoría" },
+      { to: "/audit", label: "Auditoría" },
+      { to: "/audit", label: "Auditoría" },
+      { to: "/audit", label: "Auditoría" },
+      { to: "/history", label: "Historial" },
+      { to: "/history", label: "Historial" },
+    ]);
+
+    const processingAction = pageElements.find(
+      (element) => element.props.className === "help-page__section-action",
+    );
+    expect(textContent(processingAction)).toBe(
+      "Utiliza las siguientes guías o ve a Procesamiento para comenzar.",
+    );
+
+    const auditSection = pageElements.find((element) => element.props.id === "audit");
+    expect(textContent(auditSection)).toContain("acceder a Revisión Clínica");
+    expect(textContent(auditSection)).toContain("consultar el documento original");
+    expect(textContent(auditSection)).toContain("corregir los campos permitidos");
+    expect(textContent(auditSection)).toContain("aprobar o rechazar el documento");
   });
 });
 
