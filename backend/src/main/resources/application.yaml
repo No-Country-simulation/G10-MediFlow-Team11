@@ -24,6 +24,11 @@ spring:
           time_zone: UTC
     open-in-view: false # Libera conexiones a la BD rápidamente (evita saturación en HikariCP)
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB # 10MB de archivo + overhead del formulario
+
   # Formato de respuestas JSON
   jackson:
     datatype:

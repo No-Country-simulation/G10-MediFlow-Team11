@@ -4,6 +4,8 @@
 
 > Documentación técnica completa de arquitectura y contratos: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — *v1.0, Baseline approved*.
 
+> Pruebas E2E aisladas sin OCI: [`docs/local-demo.md`](./docs/local-demo.md).
+
 ---
 
 ## El problema

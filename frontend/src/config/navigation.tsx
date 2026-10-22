@@ -1,8 +1,10 @@
 import type { ReactNode } from "react"
 import {
+  House,
   FileText,
   CircleHelp,
   ClipboardCheck,
+  History,
   Settings,
 } from "lucide-react"
 
@@ -15,6 +17,18 @@ export type NavigationItem = {
 }
 
 export const PRIMARY_NAVIGATION: NavigationItem[] = [
+  {
+    label: "Inicio",
+    description: "Bienvenida y accesos principales",
+    icon: (
+      <House
+        className="app-shell__nav-icon"
+        strokeWidth={1.25}
+        aria-hidden="true"
+      />
+    ),
+    to: "/",
+  },
   {
     label: "Procesamiento",
     description: "Cargue y clasifique documentos clínicos",
@@ -40,6 +54,19 @@ export const PRIMARY_NAVIGATION: NavigationItem[] = [
       />
     ),
     to: "/audit",
+  },
+  {
+    label: "Historial",
+    description: "Consulte la trazabilidad de documentos existentes",
+    section: "Consultar",
+    icon: (
+      <History
+        className="app-shell__nav-icon"
+        strokeWidth={1.25}
+        aria-hidden="true"
+      />
+    ),
+    to: "/history",
   },
 ]
 

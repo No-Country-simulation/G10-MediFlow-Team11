@@ -122,7 +122,7 @@ export function buildExtractedDataRows(data: ExtractedData): DataRow[] {
 
   if (data.requesting_doctor?.license_number) {
     rows.push({
-      label: "Cédula profesional",
+      label: "N.º de colegiado / matrícula profesional",
       value: data.requesting_doctor.license_number,
     });
   }

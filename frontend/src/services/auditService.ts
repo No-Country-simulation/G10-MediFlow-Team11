@@ -2,6 +2,7 @@ import { env } from "../config/env";
 import { ApiError } from "./processingService";
 import type { ApiErrorResponse } from "../types/processing";
 import type { AuditQueueItem } from "../types/audit";
+import { getMockAuditQueue } from "../mocks/auditWorkflowStore";
 
 const AUDIT_QUEUE_ENDPOINT = "/api/v1/documents/audit";
 
@@ -40,10 +41,17 @@ async function readJson(response: Response): Promise<unknown> {
 export async function getAuditQueue(
   signal?: AbortSignal,
 ): Promise<AuditQueueItem[]> {
-  const response = await fetch(`${env.apiBaseUrl}${AUDIT_QUEUE_ENDPOINT}`, {
-    method: "GET",
-    signal,
-  });
+  if (env.useMocks) return getMockAuditQueue();
+  let response: Response;
+  try {
+    response = await fetch(`${env.apiBaseUrl}${AUDIT_QUEUE_ENDPOINT}`, {
+      method: "GET",
+      signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new ApiError(0, "NETWORK_ERROR", "No se pudo conectar con el Backend. Verifique que esté disponible y revise la configuración de la API.");
+  }
 
   const payload = await readJson(response);
 
