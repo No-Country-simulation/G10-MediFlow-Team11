@@ -1,0 +1,5 @@
+mediflow:
+  local-demo:
+    storage-root: ${LOCAL_DEMO_STORAGE_ROOT}
+  oci:
+    bucket-name: local-demo

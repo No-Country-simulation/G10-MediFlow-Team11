@@ -14,7 +14,7 @@ describe("buildExtractedDataRows", () => {
     expect(rows).toContainEqual({ label: "Edad", value: "45 años" });
   });
 
-  it("incluye médico responsable y cédula", () => {
+  it("incluye médico responsable y número de colegiado", () => {
     const data: ExtractedData = {
       requesting_doctor: { name: "Dra. Gómez", license_number: "MP-123" },
     };
@@ -26,7 +26,7 @@ describe("buildExtractedDataRows", () => {
       value: "Dra. Gómez",
     });
     expect(rows).toContainEqual({
-      label: "Cédula profesional",
+      label: "N.º de colegiado / matrícula profesional",
       value: "MP-123",
     });
   });

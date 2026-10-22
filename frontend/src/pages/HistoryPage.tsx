@@ -264,7 +264,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                     : null,
               },
               {
-                label: "Matrícula profesional",
+                label: "N.º de colegiado / matrícula profesional",
                 value:
                   typeof requestingDoctor?.license_number === "string"
                     ? requestingDoctor.license_number
