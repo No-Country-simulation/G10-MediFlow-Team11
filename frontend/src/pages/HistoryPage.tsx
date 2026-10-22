@@ -13,6 +13,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
 import HistoryDocumentSelector from "../components/history/HistoryDocumentSelector";
+import HistoryConfidenceCard from "../components/history/HistoryConfidenceCard";
 import {
   getDocumentTypeLabel,
   getPriorityLabel,
@@ -202,16 +203,16 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
               </time>
             </div>
           )}
-          <div className="history-page__summary-item">
+          <div className="history-page__summary-item history-page__summary-actions">
             <Link
               to={`/results/${encodeURIComponent(documentId)}`}
-              className="history-page__back-link"
+              className="history-page__summary-result-link"
             >
               <ArrowRight size={16} aria-hidden="true" />
-              <span>Ver resultado del documento</span>
+              <span>Ver resultado</span>
             </Link>
-            <Link to="/history" className="history-page__back-link">
-              <span>Seleccionar otro documento</span>
+            <Link to="/history" className="history-page__summary-list-link">
+              <span>Ver otros documentos</span>
             </Link>
           </div>
         </div>
@@ -241,6 +242,54 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
           const requestingDoctor = isRecord(extractedData?.requesting_doctor)
             ? extractedData.requesting_doctor
             : null;
+
+          const clinicalGroups = [
+            [
+              {
+                label: "Paciente",
+                value: typeof patient?.name === "string" ? patient.name : null,
+              },
+              {
+                label: "Edad",
+                value:
+                  typeof patient?.age === "number" ? `${patient.age} años` : null,
+              },
+            ],
+            [
+              {
+                label: "Médico",
+                value:
+                  typeof requestingDoctor?.name === "string"
+                    ? requestingDoctor.name
+                    : null,
+              },
+              {
+                label: "Matrícula profesional",
+                value:
+                  typeof requestingDoctor?.license_number === "string"
+                    ? requestingDoctor.license_number
+                    : null,
+              },
+            ],
+            [
+              {
+                label: "Diagnóstico principal",
+                value:
+                  typeof extractedData?.primary_diagnosis === "string"
+                    ? extractedData.primary_diagnosis
+                    : null,
+              },
+              {
+                label: "Código CIE-10",
+                value:
+                  typeof extractedData?.suggested_icd10 === "string"
+                    ? extractedData.suggested_icd10
+                    : null,
+              },
+            ],
+          ]
+            .map((group) => group.filter((field) => field.value !== null))
+            .filter((group) => group.length > 0);
 
           const medications = Array.isArray(extractedData?.medications)
             ? extractedData.medications.filter(isRecord)
@@ -440,7 +489,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                     <div className="history-page__details-grid">
                       {classification && (
                         <section
-                          className={`history-page__detail-card ${
+                          className={`history-page__detail-card history-page__detail-card--classification ${
                             entry.result.status === "APPROVED" || !confidence
                               ? "history-page__detail-card--full"
                               : ""
@@ -494,170 +543,47 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                         </section>
                       )}
 
-                      {confidence && entry.result.status !== "APPROVED" && (
-                        <section className="history-page__detail-card">
-                          <h3 className="history-page__detail-card-title">
-                            Confianza
-                          </h3>
-                          <div className="history-page__detail-card-content">
-                            {[
-                              {
-                                label: "Global",
-                                value: confidence.global,
-                              },
-                              {
-                                label: "Clasificación",
-                                value: confidence.classification,
-                              },
-                              {
-                                label: "Extracción",
-                                value: confidence.extraction,
-                              },
-                            ].map(
-                              (item) =>
-                                typeof item.value === "number" && (
-                                  <div
-                                    key={item.label}
-                                    className="history-page__detail-row"
-                                  >
-                                    <span className="history-page__detail-label">
-                                      {item.label}
-                                    </span>
-
-                                    <span className="history-page__detail-value">
-                                      {(item.value * 100).toFixed(0)}%
-                                    </span>
-                                  </div>
-                                ),
-                            )}
-                          </div>
-                        </section>
-                      )}
+                      <HistoryConfidenceCard
+                        snapshot={entry.result}
+                      />
 
                       {extractedData &&
-                        (patient ||
-                          requestingDoctor ||
-                          typeof extractedData.primary_diagnosis === "string" ||
-                          typeof extractedData.suggested_icd10 === "string" ||
+                        (clinicalGroups.length > 0 ||
                           medications.length > 0 ||
                           requestedStudies.length > 0) && (
-                          <section className="history-page__detail-card history-page__detail-card--full">
+                          <section className="history-page__detail-card history-page__detail-card--full history-page__detail-card--clinical">
                             <h3 className="history-page__detail-card-title">
                               Datos clínicos extraídos
                             </h3>
-                            <div className="history-page__detail-card-body">
-                              {patient && (
-                                <div className="history-page__patient-details">
-                                  {[
-                                    {
-                                      label: "Paciente",
-                                      value:
-                                        typeof patient.name === "string"
-                                          ? patient.name
-                                          : null,
-                                    },
-                                    {
-                                      label: "Edad",
-                                      value:
-                                        typeof patient.age === "number"
-                                          ? `${patient.age} años`
-                                          : null,
-                                    },
-                                  ]
-                                    .filter((item) => item.value !== null)
-                                    .map((item) => (
-                                      <div
-                                        key={item.label}
-                                        className="history-page__detail-row history-page__detail-row--patient"
-                                      >
-                                        <span className="history-page__detail-label">
-                                          {item.label}
-                                        </span>
+                            <div className="history-page__detail-card-body history-page__clinical-content">
+                              {clinicalGroups.length > 0 && (
+                                <div className="history-page__clinical-grid">
+                                  {clinicalGroups.map((group) => (
+                                    <div
+                                      key={group[0].label}
+                                      className="history-page__clinical-group"
+                                    >
+                                      {group.map((item) => (
+                                        <div
+                                          key={item.label}
+                                          className="history-page__detail-row history-page__detail-row--stacked"
+                                        >
+                                          <span className="history-page__detail-label">
+                                            {item.label}
+                                          </span>
 
-                                        <span className="history-page__detail-value">
-                                          {item.value}
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-
-                              {requestingDoctor && (
-                                <div className="history-page__patient-details">
-                                  {[
-                                    {
-                                      label: "Médico",
-                                      value:
-                                        typeof requestingDoctor.name ===
-                                        "string"
-                                          ? requestingDoctor.name
-                                          : null,
-                                    },
-                                    {
-                                      label: "Matrícula profesional",
-                                      value:
-                                        typeof requestingDoctor.license_number ===
-                                        "string"
-                                          ? requestingDoctor.license_number
-                                          : null,
-                                    },
-                                  ]
-                                    .filter((item) => item.value !== null)
-                                    .map((item) => (
-                                      <div
-                                        key={item.label}
-                                        className="history-page__detail-row history-page__detail-row--patient"
-                                      >
-                                        <span className="history-page__detail-label">
-                                          {item.label}
-                                        </span>
-
-                                        <span className="history-page__detail-value">
-                                          {item.value}
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-
-                              {[
-                                {
-                                  label: "Diagnóstico principal",
-                                  value:
-                                    typeof extractedData.primary_diagnosis ===
-                                    "string"
-                                      ? extractedData.primary_diagnosis
-                                      : null,
-                                },
-                                {
-                                  label: "Código CIE-10",
-                                  value:
-                                    typeof extractedData.suggested_icd10 ===
-                                    "string"
-                                      ? extractedData.suggested_icd10
-                                      : null,
-                                },
-                              ]
-                                .filter((item) => item.value !== null)
-                                .map((item) => (
-                                  <div
-                                    key={item.label}
-                                    className="history-page__patient-details"
-                                  >
-                                    <div className="history-page__detail-row history-page__detail-row--patient">
-                                      <span className="history-page__detail-label">
-                                        {item.label}
-                                      </span>
-
-                                      <span className="history-page__detail-value">
-                                        {item.value}
-                                      </span>
+                                          <span className="history-page__detail-value">
+                                            {item.value}
+                                          </span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
+                              )}
 
                               {medications.length > 0 && (
-                                <div className="history-page__detail-row history-page__detail-row--patient history-page__medications">
+                                <div className="history-page__detail-row history-page__detail-row--stacked">
                                   <span className="history-page__detail-label">
                                     Medicamentos
                                   </span>
@@ -692,7 +618,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                               )}
 
                               {requestedStudies.length > 0 && (
-                                <div className="history-page__detail-row history-page__detail-row--patient history-page__medications">
+                                <div className="history-page__detail-row history-page__detail-row--stacked">
                                   <span className="history-page__detail-label">
                                     Estudios solicitados
                                   </span>
@@ -742,7 +668,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                             </span>
                           </div>
                         ) : (
-                          <div className="history-page__detail-card-body">
+                          <div className="history-page__detail-card-body history-page__validation-findings">
                             {[
                               {
                                 title: "Campos faltantes",
@@ -761,7 +687,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                                 items.length > 0 && (
                                   <div
                                     key={title}
-                                    className="history-page__detail-row history-page__detail-row--patient"
+                                    className="history-page__detail-row history-page__detail-row--stacked"
                                   >
                                     <span className="history-page__detail-label">
                                       {title}
@@ -786,51 +712,53 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                       </section>
 
                       {routingDecision && (
-                        <section className="history-page__detail-card">
+                        <section className="history-page__detail-card history-page__detail-card--routing">
                           <h3 className="history-page__detail-card-title">
                             Enrutamiento
                           </h3>
                           <div className="history-page__detail-card-content">
-                            {[
-                              {
-                                label: "Destino",
-                                value:
-                                  typeof routingDecision.primary_destination ===
-                                  "string"
-                                    ? getRoutingDestinationLabel(
-                                        routingDecision.primary_destination,
-                                      )
-                                    : null,
-                              },
-                              {
-                                label: "Revisión pendiente",
-                                value:
-                                  typeof routingDecision.requires_human_review ===
-                                  "boolean"
-                                    ? routingDecision.requires_human_review
-                                      ? "Requerida"
-                                      : "No requerida"
-                                    : null,
-                              },
-                            ]
-                              .filter((item) => item.value !== null)
-                              .map((item) => (
-                                <div
-                                  key={item.label}
-                                  className="history-page__detail-row history-page__detail-row--patient"
-                                >
-                                  <span className="history-page__detail-label">
-                                    {item.label}
-                                  </span>
+                            <div className="history-page__routing-fields">
+                              {[
+                                {
+                                  label: "Destino",
+                                  value:
+                                    typeof routingDecision.primary_destination ===
+                                    "string"
+                                      ? getRoutingDestinationLabel(
+                                          routingDecision.primary_destination,
+                                        )
+                                      : null,
+                                },
+                                {
+                                  label: "Revisión pendiente en ese momento",
+                                  value:
+                                    typeof routingDecision.requires_human_review ===
+                                    "boolean"
+                                      ? routingDecision.requires_human_review
+                                        ? "Requerida"
+                                        : "No requerida"
+                                      : null,
+                                },
+                              ]
+                                .filter((item) => item.value !== null)
+                                .map((item) => (
+                                  <div
+                                    key={item.label}
+                                    className="history-page__detail-row history-page__detail-row--stacked"
+                                  >
+                                    <span className="history-page__detail-label">
+                                      {item.label}
+                                    </span>
 
-                                  <span className="history-page__detail-value">
-                                    {item.value}
-                                  </span>
-                                </div>
-                              ))}
+                                    <span className="history-page__detail-value">
+                                      {item.value}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
 
                             {auditReasons.length > 0 && (
-                              <div className="history-page__detail-row history-page__detail-row--patient">
+                              <div className="history-page__detail-row history-page__detail-row--stacked">
                                 <span className="history-page__detail-label">
                                   Motivos de revisión
                                 </span>
@@ -850,7 +778,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
 
                             {typeof routingDecision.justification ===
                               "string" && (
-                              <div className="history-page__detail-row history-page__detail-row--patient">
+                              <div className="history-page__detail-row history-page__detail-row--stacked">
                                 <span className="history-page__detail-label">
                                   Justificación
                                 </span>

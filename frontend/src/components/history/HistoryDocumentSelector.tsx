@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { ListFilter } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getDocumentList } from "../../services/documentListService";
 import type { DocumentListItem } from "../../types/documentList";
@@ -115,29 +114,22 @@ function HistoryDocumentSelector() {
           <label className="history-page__search-label" htmlFor={statusId}>
             Filtrar por estado
           </label>
-          <div className="history-page__status-select-wrap">
-            <ListFilter
-              className="history-page__status-select-icon"
-              size={16}
-              aria-hidden="true"
-            />
-            <select
-              id={statusId}
-              className="history-page__status-select"
-              value={status}
-              onChange={(event) => {
-                const value = event.target.value;
-                setStatus(isDocumentStatus(value) ? value : "");
-              }}
-            >
-              <option value="">Todos los estados</option>
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            id={statusId}
+            className="history-page__status-select"
+            value={status}
+            onChange={(event) => {
+              const value = event.target.value;
+              setStatus(isDocumentStatus(value) ? value : "");
+            }}
+          >
+            <option value="">Todos los estados</option>
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

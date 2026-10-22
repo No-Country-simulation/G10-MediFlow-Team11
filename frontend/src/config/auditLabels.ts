@@ -1,7 +1,7 @@
 import type { AuditReason, DocumentType } from "../types/processing";
 
 const AUDIT_REASON_LABELS: Record<AuditReason, string> = {
-  LOW_CONFIDENCE: "Confianza de extracción por debajo del umbral requerido",
+  LOW_CONFIDENCE: "El sistema tuvo dudas al analizar este documento",
   ILLEGIBLE_DOCUMENT: "Documento ilegible",
   // TODO: Confirmar con el equipo si la API enviará el detalle de los campos faltantes.
   MISSING_CRITICAL_FIELDS: "Campos obligatorios no detectados",

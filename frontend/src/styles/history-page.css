@@ -133,24 +133,6 @@
   font: inherit;
 }
 
-.history-page__status-select-wrap {
-  position: relative;
-}
-
-.history-page__status-select {
-  padding-left: calc(var(--hist-u) * 10);
-}
-
-.history-page__status-select-icon {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: calc(var(--hist-u) * 3);
-  transform: translateY(-50%);
-  color: var(--hist-muted);
-  pointer-events: none;
-}
-
 .history-page__search-input:focus-visible,
 .history-page__status-select:focus-visible,
 .history-page__clear-filters:focus-visible {
@@ -386,8 +368,49 @@
   min-width: 0;
 }
 
-.history-page__summary-item:has(> .history-page__back-link) {
+.history-page__summary-actions {
   margin-left: auto;
+  align-items: flex-start;
+  gap: calc(var(--hist-u) * 2);
+}
+
+.history-page__summary-result-link {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--hist-u) * 1.5);
+  min-height: 32px;
+  padding-inline: calc(var(--hist-u) * 3);
+  border: 1px solid var(--hist-primary);
+  border-radius: 6px;
+  color: var(--hist-primary);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.history-page__summary-result-link:hover {
+  background: rgba(26, 95, 208, 0.08);
+}
+
+.history-page__summary-list-link {
+  color: var(--hist-primary);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.history-page__summary-result-link:focus-visible,
+.history-page__summary-list-link:focus-visible {
+  outline: 2px solid var(--hist-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .history-page__summary-actions {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .history-page__summary-label {
@@ -690,6 +713,12 @@
   grid-column: 1 / -1;
 }
 
+.history-page__detail-card--classification,
+.history-page__detail-card--clinical,
+.history-page__detail-card--routing {
+  align-self: start;
+}
+
 .history-page__detail-card-title {
   margin: 0;
   padding: calc(var(--hist-u) * 3) calc(var(--hist-u) * 4);
@@ -715,7 +744,7 @@
 }
 
 .history-page__detail-label {
-  color: var(--hist-text-muted);
+  color: var(--hist-muted);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -729,31 +758,50 @@
   overflow-wrap: anywhere;
 }
 
-@media (min-width: 600px) {
-  .history-page__detail-row {
-    grid-template-columns: minmax(120px, 1fr) minmax(0, 1.7fr);
-  }
+.history-page__detail-card--classification .history-page__detail-row {
+  grid-template-columns: minmax(0, min(40%, 140px)) minmax(0, 1fr);
+  column-gap: calc(var(--hist-u) * 3);
+}
+
+.history-page__detail-row--stacked {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--hist-u);
 }
 
 .history-page__detail-card-body {
   padding: calc(var(--hist-u) * 4);
 }
 
-.history-page__patient-details {
+.history-page__clinical-content,
+.history-page__clinical-group,
+.history-page__validation-findings {
   display: flex;
   flex-direction: column;
   gap: calc(var(--hist-u) * 3);
-  margin-bottom: calc(var(--hist-u) * 4);
 }
 
-@media (min-width: 600px) {
-  .history-page__detail-row--patient {
-    grid-template-columns: 160px minmax(0, 1fr);
-  }
+.history-page__clinical-content {
+  gap: calc(var(--hist-u) * 4);
 }
 
-.history-page__medications {
-  margin-bottom: calc(var(--hist-u) * 3);
+.history-page__clinical-grid,
+.history-page__routing-fields {
+  display: grid;
+  gap: calc(var(--hist-u) * 4);
+  align-items: start;
+}
+
+.history-page__clinical-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+}
+
+.history-page__routing-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+}
+
+.history-page__clinical-grid > *,
+.history-page__routing-fields > * {
+  min-width: 0;
 }
 
 .history-page__medication-list {
@@ -805,24 +853,19 @@
   min-width: 0;
 }
 
-.history-page__detail-card-body {
-  padding: calc(var(--hist-u) * 4);
-}
-
 .history-page__storage-status {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--hist-u) * 3);
   grid-column: 1 / -1;
-  margin-top: calc(var(--hist-u) * 6);
-  padding-top: calc(var(--hist-u) * 4);
+  padding: calc(var(--hist-u) * 3) calc(var(--hist-u) * 4) 0;
   border-top: 1px solid var(--hist-border);
 }
 
 .history-page__storage-label {
-  color: var(--hist-text-muted);
-  font-size: 14px;
+  color: var(--hist-muted);
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.5;
 }
@@ -832,7 +875,7 @@
   align-items: center;
   gap: calc(var(--hist-u) * 2);
   width: fit-content;
-  padding: calc(var(--hist-u) * 1) calc(var(--hist-u) * 3);
+  padding-block: var(--hist-u);
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
