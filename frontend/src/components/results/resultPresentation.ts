@@ -19,7 +19,7 @@ const MISSING_FIELD_LABELS: Record<string, string> = {
   "patient.age": "Edad del paciente",
   "requesting_doctor.name": "Nombre del médico responsable",
   "requesting_doctor.license_number":
-    "Cédula profesional del médico responsable",
+    "N.º de colegiado / matrícula profesional",
   primary_diagnosis: "Diagnóstico principal",
   suggested_icd10: "Código CIE-10 sugerido",
 };

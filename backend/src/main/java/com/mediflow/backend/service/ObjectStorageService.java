@@ -9,6 +9,7 @@ import com.oracle.bmc.objectstorage.requests.PutObjectRequest;
 import com.oracle.bmc.objectstorage.responses.GetObjectResponse;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Profile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 @Service
+@Profile("!local-demo")
 public class ObjectStorageService {
 
     private final ObjectStorageClient client;
@@ -35,6 +37,23 @@ public class ObjectStorageService {
             byte[] content,
             String contentType
     ) {
+        put(objectKey, content, contentType, false);
+    }
+
+    public void putRawBytesIfAbsent(
+            String objectKey,
+            byte[] content,
+            String contentType
+    ) {
+        put(objectKey, content, contentType, true);
+    }
+
+    private void put(
+            String objectKey,
+            byte[] content,
+            String contentType,
+            boolean onlyIfAbsent
+    ) {
         Objects.requireNonNull(content, "El contenido es obligatorio");
 
         if (contentType == null || contentType.isBlank()) {
@@ -44,18 +63,26 @@ public class ObjectStorageService {
         }
 
         try {
-            PutObjectRequest request = PutObjectRequest.builder()
+            PutObjectRequest.Builder request = PutObjectRequest.builder()
                     .namespaceName(properties.getNamespace())
                     .bucketName(properties.getBucketName())
                     .objectName(objectKey)
                     .contentType(contentType)
                     .contentLength((long) content.length)
-                    .putObjectBody(new ByteArrayInputStream(content))
-                    .build();
+                    .putObjectBody(new ByteArrayInputStream(content));
+            if (onlyIfAbsent) {
+                request.ifNoneMatch("*");
+            }
 
-            client.putObject(request);
+            client.putObject(request.build());
 
         } catch (BmcException e) {
+            if (onlyIfAbsent && e.getStatusCode() == 412) {
+                throw new ObjectAlreadyExistsException(
+                        "El objeto OCI ya existe",
+                        e
+                );
+            }
             throw new StorageOperationException(
                     "Fallo al subir objeto a OCI",
                     e
@@ -88,6 +115,12 @@ public class ObjectStorageService {
             }
 
         } catch (BmcException e) {
+            if (isNotFound(e)) {
+                throw new ObjectNotFoundException(
+                        "Objeto OCI inexistente",
+                        e
+                );
+            }
             throw new StorageOperationException(
                     "Fallo al leer objeto de OCI",
                     e
@@ -113,11 +146,18 @@ public class ObjectStorageService {
             client.deleteObject(request);
 
         } catch (BmcException e) {
+            if (isNotFound(e)) {
+                return;
+            }
             throw new StorageOperationException(
                     "Fallo al eliminar objeto de OCI",
                     e
             );
         }
+    }
+
+    static boolean isNotFound(BmcException exception) {
+        return exception.getStatusCode() == 404;
     }
 
     public void copyWithinBucket(
@@ -156,6 +196,24 @@ public class ObjectStorageService {
                 String message,
                 Throwable cause
         ) {
+            super(message, cause);
+        }
+    }
+
+    /**
+     * El objeto no existe (HTTP 404 del SDK). No representa un fallo de
+     * permisos, red o servicio; esos siguen siendo {@link StorageOperationException}.
+     */
+    public static class ObjectNotFoundException extends StorageOperationException {
+
+        public ObjectNotFoundException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static class ObjectAlreadyExistsException extends StorageOperationException {
+
+        public ObjectAlreadyExistsException(String message, Throwable cause) {
             super(message, cause);
         }
     }

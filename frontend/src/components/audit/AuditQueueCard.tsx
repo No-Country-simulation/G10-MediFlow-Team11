@@ -83,6 +83,7 @@ function AuditQueueCard({ item, formatDate }: AuditQueueCardProps) {
   return (
     <Link
       to={getAuditReviewPath(item.document_id)}
+      state={{ documentId: item.document_id, inputType: item.input_type, fileName: item.file_name }}
       className="audit-queue__card"
       aria-label={`Revisar documento ${item.document_id}`}
     >

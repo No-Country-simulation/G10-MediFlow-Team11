@@ -11,10 +11,69 @@ mediflow-core.duckdns.org {
 mediflowia.dev {
     @reserved path /api /api/* /actuator /actuator/*
     @assets path /assets/* /brand/* /favicon.svg /icons.svg
+    @protected not path /actuator/health
+    @api_get_collection {
+        method GET
+        path /api/v1/documents /api/v1/documents/audit
+    }
+    @api_get_reserved {
+        method GET
+        path /api/v1/documents/process-text /api/v1/documents/process-file
+    }
+    @api_get_document {
+        method GET
+        path_regexp document ^/api/v1/documents/[^/]+(?:/(?:history|content))?$
+    }
+    @api_process {
+        method POST
+        path /api/v1/documents/process-text /api/v1/documents/process-file
+        header Origin https://mediflowia.dev
+    }
+    @api_review {
+        method PATCH
+        path_regexp review ^/api/v1/documents/[^/]+/review$
+        header Origin https://mediflowia.dev
+    }
+
+    # The hash is supplied by systemd on the VM; an absent value must fail validation.
+    basic_auth @protected {
+        demo {$MEDIFLOW_DEMO_PASSWORD_HASH}
+    }
 
     route {
         handle /actuator/health {
             reverse_proxy 127.0.0.1:8080
+        }
+
+        handle @api_get_collection {
+            reverse_proxy 127.0.0.1:8080
+        }
+
+        handle @api_get_reserved {
+            respond "Not found" 404
+        }
+
+        handle @api_get_document {
+            reverse_proxy 127.0.0.1:8080
+        }
+
+        handle @api_process {
+            request_body {
+                max_size 11MB
+            }
+            reverse_proxy 127.0.0.1:8080 {
+                transport http {
+                    response_header_timeout 90s
+                }
+            }
+        }
+
+        handle @api_review {
+            reverse_proxy 127.0.0.1:8080 {
+                transport http {
+                    response_header_timeout 90s
+                }
+            }
         }
 
         handle @reserved {

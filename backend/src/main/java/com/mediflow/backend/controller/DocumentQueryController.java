@@ -3,6 +3,7 @@ package com.mediflow.backend.controller;
 import com.mediflow.backend.dto.response.ApiErrorResponse;
 import com.mediflow.backend.dto.response.AuditDocumentResponse;
 import com.mediflow.backend.dto.response.DocumentHistoryResponse;
+import com.mediflow.backend.dto.response.DocumentSelectionResponse;
 import com.mediflow.backend.entity.DocumentRecord;
 import com.mediflow.backend.enums.BackendErrorCode;
 import com.mediflow.backend.enums.InputType;
@@ -36,6 +37,19 @@ public class DocumentQueryController {
         this.persistenceService = persistenceService;
         this.responseMapper = responseMapper;
         this.storageService = storageService;
+    }
+
+    @GetMapping
+    public ResponseEntity<Object> listDocuments() {
+        try {
+            List<DocumentSelectionResponse> documents = persistenceService.listDocuments().stream()
+                    .map(responseMapper::toSelectionResponse)
+                    .toList();
+            return ResponseEntity.ok(documents);
+        } catch (DataAccessException | PersistenceException exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse(BackendErrorCode.PERSISTENCE_ERROR, "No se pudieron consultar los documentos."));
+        }
     }
 
     @GetMapping("/audit")

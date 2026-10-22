@@ -3,6 +3,7 @@ package com.mediflow.backend.service;
 import com.mediflow.backend.dto.response.DocumentoCanonicoResponse;
 import com.mediflow.backend.dto.response.AuditDocumentResponse;
 import com.mediflow.backend.dto.response.DocumentHistoryResponse;
+import com.mediflow.backend.dto.response.DocumentSelectionResponse;
 import com.mediflow.backend.dto.response.NotificationResponse;
 import com.mediflow.backend.dto.response.RoutingDecisionResponse;
 import com.mediflow.backend.dto.response.StorageResponse;
@@ -34,6 +35,18 @@ public class DocumentResponseMapper {
                 document.getFileName(),
                 document.getDocumentType(),
                 document.getAuditReasons(),
+                document.getCreatedAt(),
+                document.getUpdatedAt()
+        );
+    }
+
+    public DocumentSelectionResponse toSelectionResponse(DocumentRecord document) {
+        return new DocumentSelectionResponse(
+                document.getId(),
+                document.getStatus(),
+                document.getInputType(),
+                document.getFileName(),
+                document.getDocumentType(),
                 document.getCreatedAt(),
                 document.getUpdatedAt()
         );

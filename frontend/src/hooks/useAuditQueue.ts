@@ -7,6 +7,7 @@ export type AuditQueueState = "loading" | "error" | "ready";
 export interface UseAuditQueueResult {
   state: AuditQueueState;
   items: AuditQueueItem[];
+  error: string | null;
   reload: () => void;
 }
 
@@ -22,10 +23,12 @@ function isAbortError(error: unknown): boolean {
 export function useAuditQueue(): UseAuditQueueResult {
   const [state, setState] = useState<AuditQueueState>("loading");
   const [items, setItems] = useState<AuditQueueItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [requestVersion, setRequestVersion] = useState(0);
 
   const reload = useCallback(() => {
     setState("loading");
+    setError(null);
     setRequestVersion((version) => version + 1);
   }, []);
 
@@ -40,6 +43,7 @@ export function useAuditQueue(): UseAuditQueueResult {
         }
 
         setItems(queue);
+        setError(null);
         setState("ready");
       })
       .catch((error: unknown) => {
@@ -48,6 +52,7 @@ export function useAuditQueue(): UseAuditQueueResult {
         }
 
         setItems([]);
+        setError(error instanceof Error ? error.message : "No fue posible consultar la cola de auditoría.");
         setState("error");
       });
 
@@ -57,5 +62,5 @@ export function useAuditQueue(): UseAuditQueueResult {
     };
   }, [requestVersion]);
 
-  return { state, items, reload };
+  return { state, items, error, reload };
 }

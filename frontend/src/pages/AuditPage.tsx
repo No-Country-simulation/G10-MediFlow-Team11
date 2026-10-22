@@ -54,7 +54,7 @@ function formatQueueDate(iso: string): string {
 }
 
 function AuditPage() {
-  const { state, items, reload } = useAuditQueue();
+  const { state, items, error, reload } = useAuditQueue();
 
   return (
     <div className="audit-queue">
@@ -70,7 +70,7 @@ function AuditPage() {
         {state === "loading" ? (
           <AuditQueueLoadingState />
         ) : state === "error" ? (
-          <AuditQueueErrorState onRetry={reload} />
+          <AuditQueueErrorState onRetry={reload} description={error} />
         ) : (
           <>
             {items.length > 0 && <div className="audit-queue__count" aria-live="polite">
