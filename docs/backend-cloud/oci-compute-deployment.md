@@ -2,7 +2,7 @@
 
 Esta guía documenta el despliegue y la operación de Backend, PostgreSQL e IA Core en la instancia existente `MediFlow_Core_VM`. Reutiliza el único [`compose.yaml`](../../compose.yaml), PostgreSQL de #13, Backend de #53, IA Core de #72 y el cliente Backend → IA de #30. No crea infraestructura OCI, credenciales estáticas, otro Compose ni contratos funcionales.
 
-**Entorno observado y configuración preparada:** Ubuntu 22.04 ARM64. El Caddyfile versionado en [`deploy/caddy/Caddyfile`](../../deploy/caddy/Caddyfile) conserva `mediflow-core.duckdns.org` solo para `/actuator/health` y prepara `mediflowia.dev` para el Frontend y una API funcional protegida ([guía](./oci-frontend-deployment.md)). La VM puede seguir ejecutando una revisión anterior: no declarar la API publicada ni funcional hasta verificar el Caddyfile activo, el hash privado, el Backend desplegado y el flujo externo. El [registro de evidencias](./oci-compute-deployment-evidence.md) concentra fecha, revisión desplegada, fuentes, resultados y pendientes.
+**Entorno observado y configuración preparada:** Ubuntu 22.04 ARM64. El Caddyfile versionado en [`deploy/caddy/Caddyfile`](../../deploy/caddy/Caddyfile) conserva `mediflow-core.duckdns.org` solo para `/actuator/health` y prepara `mediflowia.dev` para el Frontend y las rutas funcionales públicas del MVP ([guía](./oci-frontend-deployment.md)). La VM puede seguir ejecutando una revisión anterior: no declarar la API publicada ni funcional hasta verificar el Caddyfile activo, el Backend desplegado y el flujo externo con documentos sintéticos. El [registro de evidencias](./oci-compute-deployment-evidence.md) concentra fecha, revisión desplegada, fuentes, resultados y pendientes.
 
 Los comandos de esta guía son procedimientos para sesiones operativas autorizadas; su inclusión no acredita que se hayan ejecutado. Registrar cada nueva verificación por separado, sin confundir despliegue (#59) con validación funcional end-to-end (#56).
 
@@ -344,7 +344,7 @@ Registrar la versión y arquitectura obtenidas; no atribuirlas retrospectivament
 Caddy v2 se ejecuta en el host Ubuntu y termina TLS en `443`. La configuración de referencia es [`deploy/caddy/Caddyfile`](../../deploy/caddy/Caddyfile); se instala como `/etc/caddy/Caddyfile` y no se reproduce en otros documentos. Define dos sitios:
 
 - `mediflow-core.duckdns.org`, **dominio temporal del entorno de demostración del MVP**, no una solución definitiva de producción: solo `/actuator/health` llega al Backend; las demás rutas devuelven `404`.
-- `mediflowia.dev`: el Caddyfile versionado sirve el Frontend bajo HTTP Basic y permite exclusivamente las rutas y métodos de la [guía del Frontend](./oci-frontend-deployment.md#acceso-privado-de-la-demostración). `/actuator/health` sigue público y lo demás queda denegado.
+- `mediflowia.dev`: el Caddyfile versionado sirve el Frontend públicamente y permite exclusivamente las rutas y métodos de la [guía del Frontend](./oci-frontend-deployment.md#acceso-público-de-la-demostración). `/actuator/health` sigue público y lo demás queda denegado.
 
 HTTP redirige a HTTPS (`308`, comprobado en DuckDNS). Backend permanece en `127.0.0.1:8080`, IA Core en `127.0.0.1:8000` y PostgreSQL en `127.0.0.1:5432`. Hasta aplicar y verificar la nueva configuración, la API activa de la VM permanece bloqueada. Un `200` interno de auditoría y un `404` público son compatibles con ese estado anterior.
 
@@ -371,8 +371,8 @@ caddy_preparar() {
   sudoedit /etc/caddy/Caddyfile.candidate || return 1
   sudo cp --attributes-only --preserve=all "$caddy_backup/Caddyfile" /etc/caddy/Caddyfile.candidate || return 1
   sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile.candidate || return 1
-  sudo caddy validate --envfile /etc/caddy/mediflow-demo.env --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || return 1
-  adapted=$(sudo bash -c 'set -a; . /etc/caddy/mediflow-demo.env; exec caddy adapt --config /etc/caddy/Caddyfile.candidate --adapter caddyfile') || return 1
+  sudo caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || return 1
+  adapted=$(sudo caddy adapt --config /etc/caddy/Caddyfile.candidate --adapter caddyfile) || return 1
   printf '%s' "$adapted" | python3 -c '
 import json
 import sys
@@ -449,7 +449,7 @@ caddy_aplicar() {
     echo 'Confirmación no válida: no se aplicó nada.' >&2
     return 1
   fi
-  sudo caddy validate --envfile /etc/caddy/mediflow-demo.env --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || return 1
+  sudo caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || return 1
   sudo cmp -s -- /etc/caddy/Caddyfile "$caddy_backup/Caddyfile"
   cmp_status=$?
   if [ "$cmp_status" -eq 1 ]; then
@@ -464,11 +464,11 @@ caddy_aplicar() {
     return 1
   }
   if ! sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile \
-     || ! sudo caddy validate --envfile /etc/caddy/mediflow-demo.env --config /etc/caddy/Caddyfile --adapter caddyfile \
+     || ! sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile \
      || ! sudo systemctl reload caddy; then
     echo 'Fallo tras sustituir el Caddyfile: restaurando el respaldo.' >&2
     caddy_instalar "$caddy_backup/Caddyfile" || return 1
-    sudo caddy validate --envfile /etc/caddy/mediflow-demo.env --config /etc/caddy/Caddyfile --adapter caddyfile || return 1
+    sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || return 1
     sudo systemctl reload caddy
     return 1
   fi
@@ -496,7 +496,7 @@ sudo rm -- /etc/caddy/Caddyfile.candidate
 
 Conservar el respaldo hasta completar las comprobaciones externas de esta sección: health `200`, redirección `308` y ruta funcional `404` en DuckDNS, y las verificaciones de `mediflowia.dev` de la [guía del Frontend](./oci-frontend-deployment.md#5-verificación). Si falla alguna, diagnosticar y restaurar el archivo respaldado, validarlo y recargarlo con los mismos pasos; no reiniciar Caddy a ciegas ni ampliar rutas. Una validación fallida del candidato no altera la configuración activa.
 
-Mantener esa restricción hasta completar los prerrequisitos de la [guía del Frontend](./oci-frontend-deployment.md#acceso-privado-de-la-demostración): Caddy compatible y validado, secreto privado en el servicio, Backend actualizado, validación del candidato y pruebas externas. No ampliar el proxy a `/api/v1/*` ni a todo Actuator.
+Mantener esa restricción hasta completar los prerrequisitos de la [guía del Frontend](./oci-frontend-deployment.md#acceso-público-de-la-demostración): Caddy compatible y validado, Backend actualizado, controles de consumo de Gemini, validación del candidato y pruebas externas. No ampliar el proxy a `/api/v1/*` ni a todo Actuator.
 
 La renovación futura del certificado y la estrategia de actualización DuckDNS requieren verificación separada; no incluir tokens ni claves privadas en el registro. El Caddyfile preparado limita multipart a 11 MB, espera hasta 90 segundos por cabeceras en escritura y exige origen del Frontend en POST/PATCH; comprobarlo en la versión instalada antes de activar. El health público no prueba ese procesamiento.
 

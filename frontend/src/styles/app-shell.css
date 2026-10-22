@@ -165,6 +165,15 @@
   background: var(--mediflow-shell-page-background);
 }
 
+.app-shell__demo-notice {
+  margin: 24px 0 0;
+  color: var(--mediflow-shell-text);
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.7;
+  text-align: center;
+}
+
 .app-shell__sidebar {
   position: absolute;
   top: 0;

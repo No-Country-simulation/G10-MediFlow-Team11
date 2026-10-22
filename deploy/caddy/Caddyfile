@@ -11,7 +11,6 @@ mediflow-core.duckdns.org {
 mediflowia.dev {
     @reserved path /api /api/* /actuator /actuator/*
     @assets path /assets/* /brand/* /favicon.svg /icons.svg
-    @protected not path /actuator/health
     @api_get_collection {
         method GET
         path /api/v1/documents /api/v1/documents/audit
@@ -33,11 +32,6 @@ mediflowia.dev {
         method PATCH
         path_regexp review ^/api/v1/documents/[^/]+/review$
         header Origin https://mediflowia.dev
-    }
-
-    # The hash is supplied by systemd on the VM; an absent value must fail validation.
-    basic_auth @protected {
-        demo {$MEDIFLOW_DEMO_PASSWORD_HASH}
     }
 
     route {

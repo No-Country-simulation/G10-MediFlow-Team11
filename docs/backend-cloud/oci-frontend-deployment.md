@@ -4,11 +4,11 @@ Guía para publicar y actualizar la aplicación React/Vite en `https://mediflowi
 
 La configuración de Caddy es [`deploy/caddy/Caddyfile`](../../deploy/caddy/Caddyfile):
 
-- `mediflowia.dev` sirve la SPA con fallback a `index.html` y publica solo los métodos y rutas de la API enumerados en la sección 4, bajo HTTP Basic sobre HTTPS. `/actuator/health` sigue público; el resto de Actuator y de la API responde `404` después del control de acceso.
+- `mediflowia.dev` sirve públicamente la SPA con fallback a `index.html` y publica solo los métodos y rutas de la API enumerados en la sección 4. `/actuator/health` sigue disponible; el resto de Actuator y las rutas de API ajenas a la allowlist responden `404`.
 - `mediflow-core.duckdns.org` expone únicamente `/actuator/health`.
 - El directorio del release activo se fija en dos directivas `root` del sitio `mediflowia.dev`.
 
-Las implementaciones de #25, #31, #22 y #96 están integradas en `develop`. Esto acredita código disponible, **no** que la revisión actual de la VM tenga esos controladores ni que el flujo Frontend → Backend → IA/OCI/PostgreSQL funcione allí. El Caddyfile versionado prepara el acceso protegido, pero no acredita su aplicación en OCI. Hasta validar versión de Caddy, secreto privado, revisión desplegada y pruebas externas, conservar la API activa bloqueada en la VM.
+Las implementaciones de #25, #31, #22 y #96 están integradas en `develop`. Esto acredita código disponible, **no** que la revisión actual de la VM tenga esos controladores ni que el flujo Frontend → Backend → IA/OCI/PostgreSQL funcione allí. El Caddyfile versionado prepara el acceso público por HTTPS, pero no acredita su aplicación en OCI. Hasta validar Caddy, revisión desplegada y pruebas externas, conservar la API activa bloqueada en la VM.
 
 ## 1. Requisitos y configuración del build
 
@@ -112,22 +112,15 @@ Si el build incorpora otros archivos públicos, añadirlos al comando `cp` y a l
 
 ## 4. Activación del release
 
-### Acceso privado de la demostración
+### Acceso público de la demostración
 
-La allowlist solo reduce superficie; **no autentica**. `mediflowia.dev` exige HTTP Basic a toda la SPA y a la API salvo `/actuator/health`. Se admite únicamente una cuenta de demostración (`demo`) para datos sintéticos. La contraseña se comparte por un canal privado, se rota al terminar la demostración y nunca se guarda en Git ni en `VITE_*`. HTTPS es obligatorio; no habilitar credenciales para datos clínicos reales. Los `POST` y `PATCH` exigen además `Origin: https://mediflowia.dev` para impedir escrituras desde otro origen con credenciales que el navegador ya haya almacenado. No habilitar CORS para otros orígenes.
+`mediflowia.dev` es público y debe recibir **exclusivamente documentos sintéticos**. El aviso discreto en el Frontend recuerda que no se debe ingresar información clínica real. La allowlist reduce la superficie expuesta; **no autentica ni limita la frecuencia**. HTTPS protege el transporte. Los `POST` y `PATCH` exigen `Origin: https://mediflowia.dev` para rechazar solicitudes de navegadores desde otros sitios; clientes automatizados pueden falsificar esa cabecera. No habilitar CORS para otros orígenes.
 
-Antes de preparar el candidato en la VM, comprobar `caddy version`: esta configuración usa `basic_auth` (nombre disponible desde Caddy **2.8**) y `request_body max_size`; confirmar ambos con `caddy validate` en la versión instalada. Crear allí una contraseña aleatoria y su hash con `caddy hash-password`, sin registrarla en terminales compartidas ni en evidencias. Guardar solo el hash en `/etc/caddy/mediflow-demo.env` como `MEDIFLOW_DEMO_PASSWORD_HASH='HASH_BCRYPT'`, propiedad `root:caddy`, modo `0640`; comprobar que `caddy` puede leer el archivo. Instalar un drop-in de systemd para `caddy.service` con `EnvironmentFile=/etc/caddy/mediflow-demo.env`; comprobar con `systemctl cat caddy` y `systemctl show caddy -p EnvironmentFiles` sin imprimir el valor. Esta es configuración privada del host. Si el archivo falta, está vacío o Caddy no puede leerlo, **no aplicar la configuración nueva**. La primera incorporación de `EnvironmentFile` requiere `systemctl daemon-reload` y un reinicio controlado de Caddy para cargar el entorno; coordinarlo con la ventana de despliegue y comprobar HTTPS/health inmediatamente. Las rotaciones siguientes también requieren recargar el entorno del servicio y validar el candidato antes de activarlo.
+Antes de preparar el candidato en la VM, comprobar `caddy version` y validar `request_body max_size` y los matchers con ese binario. Confirmar con el responsable del entorno que los documentos ya almacenados y los usados en la demostración son sintéticos; la lectura pública de `/content` expone los originales existentes. El procesamiento público puede consumir la cuota y el presupuesto de Gemini mediante solicitudes repetidas, aun usando datos sintéticos. El límite de tamaño y la allowlist no son protección contra volumen. Antes de activar, revisar cuota/presupuesto y alertas del servicio Gemini, observar solicitudes y errores en los logs existentes y tener listo el rollback del Caddyfile para cerrar la API si aparece abuso. No registrar contenido de documentos ni claves en logs o evidencias.
 
-El drop-in contiene únicamente esta referencia (sin el hash):
+El Caddy estándar no ofrece en esta configuración un límite de solicitudes por IP por intervalo. `max_conns_per_host` limita conexiones simultáneas al Backend, pero no la frecuencia total ni el consumo de Gemini. Una limitación real necesita un control de cuota en Backend o un componente externo y pruebas de concurrencia, reinicios y respuestas `429`; tratarla como tarea independiente antes de prometer resistencia a tráfico automatizado. Para esta demostración, conservar la ventana supervisada y el cierre operativo de la API como medida de contención.
 
-```ini
-[Service]
-EnvironmentFile=/etc/caddy/mediflow-demo.env
-```
-
-`caddy validate --envfile /etc/caddy/mediflow-demo.env --config ... --adapter caddyfile` permite validar el candidato con el mismo hash privado sin imprimirlo. El procedimiento de la guía de Compute usa `caddy adapt` para revisar los dominios: ejecutarlo con el mismo entorno privado (por ejemplo, una shell root que cargue ese archivo y ejecute `caddy adapt`), sin publicar el JSON adaptado, pues incluye el hash. La configuración activa antigua se conserva si cualquiera de estos pasos falla.
-
-Rutas permitidas en `mediflowia.dev` (todas bajo autenticación, sin prefijo ni método adicional):
+Rutas públicas permitidas en `mediflowia.dev` (sin prefijo ni método adicional):
 
 | Método | Ruta | Uso del Frontend |
 | --- | --- | --- |
@@ -148,13 +141,13 @@ El release activo es el que indican las dos directivas `root` del sitio `mediflo
    if ($roots.Count -eq 2 -and @($roots | Sort-Object -Unique).Count -eq 1 -and $roots[0] -eq "/srv/mediflow/frontend/releases/$releaseId") { "ROOT_OK=$($roots[0])" } else { throw "Las directivas root no coinciden con el release: $($roots -join ', ')" }
    ```
 
-2. Aplicar el Caddyfile versionado en el host con el procedimiento de [Caddy v2: configuración y exposición actual](./oci-compute-deployment.md#caddy-v2-configuración-y-exposición-actual): etapa 1 (`caddy_preparar`: respaldo protegido, candidato con el contenido íntegro del archivo, comprobación de dominios y `diff` contra el activo) y, tras revisar el `diff`, etapa 2 (`caddy_aplicar`: confirmación explícita, validación y `reload`). Para este candidato, usar el entorno privado en cada `caddy validate` y `caddy adapt` como se describe arriba; comprobar que el servicio lo cargó antes de recargar. Si el archivo se copió desde Windows, normalizar antes los finales de línea (`sed -i 's/\r$//' ARCHIVO`) para que el `diff` muestre solo cambios reales. La diferencia prevista incluye autenticación, allowlist, límites y ruta del release; revisar cada una.
+2. Aplicar el Caddyfile versionado en el host con el procedimiento de [Caddy v2: configuración y exposición actual](./oci-compute-deployment.md#caddy-v2-configuración-y-exposición-actual): etapa 1 (`caddy_preparar`: respaldo protegido, candidato con el contenido íntegro del archivo, comprobación de dominios y `diff` contra el activo) y, tras revisar el `diff`, etapa 2 (`caddy_aplicar`: confirmación explícita, validación y `reload`). Si el archivo se copió desde Windows, normalizar antes los finales de línea (`sed -i 's/\r$//' ARCHIVO`) para que el `diff` muestre solo cambios reales. La diferencia prevista incluye acceso público, allowlist, límites y ruta del release; revisar cada una.
 3. Para recargar Caddy no se reinicia Docker ni se toca PostgreSQL.
 
 Restricciones al modificar el Caddyfile:
 
-- Conservar `@reserved` (`/api`, `/api/*`, `/actuator`, `/actuator/*`) como denegación final y verificar la autenticación. No publicar `/api/v1/*` de forma indiscriminada.
-- El control compartido es solo para una demostración con datos sintéticos ([`ARCHITECTURE.md` §15](../ARCHITECTURE.md#15-alcance-y-exclusiones-fuera-de-alcance-del-mvp)).
+- Conservar `@reserved` (`/api`, `/api/*`, `/actuator`, `/actuator/*`) como denegación final. No publicar `/api/v1/*` de forma indiscriminada.
+- Usar solo datos sintéticos ([`ARCHITECTURE.md` §15](../ARCHITECTURE.md#15-alcance-y-exclusiones-fuera-de-alcance-del-mvp)).
 - Mantener `8080`, `8000` y `5432` sin exposición pública (sección 5).
 
 ## 5. Verificación
@@ -162,23 +155,23 @@ Restricciones al modificar el Caddyfile:
 En PowerShell de Windows, externo a la VM, sin `-k` ni desactivar la validación TLS:
 
 ```powershell
-curl.exe -sS --max-time 15 -o NUL -w "FRONTEND_SIN_CREDENCIALES=%{http_code}`n" https://mediflowia.dev/
+curl.exe -sS --max-time 15 -o NUL -w "FRONTEND_HOME=%{http_code}`n" https://mediflowia.dev/
 curl.exe -sS --max-time 15 -o NUL -w "MEDIFLOW_HEALTH=%{http_code}`n" https://mediflowia.dev/actuator/health
 curl.exe -sS --max-time 15 -o NUL -w "DUCKDNS_HEALTH=%{http_code}`n" https://mediflow-core.duckdns.org/actuator/health
-curl.exe -sS --max-time 15 -o NUL -w "API_SIN_CREDENCIALES=%{http_code}`n" https://mediflowia.dev/api/v1/documents/audit
+curl.exe -sS --max-time 15 -o NUL -w "API_AUDIT=%{http_code}`n" https://mediflowia.dev/api/v1/documents/audit
 curl.exe -sS --max-time 15 -o NUL -w "DUCKDNS_API_BLOQUEADA=%{http_code}`n" https://mediflow-core.duckdns.org/api/v1/documents
 ```
 
-Con la configuración nueva aplicada se esperan `401`, `200`, `200`, `401` y `404` respectivamente. Si la VM conserva la configuración anterior, la API puede seguir devolviendo `404`: registrar la revisión activa antes de interpretar resultados. Para verificar con credenciales, usar un almacén privado o ingreso interactivo de `curl`; no poner la contraseña en la línea de comandos ni en evidencias. Comprobar `200` en `/`, `/processing` y en las lecturas permitidas con una cuenta autorizada; `404` en `/actuator/env`, rutas ajenas a la tabla y métodos incorrectos, y rechazo de POST/PATCH sin el `Origin` esperado. Ejecutar una solicitud sintética solo cuando Backend, IA y OCI estén autorizados y actualizados. Un `401` en recursos privados y un `404` en DuckDNS no demuestran el flujo funcional.
+Con la configuración nueva y un Backend actualizado se esperan `200`, `200`, `200`, `200` y `404` respectivamente (la cola puede estar vacía). Si la VM conserva una revisión anterior, la API puede seguir devolviendo `404`: registrar la revisión activa antes de interpretar resultados. Comprobar `200` en `/processing` y en las lecturas permitidas; `404` en `/actuator/env`, rutas ajenas a la tabla y métodos incorrectos, y rechazo de POST/PATCH sin el `Origin` esperado. Ejecutar una solicitud sintética solo cuando Backend, IA y OCI estén autorizados y actualizados. Un `200` en health o HTML no demuestra el flujo funcional.
 
-Verificar también el JS del release publicado con credenciales, usando el nombre real del build y no el de versiones anteriores (desde `frontend/`):
+Verificar también el JS del release publicado, usando el nombre real del build y no el de versiones anteriores (desde `frontend/`):
 
 ```powershell
 $js = (Get-ChildItem .\dist\assets\index-*.js).Name
-curl.exe -sS --max-time 15 -o NUL -w "FRONTEND_JS_SIN_CREDENCIALES=%{http_code}`n" "https://mediflowia.dev/assets/$js"
+curl.exe -sS --max-time 15 -o NUL -w "FRONTEND_JS=%{http_code} %{content_type}`n" "https://mediflowia.dev/assets/$js"
 ```
 
-Debe devolver `401` sin credenciales y `200` con `text/javascript` con credenciales. Un `200` en el HTML no prueba el renderizado: abrir `https://mediflowia.dev` en el navegador, comprobar la navegación, recargar `/processing` y revisar la consola.
+Debe devolver `200` con `text/javascript`. Un `200` en el HTML no prueba el renderizado: abrir `https://mediflowia.dev` en el navegador, comprobar la navegación, recargar `/processing`, confirmar el aviso de datos sintéticos y revisar la consola.
 
 Verificar en la VM que los servicios internos siguen sin exposición pública:
 
@@ -221,7 +214,7 @@ Sustituir el marcador por la ruta validada y ejecutar:
   }
   sudo test -f "$backup"
   sudo test -f "$active"
-  sudo caddy validate --envfile /etc/caddy/mediflow-demo.env --config "$backup" --adapter caddyfile
+  sudo caddy validate --config "$backup" --adapter caddyfile
   diff_status=0
   sudo diff -u "$backup" "$active" || diff_status=$?
   if [ "$diff_status" -gt 1 ]; then
@@ -237,14 +230,14 @@ Sustituir el marcador por la ruta validada y ejecutar:
     echo "No se pudo sustituir el Caddyfile: el activo no se modificó y no requiere recuperación (copia previa: $rescue)." >&2
     exit 1
   fi
-  if ! sudo caddy validate --envfile /etc/caddy/mediflow-demo.env --config "$active" --adapter caddyfile || \
+  if ! sudo caddy validate --config "$active" --adapter caddyfile || \
      ! sudo systemctl reload caddy; then
     echo 'Rollback fallido: restaurando la configuración que estaba activa.' >&2
     if ! install_atomic "$rescue"; then
       echo "INTERVENCIÓN MANUAL: no se pudo restaurar la configuración previa. El Caddyfile activo contiene el respaldo, que no validó o no recargó; la configuración anterior está en $rescue." >&2
       exit 1
     fi
-    if sudo caddy validate --envfile /etc/caddy/mediflow-demo.env --config "$active" --adapter caddyfile && sudo systemctl reload caddy; then
+    if sudo caddy validate --config "$active" --adapter caddyfile && sudo systemctl reload caddy; then
       echo "Configuración previa recuperada y recargada (copia: $rescue)." >&2
     else
       echo "INTERVENCIÓN MANUAL: se restauró la configuración previa (copia: $rescue), pero no validó o no recargó. Revisar $active y el estado de Caddy." >&2
