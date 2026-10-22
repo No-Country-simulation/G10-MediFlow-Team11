@@ -7,6 +7,11 @@ import {
 import type { DocumentHistoryApiResponse } from "../types/history";
 
 export const historyMocks: Record<string, DocumentHistoryApiResponse> = {
+  // RECEIVED: el primer resultado confirmado todavía no existe.
+  "DOC-2026-0005": {
+    document_id: "DOC-2026-0005",
+    entries: [],
+  },
   "DOC-2026-0001": {
     document_id: "DOC-2026-0001",
     entries: [

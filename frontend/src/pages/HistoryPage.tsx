@@ -3,6 +3,7 @@ import { getDocumentHistory } from "../services/historyService";
 import type { DocumentHistoryResponse } from "../types/history";
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronDown,
   CircleCheck,
   CircleAlert,
@@ -30,6 +31,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 type HistoryDocumentViewProps = {
   documentId: string;
 };
+
+export function HistoryUnavailableState({
+  message,
+  error = false,
+  onRetry,
+}: {
+  message: string;
+  error?: boolean;
+  onRetry?: () => void;
+}) {
+  return (
+    <div
+      className={`history-page__state history-page__state--${error ? "error" : "info"}`}
+      role={error ? "alert" : "status"}
+    >
+      <p>{message}</p>
+      {onRetry && (
+        <button type="button" className="history-page__retry" onClick={onRetry}>
+          Reintentar
+        </button>
+      )}
+      <Link to="/history" className="history-page__back-link">
+        <ArrowLeft size={16} aria-hidden="true" />
+        <span>Volver al listado de documentos</span>
+      </Link>
+    </div>
+  );
+}
 
 function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
   const [history, setHistory] = useState<DocumentHistoryResponse | null>(null);
@@ -87,60 +116,37 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="history-page__loading" role="status" aria-live="polite">
-        <span className="history-page__spinner" aria-hidden="true" />
-        <p>Cargando historial del documento...</p>
-      </div>
-    );
-  }
-
   if (error) {
     return (
-      <div
-        className="history-page__state history-page__state--error"
-        role="alert"
-      >
-        <p>{error}</p>
-        <button
-          type="button"
-          className="history-page__retry"
-          onClick={() => {
-            setLoading(true);
-            setError(null);
-            setHistory(null);
-            setCurrentResult(null);
-            setSelectedEvent(null);
-            setActiveTab("summary");
-            setReloadCount((count) => count + 1);
-          }}
-        >
-          Reintentar
-        </button>
-      </div>
+      <HistoryUnavailableState
+        message={error}
+        error
+        onRetry={() => {
+          setLoading(true);
+          setError(null);
+          setHistory(null);
+          setCurrentResult(null);
+          setSelectedEvent(null);
+          setActiveTab("summary");
+          setReloadCount((count) => count + 1);
+        }}
+      />
     );
   }
 
   if (!history) {
     return (
-      <div
-        className="history-page__state history-page__state--info"
-        role="status"
-      >
-        <p>No se encontró el historial del documento {documentId}.</p>
-      </div>
+      <HistoryUnavailableState
+        message={`No se encontró el historial del documento ${documentId}.`}
+      />
     );
   }
 
   if (history.entries.length === 0) {
     return (
-      <div
-        className="history-page__state history-page__state--info"
-        role="status"
-      >
-        <p>El documento {documentId} todavía no tiene eventos registrados.</p>
-      </div>
+      <HistoryUnavailableState
+        message={`El documento ${documentId} todavía no tiene eventos registrados.`}
+      />
     );
   }
 
@@ -201,8 +207,8 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
               to={`/results/${encodeURIComponent(documentId)}`}
               className="history-page__back-link"
             >
-              <ArrowLeft size={16} aria-hidden="true" />
-              <span>Volver al resultado</span>
+              <ArrowRight size={16} aria-hidden="true" />
+              <span>Ver resultado del documento</span>
             </Link>
             <Link to="/history" className="history-page__back-link">
               <span>Seleccionar otro documento</span>

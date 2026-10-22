@@ -3,12 +3,12 @@ import type { DocumentListApiItem } from "../types/documentList";
 export const documentListMocks: DocumentListApiItem[] = [
   {
     document_id: "DOC-2026-0005",
-    status: "PROCESSED",
+    status: "RECEIVED",
     input_type: "TEXT",
     file_name: null,
     document_type: null,
     created_at: "2026-10-13T08:00:00Z",
-    updated_at: "2026-10-13T08:05:00Z",
+    updated_at: "2026-10-13T08:00:00Z",
   },
   {
     document_id: "DOC-2026-0004",

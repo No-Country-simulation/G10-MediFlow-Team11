@@ -293,6 +293,12 @@
   color: var(--hist-primary);
 }
 
+.history-page__state .history-page__back-link {
+  display: flex;
+  width: fit-content;
+  margin-top: calc(var(--hist-u) * 3);
+}
+
 .history-page__summary {
   margin-bottom: calc(var(--hist-u) * 6);
 }
