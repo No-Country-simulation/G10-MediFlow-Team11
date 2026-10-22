@@ -7,6 +7,7 @@ import {
 } from "../mocks/resultMocks";
 import type { ProcessingResponse } from "../types/processing";
 import { ApiError } from "./processingService";
+import { getMockWorkflowResult } from "../mocks/auditWorkflowStore";
 
 const mockResults: ProcessingResponse[] = [
   processedResultMock,
@@ -40,6 +41,8 @@ export async function getDocumentResult(
   documentId: string,
 ): Promise<ProcessingResponse | null> {
   if (env.useMocks) {
+    const workflowResult = getMockWorkflowResult(documentId);
+    if (workflowResult) return workflowResult;
     const result = mockResults.find(
       (document) => document.document_id === documentId,
     );

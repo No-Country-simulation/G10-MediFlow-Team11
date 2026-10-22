@@ -51,7 +51,7 @@ export function getMissingFieldLabel(field: string): string {
     "patient.name": "Nombre del paciente",
     "patient.age": "Edad del paciente",
     "requesting_doctor.name": "Médico solicitante",
-    "requesting_doctor.license_number": "Matrícula profesional del médico",
+    "requesting_doctor.license_number": "N.º de colegiado / matrícula profesional",
     primary_diagnosis: "Diagnóstico principal",
     suggested_icd10: "Código CIE-10 sugerido",
     medications: "Medicamentos",

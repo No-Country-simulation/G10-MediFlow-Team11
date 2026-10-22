@@ -9,6 +9,7 @@ import com.oracle.bmc.objectstorage.requests.PutObjectRequest;
 import com.oracle.bmc.objectstorage.responses.GetObjectResponse;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Profile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 @Service
+@Profile("!local-demo")
 public class ObjectStorageService {
 
     private final ObjectStorageClient client;

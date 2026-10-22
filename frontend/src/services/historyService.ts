@@ -4,13 +4,14 @@ import { ApiError } from "./processingService";
 import { historyMocks } from "../mocks/historyMocks";
 import type { DocumentHistoryApiResponse } from "../types/history";
 import { adaptDocumentHistory } from "../utils/historyAdapter";
+import { getMockWorkflowHistory } from "../mocks/auditWorkflowStore";
 
 export async function getDocumentHistory(
   documentId: string,
   signal?: AbortSignal,
 ): Promise<DocumentHistoryResponse | null> {
   if (env.useMocks) {
-    const history = historyMocks[documentId];
+    const history = getMockWorkflowHistory(documentId) ?? historyMocks[documentId];
 
     return history ? adaptDocumentHistory(structuredClone(history)) : null;
   }

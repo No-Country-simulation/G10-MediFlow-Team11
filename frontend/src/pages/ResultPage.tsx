@@ -19,19 +19,6 @@ import { env } from "../config/env";
 import "../styles/result-page.css";
 import "../styles/result-cards.css";
 
-function getDocumentExtension(mimeType: string): string {
-  switch (mimeType) {
-    case "application/pdf":
-      return ".pdf";
-    case "image/png":
-      return ".png";
-    case "image/jpeg":
-      return ".jpg";
-    default:
-      return "";
-  }
-}
-
 interface ResultStateMessageProps {
   title: string;
   description?: string;
@@ -204,15 +191,7 @@ function ResultPage() {
     : null;
   const isTextSource = currentViewerState?.status === "text";
   const sourceLabels = getDocumentSourceLabels(isTextSource);
-  const sourceName =
-    sourceLabels.subtitle ??
-    (result
-      ? `${result.document_id}${
-          currentViewerState?.status === "ready"
-            ? getDocumentExtension(currentViewerState.mimeType)
-            : ""
-        }`
-      : "");
+  const sourceName = sourceLabels.subtitle ?? "Archivo original";
 
   return (
     <div className="result-page">
@@ -292,10 +271,8 @@ function ResultPage() {
                     storage={result.storage}
                   />
                   {result.status === "NEEDS_AUDIT" && (
-                    // Issue #22 registrará /audit/:documentId/review; entonces
-                    // este enlace debe abrir la revisión de este documento.
-                    <Link className="result-audit-link" to="/audit">
-                      Ir a cola de auditoría
+                    <Link className="result-audit-link" to={`/audit/${encodeURIComponent(result.document_id)}/review`}>
+                      Revisar documento
                     </Link>
                   )}
                 </div>
