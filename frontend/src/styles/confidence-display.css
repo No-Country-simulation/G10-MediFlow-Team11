@@ -1,0 +1,106 @@
+.confidence-display {
+  --confidence-primary: var(--res-primary, var(--hist-primary, #1a5fd0));
+  --confidence-warning: var(--res-attention-text, #b84e00);
+  --confidence-text: var(--res-text, var(--hist-text, #1a1a1a));
+  --confidence-muted: #666666;
+  --confidence-surface: var(--res-surface, var(--hist-surface, #ffffff));
+  --confidence-track: #d3d3d3;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  background: var(--confidence-surface);
+}
+
+.confidence-display__header,
+.confidence-display__label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.confidence-display__title {
+  margin: 0;
+  color: var(--confidence-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.confidence-display__note {
+  margin: 0;
+  color: var(--confidence-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.confidence-display__item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.confidence-display__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.confidence-display__label,
+.confidence-display__value {
+  color: var(--confidence-text);
+  font-size: 12.25px;
+  line-height: 18px;
+}
+
+.confidence-display__value {
+  flex-shrink: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.confidence-display__item--global .confidence-display__label {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.confidence-display__item--global .confidence-display__value {
+  font-size: 28px;
+  line-height: 32px;
+}
+
+.confidence-display__track {
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--confidence-track);
+}
+
+.confidence-display__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--confidence-primary);
+}
+
+.confidence-display__item--warning .confidence-display__value,
+.confidence-display__warning {
+  color: var(--confidence-warning);
+}
+
+.confidence-display__item--warning .confidence-display__fill {
+  background: var(--confidence-warning);
+}
+
+.confidence-display__warning {
+  font-size: 12.25px;
+  font-weight: 600;
+  line-height: 18px;
+}

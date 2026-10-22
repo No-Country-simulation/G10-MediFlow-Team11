@@ -1,3 +1,5 @@
+import { auditReasonLabel } from "../config/auditLabels";
+
 export function getDocumentTypeLabel(value: unknown): string {
   const labels: Record<string, string> = {
     PRESCRIPTION: "Receta médica",
@@ -33,8 +35,9 @@ export function getRoutingDestinationLabel(value: unknown): string {
 }
 
 export function getAuditReasonLabel(value: string): string {
+  if (value === "LOW_CONFIDENCE") return auditReasonLabel(value);
+
   const labels: Record<string, string> = {
-    LOW_CONFIDENCE: "Baja confianza",
     ILLEGIBLE_DOCUMENT: "Documento ilegible",
     MISSING_CRITICAL_FIELDS: "Faltan campos críticos",
     INCONSISTENT_DATA: "Datos inconsistentes",

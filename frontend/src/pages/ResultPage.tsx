@@ -258,6 +258,7 @@ function ResultPage() {
                   <ProcessingSummary
                     classification={result.classification}
                     confidence={result.confidence}
+                    auditReasons={result.routing_decision.audit_reasons}
                   />
                   <NotificationCard notification={result.notification} />
                   {result.extracted_data && (

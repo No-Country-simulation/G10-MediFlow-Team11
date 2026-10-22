@@ -419,6 +419,28 @@ No se deja hardcodeado en el código de IA Core: vive como configuración extern
 
 ## 9. Human-in-the-Loop (HITL) Completo
 
+### `GET /api/v1/documents`
+
+Lista metadatos de selección de los documentos persistidos, con cualquier estado pertinente, para localizar un documento y consultar su historial. No sustituye a `GET /api/v1/documents/audit`, que sigue limitado a `status = NEEDS_AUDIT`.
+
+**Response (200 OK):** array, vacío si no hay documentos, ordenado por `created_at` descendente y luego `document_id` ascendente. Cada elemento tiene las siguientes claves; `file_name` y `document_type` pueden ser null:
+
+```json
+[
+  {
+    "document_id": "DOC-CLIN-2026-8942",
+    "status": "APPROVED",
+    "input_type": "FILE",
+    "file_name": "informe.pdf",
+    "document_type": "IMAGING_REPORT",
+    "created_at": "2026-09-15T18:00:00Z",
+    "updated_at": "2026-09-15T18:01:00Z"
+  }
+]
+```
+
+No incluye datos clínicos, snapshots, credenciales ni rutas internas OCI (`bucket`, `object_key`). Un fallo de persistencia devuelve `500 PERSISTENCE_ERROR`.
+
 ### `GET /api/v1/documents/audit`
 Lista documentos con `status = NEEDS_AUDIT`, con metadatos y referencia al documento original (PDF, imagen o texto) para que el auditor lo revise.
 
@@ -720,7 +742,7 @@ No se construye infraestructura de resiliencia distribuida (colas, circuit break
 ### Squad Backend & Cloud (Diego & Beto)
 *Stack: Java, Spring Boot, PostgreSQL, Docker, OCI SDK*
 
-- Endpoints `POST /api/v1/documents/process-file`, `POST /api/v1/documents/process-text`, `GET /api/v1/documents/{id}`, `GET /api/v1/documents/{id}/content`, `GET /api/v1/documents/audit`, `PATCH /api/v1/documents/{id}/review` y `GET /api/v1/documents/{id}/history`.
+- Endpoints `POST /api/v1/documents/process-file`, `POST /api/v1/documents/process-text`, `GET /api/v1/documents`, `GET /api/v1/documents/{id}`, `GET /api/v1/documents/{id}/content`, `GET /api/v1/documents/audit`, `PATCH /api/v1/documents/{id}/review` y `GET /api/v1/documents/{id}/history`.
 - Normalización a `ProcessingRequest` y llamada a `POST /api/v1/ai/process`.
 - Validación del contrato de respuesta de IA y construcción final de `audit_reasons`.
 - Tablas `documents` y `document_triage_history` (sección 10), conexión al SDK de OCI, artefacto de resultado/decisión y movimiento entre prefijos con compensación (secciones 11–12).

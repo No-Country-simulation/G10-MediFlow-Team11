@@ -9,4 +9,6 @@ import java.util.List;
 public interface DocumentRepository extends JpaRepository<DocumentRecord, String> {
 
     List<DocumentRecord> findByStatusOrderByCreatedAtAscIdAsc(DocumentStatus status);
+
+    List<DocumentRecord> findAllByOrderByCreatedAtDescIdAsc();
 }

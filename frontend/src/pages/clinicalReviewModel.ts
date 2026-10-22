@@ -45,7 +45,7 @@ export function normalizeReviewExtraction(original: ExtractedData | null, draft:
 }
 
 function removedNestedKey(before: unknown, after: unknown, path: string): string | null {
-  if (after === null) return null; 
+  if (after === null) return null;
   if (!before || typeof before !== "object" || Array.isArray(before)) return null;
   if (!after || typeof after !== "object" || Array.isArray(after)) return path;
   const oldObject = before as Record<string, unknown>;

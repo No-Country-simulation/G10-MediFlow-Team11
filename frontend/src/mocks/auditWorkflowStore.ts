@@ -3,6 +3,7 @@ import { needsAuditResultMock } from "./resultMocks";
 import { ApiError } from "../services/processingService";
 import type { ReviewRequest, ReviewResponse } from "../services/reviewService";
 import type { AuditQueueItem } from "../types/audit";
+import type { DocumentListApiItem } from "../types/documentList";
 import type { DocumentHistoryApiResponse } from "../types/history";
 import type { ExtractedData, ProcessingResponse, Validation } from "../types/processing";
 
@@ -63,6 +64,22 @@ export function getMockAuditQueue(): AuditQueueItem[] {
 export function getMockWorkflowResult(documentId: string): ProcessingResponse | null {
   const result = results.get(documentId);
   return result ? structuredClone(result) : null;
+}
+
+export function getMockWorkflowDocuments(): DocumentListApiItem[] {
+  return initialQueue.map((item) => {
+    const result = results.get(item.document_id)!;
+    const latestEvent = histories.get(item.document_id)?.entries.at(-1);
+    return {
+      document_id: item.document_id,
+      status: result.status,
+      input_type: item.input_type,
+      file_name: item.file_name,
+      document_type: result.classification?.document_type ?? null,
+      created_at: item.created_at,
+      updated_at: latestEvent?.occurred_at ?? item.updated_at,
+    };
+  });
 }
 
 export function getMockWorkflowHistory(documentId: string): DocumentHistoryApiResponse | null {
