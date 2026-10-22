@@ -1,12 +1,28 @@
 import { useEffect, useId, useMemo, useState } from "react";
+import { ListFilter } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getDocumentList } from "../../services/documentListService";
 import type { DocumentListItem } from "../../types/documentList";
+import type { DocumentStatus } from "../../types/processing";
 import { getDocumentTypeLabel, getStatusLabel } from "../../utils/historyLabels";
 import {
   buildDocumentHistoryPath,
-  filterDocumentsBySearch,
+  filterDocuments,
 } from "../../utils/historySelection";
+
+const STATUS_OPTIONS: { value: DocumentStatus; label: string }[] = [
+  { value: "RECEIVED", label: "Recibidos" },
+  { value: "PROCESSING", label: "En procesamiento" },
+  { value: "PROCESSED", label: "Procesados" },
+  { value: "NEEDS_AUDIT", label: "Requieren revisión" },
+  { value: "APPROVED", label: "Aprobados" },
+  { value: "REJECTED", label: "Rechazados" },
+  { value: "FAILED", label: "Fallidos" },
+];
+
+function isDocumentStatus(value: string): value is DocumentStatus {
+  return STATUS_OPTIONS.some((option) => option.value === value);
+}
 
 function isAbortError(error: unknown): boolean {
   return (
@@ -33,7 +49,9 @@ function formatDocumentDate(iso: string): string {
 
 function HistoryDocumentSelector() {
   const searchId = useId();
+  const statusId = useId();
   const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<DocumentStatus | "">("");
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,26 +89,82 @@ function HistoryDocumentSelector() {
   }, [reloadCount]);
 
   const filteredDocuments = useMemo(
-    () => filterDocumentsBySearch(documents, query),
-    [documents, query],
+    () => filterDocuments(documents, query, status),
+    [documents, query, status],
   );
+  const hasActiveFilters = query.trim() !== "" || status !== "";
 
   return (
     <div className="history-page__selector">
-      <div className="history-page__search">
-        <label className="history-page__search-label" htmlFor={searchId}>
-          Buscar documento
-        </label>
-        <input
-          id={searchId}
-          type="search"
-          className="history-page__search-input"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Identificador o nombre de archivo"
-          autoComplete="off"
-        />
+      <div className="history-page__filters">
+        <div className="history-page__search">
+          <label className="history-page__search-label" htmlFor={searchId}>
+            Buscar documento
+          </label>
+          <input
+            id={searchId}
+            type="search"
+            className="history-page__search-input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Identificador o nombre de archivo"
+            autoComplete="off"
+          />
+        </div>
+        <div className="history-page__status-filter">
+          <label className="history-page__search-label" htmlFor={statusId}>
+            Filtrar por estado
+          </label>
+          <div className="history-page__status-select-wrap">
+            <ListFilter
+              className="history-page__status-select-icon"
+              size={16}
+              aria-hidden="true"
+            />
+            <select
+              id={statusId}
+              className="history-page__status-select"
+              value={status}
+              onChange={(event) => {
+                const value = event.target.value;
+                setStatus(isDocumentStatus(value) ? value : "");
+              }}
+            >
+              <option value="">Todos los estados</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
+
+      {!loading && !error && (
+        <div className="history-page__filter-summary">
+          <p
+            className="history-page__filter-count"
+            aria-live="polite"
+            aria-hidden={filteredDocuments.length === 0}
+          >
+            Mostrando {filteredDocuments.length} de {documents.length}{" "}
+            {documents.length === 1 ? "documento" : "documentos"}
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="history-page__clear-filters"
+              onClick={() => {
+                setQuery("");
+                setStatus("");
+              }}
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="history-page__loading" role="status" aria-live="polite">
@@ -128,7 +202,7 @@ function HistoryDocumentSelector() {
           className="history-page__state history-page__state--info"
           role="status"
         >
-          <p>No se encontraron documentos que coincidan con la búsqueda.</p>
+          <p>No se encontraron documentos con los filtros aplicados.</p>
         </div>
       ) : (
         <ul className="history-page__document-list" aria-label="Documentos">

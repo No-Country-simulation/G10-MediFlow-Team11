@@ -101,10 +101,18 @@
   min-width: 0;
 }
 
-.history-page__search {
+.history-page__filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--hist-gap);
+}
+
+.history-page__search,
+.history-page__status-filter {
   display: flex;
   flex-direction: column;
   gap: calc(var(--hist-u) * 1.5);
+  min-width: 0;
 }
 
 .history-page__search-label {
@@ -113,9 +121,10 @@
   color: var(--hist-text);
 }
 
-.history-page__search-input {
+.history-page__search-input,
+.history-page__status-select {
   width: 100%;
-  max-width: 480px;
+  min-height: 40px;
   padding: calc(var(--hist-u) * 2.5) calc(var(--hist-u) * 3);
   border: 1px solid var(--hist-border);
   border-radius: var(--hist-radius);
@@ -124,9 +133,60 @@
   font: inherit;
 }
 
-.history-page__search-input:focus-visible {
+.history-page__status-select-wrap {
+  position: relative;
+}
+
+.history-page__status-select {
+  padding-left: calc(var(--hist-u) * 10);
+}
+
+.history-page__status-select-icon {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: calc(var(--hist-u) * 3);
+  transform: translateY(-50%);
+  color: var(--hist-muted);
+  pointer-events: none;
+}
+
+.history-page__search-input:focus-visible,
+.history-page__status-select:focus-visible,
+.history-page__clear-filters:focus-visible {
   outline: 2px solid var(--hist-primary);
   outline-offset: 2px;
+}
+
+.history-page__filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--hist-u) * 2) calc(var(--hist-u) * 4);
+}
+
+.history-page__filter-count {
+  color: var(--hist-muted);
+}
+
+.history-page__clear-filters {
+  min-height: 32px;
+  padding-inline: calc(var(--hist-u) * 2);
+  border: 0;
+  border-radius: var(--hist-radius);
+  background: transparent;
+  color: var(--hist-primary);
+  cursor: pointer;
+}
+
+.history-page__clear-filters:hover {
+  background: #eef4ff;
+}
+
+@media (min-width: 768px) {
+  .history-page__filters {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  }
 }
 
 .history-page__document-list {
@@ -220,6 +280,10 @@
     grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas: "identity status action";
     align-items: center;
+  }
+
+  .history-page__document-card .history-page__status {
+    align-self: center;
   }
 
   .history-page__document-action {
