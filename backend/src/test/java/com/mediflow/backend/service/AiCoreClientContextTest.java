@@ -162,6 +162,7 @@ class AiCoreClientContextTest {
                 requestCount.incrementAndGet();
                 captured.set(new CapturedRequest(exchange.getRequestMethod(), exchange.getRequestURI().getPath(),
                         exchange.getRequestHeaders().getFirst("Content-Type"),
+                        exchange.getRequestHeaders().getFirst("Upgrade"),
                         new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
                 byte[] body = responseBody.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -199,6 +200,7 @@ class AiCoreClientContextTest {
                         assertThat(captured.get().method()).isEqualTo("POST");
                         assertThat(captured.get().path()).isEqualTo("/api/v1/ai/process");
                         assertThat(captured.get().contentType()).startsWith("application/json");
+                        assertThat(captured.get().upgrade()).isNull();
                         assertions.accept(captured.get(), response);
                     });
         } finally {
@@ -211,7 +213,7 @@ class AiCoreClientContextTest {
         void accept(CapturedRequest request, AiProcessResponse response) throws IOException;
     }
 
-    private record CapturedRequest(String method, String path, String contentType, String body) {
+    private record CapturedRequest(String method, String path, String contentType, String upgrade, String body) {
     }
 
     private static final String SYNTHETIC_FILE = "%PDF-1.4\n%%EOF";
