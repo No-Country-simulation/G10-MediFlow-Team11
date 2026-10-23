@@ -143,3 +143,196 @@
   .clinical-review__actions > div { column-gap: 4px; }
   .clinical-review__actions button { padding-right: 6px; padding-left: 6px; }
 }
+
+[data-mediflow-color-scheme="dark"] .clinical-review {
+  --cr-bg: var(--mui-palette-mediflow-background);
+  --cr-surface: var(--mui-palette-mediflow-surface);
+  --cr-text: var(--mui-palette-mediflow-textPrimary);
+  --cr-muted: var(--mui-palette-mediflow-textSecondary);
+  --cr-border: var(--mui-palette-mediflow-border);
+  --cr-action: var(--mui-palette-mediflow-actionText);
+  --cr-action-fill: var(--mui-palette-mediflow-action);
+  --cr-action-hover: var(--mui-palette-mediflow-actionHover);
+  --cr-action-surface: var(--mui-palette-mediflow-actionSurface);
+  --cr-input-border: color-mix(in srgb, var(--mui-palette-mediflow-borderStrong) 80%, var(--mui-palette-mediflow-textSecondary));
+  --cr-input-surface: var(--mui-palette-mediflow-surfaceMuted);
+  --cr-warning: var(--mui-palette-mediflow-warningText);
+  --cr-warning-surface: var(--mui-palette-mediflow-warningSurface);
+  --cr-error: var(--mui-palette-mediflow-errorText);
+  --cr-error-surface: var(--mui-palette-mediflow-errorSurface);
+  --cr-success: var(--mui-palette-mediflow-successText);
+  --cr-success-surface: var(--mui-palette-mediflow-successSurface);
+  --cr-disabled-surface: var(--mui-palette-mediflow-disabledSurface);
+  --cr-disabled-text: var(--mui-palette-mediflow-disabledText);
+  color-scheme: dark;
+}
+
+[data-mediflow-color-scheme="dark"] .app-shell__main:has(> .clinical-review),
+[data-mediflow-color-scheme="dark"] .app-shell__main:has(> .clinical-review__state) {
+  background: var(--mui-palette-mediflow-background);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review :where(.clinical-review__scroll, .clinical-review__tabs) {
+  scrollbar-color: var(--mui-palette-mediflow-illustrationDetail) var(--cr-surface);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__panel-title--document span:last-child,
+[data-mediflow-color-scheme="dark"] .clinical-review__validation-group p {
+  color: var(--cr-muted);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__document-id,
+[data-mediflow-color-scheme="dark"] .clinical-review__array-group,
+[data-mediflow-color-scheme="dark"] .clinical-review__validation-group {
+  border-color: var(--cr-border);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__document-id button:hover {
+  background: var(--cr-action-surface);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__warning {
+  border-color: var(--cr-warning);
+  background: var(--cr-warning-surface);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__warning > div,
+[data-mediflow-color-scheme="dark"] .clinical-review__warning li::marker,
+[data-mediflow-color-scheme="dark"] .clinical-review__section label em,
+[data-mediflow-color-scheme="dark"] .clinical-review__missing-note {
+  color: var(--cr-warning);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__missing-indicator,
+[data-mediflow-color-scheme="dark"] .clinical-review__validation-group li::before {
+  background: var(--cr-warning);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__section :where(input:not([type="checkbox"]), select, textarea) {
+  border-color: var(--cr-input-border);
+  background-color: var(--cr-input-surface);
+  color: var(--cr-text);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__section select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b7cfee' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__section :where(input, textarea)::placeholder {
+  color: var(--cr-muted);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__section :where(input, select, textarea):hover {
+  border-color: var(--cr-action);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__array-row > button:hover,
+[data-mediflow-color-scheme="dark"] .clinical-review__validation-group li button:hover,
+[data-mediflow-color-scheme="dark"] .clinical-review__cancel:hover {
+  background: var(--cr-action-surface);
+  color: var(--cr-text);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__add,
+[data-mediflow-color-scheme="dark"] .clinical-review__validation-add button {
+  border-color: var(--cr-input-border);
+  background: var(--cr-surface);
+  color: var(--cr-action);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__field-error {
+  color: var(--cr-error);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__validation-group li {
+  border-color: var(--cr-border);
+  background: var(--cr-input-surface);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__error {
+  border-color: var(--cr-error);
+  background: var(--cr-error-surface);
+  color: var(--cr-error);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__error--persistent a {
+  color: var(--cr-action);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__success {
+  border-color: var(--cr-success);
+  background: var(--cr-success-surface);
+  color: var(--cr-success);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__reject {
+  border-color: var(--cr-error);
+  background: var(--cr-surface);
+  color: var(--cr-error);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__reject:hover {
+  background: var(--cr-error-surface);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__approve {
+  border-color: var(--cr-action-fill);
+  background: var(--cr-action-fill);
+  color: var(--mui-palette-mediflow-onAction);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__approve:hover:not(:disabled) {
+  background: var(--cr-action-hover);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__approve:disabled {
+  border-color: var(--cr-disabled-surface);
+  background: var(--cr-disabled-surface);
+  color: var(--cr-disabled-text);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__state {
+  border-color: var(--mui-palette-mediflow-border);
+  background: var(--mui-palette-mediflow-surface);
+  color: var(--mui-palette-mediflow-textPrimary);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__state button {
+  border-color: var(--mui-palette-mediflow-actionText);
+  background: var(--mui-palette-mediflow-surface);
+  color: var(--mui-palette-mediflow-actionText);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__dialog {
+  border-color: var(--cr-border);
+  background: var(--cr-surface);
+  color: var(--cr-text);
+  box-shadow: 0 8px 32px var(--mui-palette-mediflow-overlay);
+  color-scheme: dark;
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__dialog::backdrop {
+  background: var(--mui-palette-mediflow-overlay);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__dialog p {
+  color: var(--cr-muted);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__dialog-actions button {
+  border-color: var(--cr-input-border);
+  background: var(--cr-surface);
+  color: var(--cr-text);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__dialog-actions .clinical-review__dialog-danger {
+  border-color: var(--cr-error);
+  background: var(--cr-error-surface);
+  color: var(--cr-error);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__dialog-actions .clinical-review__dialog-primary {
+  border-color: var(--cr-action-fill);
+  background: var(--cr-action-fill);
+  color: var(--mui-palette-mediflow-onAction);
+}

@@ -457,3 +457,7 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+.document-viewer__pdf-viewer--dark :where(button, input, .document-viewer__canvas):focus-visible {
+  outline-color: var(--mui-palette-mediflow-focus, #78c9ff);
+}
