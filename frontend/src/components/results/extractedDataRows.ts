@@ -14,8 +14,15 @@ const KNOWN_KEYS = new Set([
   "requested_studies",
 ]);
 
+const ADDITIONAL_LABELS: Record<string, string> = {
+  measurements: "Mediciones",
+  systolic: "Presión sistólica",
+  diastolic: "Presión diastólica",
+  unit: "Unidad",
+};
+
 function humanizeKey(key: string): string {
-  return key
+  return ADDITIONAL_LABELS[key] ?? key
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }

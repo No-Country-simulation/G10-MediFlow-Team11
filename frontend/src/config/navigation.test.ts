@@ -15,13 +15,13 @@ describe("history navigation compatibility", () => {
   });
 
   it("keeps the Results contextual link to the history query contract", () => {
-    const resultPage = readFileSync(
-      join(sourceRoot, "../pages/ResultPage.tsx"),
+    const resultIdentity = readFileSync(
+      join(sourceRoot, "../components/results/ResultIdentity.tsx"),
       "utf8",
     );
 
-    expect(resultPage).toContain(
-      "`/history?documentId=${encodeURIComponent(result.document_id)}`",
+    expect(resultIdentity).toContain(
+      "`/history?documentId=${encodeURIComponent(documentId)}`",
     );
   });
 

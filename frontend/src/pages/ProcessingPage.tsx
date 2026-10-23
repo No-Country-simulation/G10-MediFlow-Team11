@@ -4,9 +4,8 @@ import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
 import type { DocumentViewerState } from "../components/DocumentViewer/types";
-import { env } from "../config/env";
 import { useNotification } from "../notifications/useNotification";
-import { processFile, processText } from "../services/processingService";
+import { ApiError, processFile, processText } from "../services/processingService";
 import type { ProcessingResponse } from "../types/processing";
 import fileTabIcon from "../assets/processing/tab-file.svg";
 import textTabIcon from "../assets/processing/tab-text.svg";
@@ -249,7 +248,7 @@ function ProcessingPage() {
   const [originChannel, setOriginChannel] = useState("");
   const [originOtro, setOriginOtro] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingError, setProcessingError] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [originFieldError, setOriginFieldError] = useState<string | null>(null);
   const [textFieldError, setTextFieldError] = useState<string | null>(null);
@@ -281,7 +280,7 @@ function ProcessingPage() {
 
     setSelectedFile(file);
     setFileError(null);
-    setProcessingError(false);
+    setProcessingError(null);
   }, []);
 
   const handleFiles = useCallback(
@@ -340,7 +339,7 @@ function ProcessingPage() {
     }
 
     setIsProcessing(true);
-    setProcessingError(false);
+    setProcessingError(null);
 
     try {
       const result = await request;
@@ -350,15 +349,10 @@ function ProcessingPage() {
         severity: "success",
       });
 
-      navigate(`/results/${encodeURIComponent(result.document_id)}`, {
-        state:
-          env.useMocks && inputMode === "text"
-            ? { sourceKind: "text", sourceText: documentText }
-            : undefined,
-      });
+      navigate(`/results/${encodeURIComponent(result.document_id)}`);
     } catch (error) {
       showError(error);
-      setProcessingError(true);
+      setProcessingError(error instanceof ApiError && error.code === "MOCK_TEXT_UNAVAILABLE" ? error.message : "No fue posible procesar el texto. La información ingresada se ha conservado.");
     } finally {
       setIsProcessing(false);
     }
@@ -372,7 +366,7 @@ function ProcessingPage() {
     setOriginChannel("");
     setOriginOtro("");
     setFileError(null);
-    setProcessingError(false);
+    setProcessingError(null);
     setOriginFieldError(null);
     setTextFieldError(null);
 
@@ -384,7 +378,7 @@ function ProcessingPage() {
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setFileError(null);
-    setProcessingError(false);
+    setProcessingError(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -395,13 +389,13 @@ function ProcessingPage() {
     setOriginChannel(value);
     setOriginOtro("");
     setOriginFieldError(null);
-    setProcessingError(false);
+    setProcessingError(null);
   };
 
   const handleOriginOtherChange = (value: string) => {
     setOriginOtro(value);
     setOriginFieldError(null);
-    setProcessingError(false);
+    setProcessingError(null);
   };
 
   const hasClearableData =
@@ -431,7 +425,7 @@ function ProcessingPage() {
 
   const selectMode = (next: InputMode) => {
     setInputMode(next);
-    setProcessingError(false);
+    setProcessingError(null);
     setOriginFieldError(null);
     setTextFieldError(null);
   };
@@ -778,7 +772,7 @@ function ProcessingPage() {
                 onChange={(event) => {
                   setDocumentText(event.target.value);
                   setTextFieldError(null);
-                  setProcessingError(false);
+                  setProcessingError(null);
                 }}
                 placeholder="Ingrese o pegue el contenido clínico aquí."
                 disabled={isProcessing}
@@ -807,8 +801,7 @@ function ProcessingPage() {
                 className="processing-page__inline-error processing-page__inline-error--text"
                 role="alert"
               >
-                No fue posible procesar el texto. La información ingresada se ha
-                conservado.
+                {processingError}
               </div>
             )}
 

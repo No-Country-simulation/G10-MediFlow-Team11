@@ -219,8 +219,8 @@ describe("buildExtractedDataRows", () => {
     const rows = buildExtractedDataRows(data);
 
     expect(rows).toContainEqual({
-      label: "Measurements",
-      value: ["Systolic: 120", "Diastolic: 80", "Unit: mmHg"],
+      label: "Mediciones",
+      value: ["Presión sistólica: 120", "Presión diastólica: 80", "Unidad: mmHg"],
     });
   });
 
@@ -265,8 +265,8 @@ describe("buildExtractedDataRows", () => {
     const rows = buildExtractedDataRows(data);
 
     expect(rows).toContainEqual({
-      label: "Measurements",
-      value: ["Systolic: 120"],
+      label: "Mediciones",
+      value: ["Presión sistólica: 120"],
     });
     expect(rows).toContainEqual({
       label: "Lab Results",

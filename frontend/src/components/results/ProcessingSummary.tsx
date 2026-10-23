@@ -1,17 +1,19 @@
 import { useId } from "react";
 import { documentTypeLabel } from "../../config/auditLabels";
-import { priorityLabel } from "../../config/resultLabels";
+import { destinationLabel, priorityLabel } from "../../config/resultLabels";
 import ConfidenceDisplay from "../confidence/ConfidenceDisplay";
 import type {
   AuditReason,
   Confidence,
   DocumentClassification,
+  RoutingDestination,
 } from "../../types/processing";
 
 interface ProcessingSummaryProps {
   classification: DocumentClassification | null;
   confidence: Confidence | null;
   auditReasons: readonly AuditReason[];
+  destination?: RoutingDestination;
 }
 
 interface SummaryRowProps {
@@ -46,6 +48,7 @@ function ProcessingSummary({
   classification,
   confidence,
   auditReasons,
+  destination,
 }: ProcessingSummaryProps) {
   const titleId = useId();
 
@@ -85,6 +88,9 @@ function ProcessingSummary({
                 {priorityLabel(classification.priority_level)}
               </span>
             </div>
+            {destination && (
+              <SummaryRow label="Destino principal" value={destinationLabel(destination)} />
+            )}
           </div>
         )}
 
