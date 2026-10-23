@@ -196,6 +196,9 @@ function AppLayout() {
           className="app-shell__main"
         >
           <Outlet />
+          <Box component="p" className="app-shell__demo-notice">
+            Demostración con datos sintéticos. No ingresar información clínica real.
+          </Box>
         </Box>
       </Box>
     </Box>
