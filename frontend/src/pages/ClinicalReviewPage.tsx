@@ -3,7 +3,7 @@ import { AlertTriangle, Check, Copy, X } from "lucide-react";
 import { Link, useBlocker, useLocation, useNavigate, useParams } from "react-router-dom";
 import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
 import type { DocumentViewerState } from "../components/DocumentViewer/types";
-import { auditReasonLabel, documentTypeLabel } from "../config/auditLabels";
+import { documentTypeLabel } from "../config/auditLabels";
 import { getDocumentContent } from "../services/documentService";
 import { ApiError } from "../services/processingService";
 import { submitReview, type ReviewDecision } from "../services/reviewService";
@@ -19,8 +19,8 @@ import type {
   Validation,
 } from "../types/processing";
 import {
-  activeReviewSection, createReviewPatch, hasUnsavedReviewChanges,
-  humanizeMissingField, parseAdditionalJson, reviewSourceLabel, shouldBlockReviewNavigation,
+  activeReviewSection, approvalBlockers, createReviewPatch, hasUnsavedReviewChanges,
+  humanizeMissingField, parseAdditionalJson, reviewSourceLabel, reviewWarningMessages, shouldBlockReviewNavigation,
 } from "./clinicalReviewModel";
 import "../styles/clinical-review.css";
 
@@ -233,8 +233,11 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty, saving, success]);
-  const canApprove = Boolean(documentType && priority && destination !== "HUMAN_REVIEW"
-    && !hasExtraError && (!needsValidation || confirmed) && !saving && !success && !conflict);
+  const approvalReasons = approvalBlockers({
+    documentType, priority, destination, hasExtraError, needsValidation, confirmed,
+    saving, success: !!success, conflict,
+  });
+  const canApprove = approvalReasons.length === 0;
 
   const updateExtraction = (path: string[], value: unknown) => {
     setExtracted((previous) => writePath(previous, path, value));
@@ -307,6 +310,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   };
   const leave = () => blocker.state === "blocked" ? blocker.proceed() : navigate("/audit");
   const sourceName = reviewSourceLabel(result.document_id, viewer.status === "text", location.state);
+  const warningMessages = reviewWarningMessages(result.routing_decision.audit_reasons, result.validation?.missing_fields);
 
   return (
     <div className="clinical-review">
@@ -317,19 +321,22 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
         </header>
         <div className="clinical-review__grid">
           <section className="clinical-review__panel clinical-review__panel--review" aria-label="Revisión">
-            <h2 className="clinical-review__panel-title">Revisión</h2>
+            <div className="clinical-review__panel-title clinical-review__panel-title--review">
+              <h2>Revisión</h2>
+              <div className="clinical-review__document-id">
+                <span>Documento</span><code>{result.document_id}</code>
+                <button type="button" onClick={() => void copyId()}><Copy size={15} aria-hidden="true" /> {copied ? "Copiado" : "Copiar ID"}</button>
+              </div>
+            </div>
             <div ref={scrollRef} className="clinical-review__scroll">
               <div className="clinical-review__modules">
-                <div className="clinical-review__document-id">
-                  <span>Documento</span><code>{result.document_id}</code>
-                  <button type="button" onClick={() => void copyId()}><Copy size={15} aria-hidden="true" /> {copied ? "Copiado" : "Copiar ID"}</button>
-                </div>
                 <div className="clinical-review__warning">
                   <div><AlertTriangle size={16} aria-hidden="true" /> <strong>Requiere revisión</strong></div>
-                  {result.routing_decision.audit_reasons.length > 0 && (
-                    <ul>{result.routing_decision.audit_reasons.map((reason) =>
-                      <li key={reason}>{auditReasonLabel(reason)}</li>)}</ul>
+                  {warningMessages.length > 0 && (
+                    <ul>{warningMessages.map((message, index) =>
+                      <li key={`${index}-${message}`}>{message}</li>)}</ul>
                   )}
+                  <p className="clinical-review__warning-guidance">Complete únicamente los datos respaldados por el documento original.</p>
                 </div>
                 <nav className="clinical-review__tabs" aria-label="Secciones de la revisión">
                   {[
@@ -346,6 +353,10 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                   ))}
                 </nav>
                 <ReviewSection id="review-classification" title="Clasificación">
+                  <div className="clinical-review__field-legend">
+                    <span><span className="clinical-review__legend-required" aria-hidden="true">*</span> Requerido para aprobar</span>
+                    <span><span className="clinical-review__legend-missing" aria-hidden="true" /> Dato no detectado por IA; no bloquea por sí solo</span>
+                  </div>
                   <div className="clinical-review__fields clinical-review__fields--three">
                     <label><span>Tipo de documento <em aria-hidden="true">*</em></span>
                       <select value={documentType} required aria-required="true" onChange={(event) => { setDocumentType(event.target.value as DocumentType | ""); setConfirmed(false); }} disabled={saving || !!success}>
@@ -384,7 +395,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                               updateExtraction(field.path, raw === "" ? null : field.number ? Number(raw) : raw);
                             }} />
                         </span>
-                        {missing && <span id={missingDescriptionId} className="clinical-review__missing-note">La IA señaló este dato como ausente. Complételo solo si consta en el documento original.</span>}
+                        {missing && <span id={missingDescriptionId} className="clinical-review__missing-note">No detectado por IA</span>}
                         {field.hint && <small id={hintId} className="clinical-review__hint">{field.hint}</small>}
                       </label>;
                     })}
@@ -420,7 +431,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                 <ReviewSection id="review-validation" title="Validación">
                   {validationGroups.map((group) => <div className="clinical-review__validation-group" key={group.key}>
                     <h4>{group.label}</h4>
-                    {group.key === "missing_fields" && <p>Son hallazgos de la IA, no requisitos automáticos para aprobar. Complete solo los datos respaldados por el documento original.</p>}
+                    {group.key === "missing_fields" && <p>Son hallazgos de la IA, no requisitos automáticos para aprobar.</p>}
                     {validation[group.key].length ? <ul>{validation[group.key].map((item, index) =>
                       <li key={`${item}-${index}`}><span>{group.key === "missing_fields" ? humanizeMissingField(item) : item}</span><button type="button" aria-label={`Eliminar ${item}`} disabled={saving || !!success} onClick={() => updateValidation(group.key, validation[group.key].filter((_, i) => i !== index))}><X size={14} /></button></li>)}</ul>
                       : <p>{group.empty}</p>}
@@ -450,11 +461,20 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
               {conflict && <Link to={`/results/${encodeURIComponent(result.document_id)}`}>Ver resultado actualizado</Link>}
             </div>}
             <div className="clinical-review__actions">
-              <span>{dirty && !success ? "● Cambios sin registrar" : ""}</span>
-              <div>
+              <div className="clinical-review__action-context">
+                <p id="clinical-approval-help" className="clinical-review__approval-help" role="status" aria-live="polite" aria-atomic="true">
+                  {approvalReasons.length > 0 && (saving || success || conflict
+                    ? approvalReasons.join(" ")
+                    : `Para aprobar: ${approvalReasons.join(" ")}`)}
+                </p>
+                <span>{dirty && !success ? "● Cambios sin registrar" : ""}</span>
+              </div>
+              <div className="clinical-review__action-buttons">
                 <button type="button" className="clinical-review__cancel" disabled={saving || !!success} onClick={leave}>Cancelar</button>
                 <button type="button" className="clinical-review__reject" disabled={saving || !!success || conflict} onClick={() => setDialog("reject")}>Rechazar</button>
-                <button type="button" className="clinical-review__approve" disabled={!canApprove} onClick={() => void submit("APPROVE")}>{saving ? "Guardando…" : "Aprobar revisión"}</button>
+                <button type="button" className="clinical-review__approve" disabled={!canApprove}
+                  aria-describedby={!canApprove ? "clinical-approval-help" : undefined}
+                  onClick={() => void submit("APPROVE")}>{saving ? "Guardando…" : "Aprobar revisión"}</button>
               </div>
             </div>
           </section>

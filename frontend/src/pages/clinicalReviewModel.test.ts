@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ProcessingResponse } from "../types/processing";
 import {
-  activeReviewSection, changedFields, createReviewPatch, hasUnsavedReviewChanges,
+  activeReviewSection, approvalBlockers, changedFields, createReviewPatch, hasUnsavedReviewChanges,
   humanizeMissingField, normalizeReviewExtraction, parseAdditionalJson,
-  reviewSourceLabel, shouldBlockReviewNavigation,
+  reviewSourceLabel, reviewWarningMessages, shouldBlockReviewNavigation, warningMissingFieldLabels,
 } from "./clinicalReviewModel";
 
 const result: ProcessingResponse = {
@@ -122,6 +122,53 @@ describe("clinical review form model", () => {
     expect(humanizeMissingField("patient.name")).toBe("Nombre del paciente");
     expect(humanizeMissingField("requesting_doctor.license_number")).toBe("N.º de colegiado / matrícula profesional");
     expect(humanizeMissingField("suggested_icd10")).toBe("CIE-10 sugerido (opcional)");
+  });
+
+  it("explains every condition that disables approval and clears the help when ready", () => {
+    const ready = {
+      documentType: "PRESCRIPTION" as const, priority: "ROUTINE" as const,
+      destination: "PHARMACY" as const, hasExtraError: false,
+      needsValidation: true, confirmed: true, saving: false, success: false, conflict: false,
+    };
+    expect(approvalBlockers(ready)).toEqual([]);
+    expect(approvalBlockers({
+      ...ready, documentType: "", priority: "", destination: "HUMAN_REVIEW",
+      hasExtraError: true, confirmed: false,
+    })).toEqual([
+      "Seleccione el tipo de documento.",
+      "Seleccione la prioridad.",
+      "Seleccione un destino final.",
+      "Corrija los errores de formato en Otros datos.",
+      "Confirme la validación revisada.",
+    ]);
+    expect(approvalBlockers({ ...ready, needsValidation: false, confirmed: false })).toEqual([]);
+    expect(approvalBlockers({ ...ready, saving: true })).toEqual(["Se está registrando la revisión."]);
+    expect(approvalBlockers({ ...ready, success: true })).toEqual(["La revisión ya fue registrada."]);
+    expect(approvalBlockers({ ...ready, conflict: true })).toEqual(["El documento ya no está pendiente de revisión."]);
+  });
+
+  it("shows only identifiable AI omissions in the warning", () => {
+    expect(warningMissingFieldLabels(null)).toEqual([]);
+    expect(warningMissingFieldLabels(["", "unknown_field", "__proto__", "patient.age", "patient.age", "suggested_icd10"]))
+      .toEqual(["Edad del paciente", "CIE-10 sugerido (opcional)"]);
+  });
+
+  it("replaces the generic missing-fields reason with known data or an informative fallback", () => {
+    expect(reviewWarningMessages(["MISSING_CRITICAL_FIELDS"], ["patient.age", "unknown_field"]))
+      .toEqual(["Datos no detectados por IA: Edad del paciente."]);
+    expect(reviewWarningMessages(["MISSING_CRITICAL_FIELDS"], ["unknown_field"]))
+      .toEqual(["Campos obligatorios no detectados. Revise la validación y el documento original."]);
+    expect(reviewWarningMessages(["INCONSISTENT_DATA"], ["patient.age"]))
+      .toEqual(["Datos inconsistentes", "Datos no detectados por IA: Edad del paciente."]);
+  });
+
+  it("explains low confidence only when that audit reason is present", () => {
+    const lowConfidence = reviewWarningMessages(["LOW_CONFIDENCE", "MISSING_CRITICAL_FIELDS"], []);
+    expect(lowConfidence).toEqual([
+      "La IA asignó baja confianza al análisis. Verifique los datos con el documento original.",
+      "Campos obligatorios no detectados. Revise la validación y el documento original.",
+    ]);
+    expect(reviewWarningMessages(["INCONSISTENT_DATA"], []).join(" ")).not.toContain("confianza");
   });
 
   it("shows a real filename only for matching queue metadata", () => {
