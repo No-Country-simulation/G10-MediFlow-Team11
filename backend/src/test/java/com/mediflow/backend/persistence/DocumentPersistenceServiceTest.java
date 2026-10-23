@@ -49,4 +49,19 @@ class DocumentPersistenceServiceTest {
         assertEquals(List.of(first, second), service.listAuditDocuments());
         verify(documents).findByStatusOrderByCreatedAtAscIdAsc(DocumentStatus.NEEDS_AUDIT);
     }
+
+    @Test
+    void documentListQueryKeepsCreatedAtDescendingThenIdOrder() {
+        DocumentRepository documents = mock(DocumentRepository.class);
+        DocumentPersistenceService service = new DocumentPersistenceService(
+                documents, mock(DocumentTriageHistoryRepository.class), mock(EntityManager.class));
+        DocumentRecord later = new DocumentRecord();
+        later.setId("DOC-0");
+        DocumentRecord first = new DocumentRecord();
+        first.setId("DOC-A");
+        when(documents.findAllByOrderByCreatedAtDescIdAsc()).thenReturn(List.of(later, first));
+
+        assertEquals(List.of(later, first), service.listDocuments());
+        verify(documents).findAllByOrderByCreatedAtDescIdAsc();
+    }
 }

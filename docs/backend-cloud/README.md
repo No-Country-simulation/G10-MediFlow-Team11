@@ -31,7 +31,7 @@ Este documento resume la infraestructura OCI base del MVP de MediFlow y enlaza l
 
 | Puerto | Exposición | Uso |
 | --- | --- | --- |
-| `22/TCP` | IP administrativa `/32` | SSH |
+| `22/TCP` | Orígenes administrativos autorizados | SSH |
 | `80/TCP` | Público | HTTP |
 | `443/TCP` | Público | HTTPS |
 | `5432/TCP` | No público | PostgreSQL |
@@ -60,7 +60,6 @@ El contrato completo de almacenamiento, la convención de nombres de objeto y el
 ### Compute
 
 - Instancia: `MediFlow_Core_VM`
-- Estado: `Running`
 - Availability Domain: `AD-2`
 - Imagen: Canonical Ubuntu 22.04 Minimal `aarch64`
 - Shape: `VM.Standard.A1.Flex`
@@ -68,8 +67,8 @@ El contrato completo de almacenamiento, la convención de nombres de objeto y el
 - 2 OCPU
 - 12 GB RAM
 - `Always Free-eligible`
-- Acceso SSH validado
-- Docker Engine y Docker Compose operativos
+- Acceso SSH restringido a orígenes administrativos autorizados
+- Docker Engine y Docker Compose como entorno de ejecución de los servicios
 
 #### Verificaciones realizadas
 
@@ -81,7 +80,7 @@ Estas verificaciones corresponden al aprovisionamiento de #12; no acreditan el e
 - Prueba de `put`, `list` y `delete` completada correctamente.
 - Ausencia de `~/.oci`: sin credenciales OCI estáticas en la VM.
 
-El despliegue de PostgreSQL, Backend e IA Core corresponde a #59. La guía siguiente prepara su ejecución y registro de evidencia; la implementación en el repositorio no implica que ya se haya desplegado en la VM.
+MediFlow utiliza OCI Compute, Docker Compose y Caddy para alojar sus servicios y el Frontend: Docker Compose ejecuta PostgreSQL, Backend e IA Core en la VM, y Caddy publica por HTTPS el Frontend y el health check del Backend. El despliegue y la operación se describen en las guías siguientes.
 
 ## Guías relacionadas
 
@@ -89,6 +88,7 @@ El despliegue de PostgreSQL, Backend e IA Core corresponde a #59. La guía sigui
 - [`./postgresql-docker.md`](./postgresql-docker.md): PostgreSQL con Docker Compose para desarrollo local.
 - [Contenerización del Backend](../../backend/README.md#contenerización-del-backend-issue-53): ejecución del Backend con Docker para desarrollo local.
 - [Despliegue en OCI Compute (#59)](./oci-compute-deployment.md): ARM64, variables protegidas, Instance Principals, HTTPS, operación y checklist de aceptación en la VM.
+- [Despliegue del Frontend en OCI](./oci-frontend-deployment.md): build de React/Vite, publicación y activación de releases estáticos con Caddy, verificación y rollback.
 
 ## Seguridad
 
@@ -96,4 +96,4 @@ El despliegue de PostgreSQL, Backend e IA Core corresponde a #59. La guía sigui
 - No almacenar claves privadas en el repositorio.
 - Usar Instance Principals para Object Storage.
 - Mantener PostgreSQL e IA Core sin exposición directa a Internet.
-- Mantener SSH restringido a una fuente administrativa específica.
+- Mantener SSH restringido a orígenes administrativos autorizados.

@@ -112,6 +112,11 @@ public class DocumentPersistenceService {
     }
 
     @Transactional(readOnly = true)
+    public List<DocumentRecord> listDocuments() {
+        return documentRepository.findAllByOrderByCreatedAtDescIdAsc();
+    }
+
+    @Transactional(readOnly = true)
     public List<DocumentTriageHistory> listHistory(String documentId) {
         return historyRepository.findByIdDocumentIdOrderByIdSequenceAsc(documentId);
     }

@@ -5,10 +5,8 @@ import type {
   ProcessTextRequest,
   ProcessingResponse,
 } from "../types/processing";
-import {
-  auditRequiredProcessingResponse,
-  successfulProcessingResponse,
-} from "../mocks/processingMocks";
+import { successfulProcessingResponse } from "../mocks/processingMocks";
+import { registerMockFileReview } from "../mocks/auditWorkflowStore";
 
 const PROCESS_TEXT_ENDPOINT = "/api/v1/documents/process-text";
 const PROCESS_FILE_ENDPOINT = "/api/v1/documents/process-file";
@@ -39,7 +37,7 @@ export async function processFile(
   request: ProcessFileRequest,
 ): Promise<ProcessingResponse> {
   if (env.useMocks) {
-    return auditRequiredProcessingResponse;
+    return registerMockFileReview(request.file);
   }
 
   const formData = new FormData();

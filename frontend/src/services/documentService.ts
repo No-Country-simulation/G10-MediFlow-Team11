@@ -1,6 +1,7 @@
 import { env } from "../config/env";
 import type { ViewerMimeType } from "../components/DocumentViewer/types";
 import { ApiError } from "./processingService";
+import { getMockTextContent, getMockUploadedFile } from "../mocks/auditWorkflowStore";
 
 export type DocumentContent =
   | { kind: "file"; blob: Blob; mimeType: ViewerMimeType }
@@ -36,6 +37,15 @@ export async function getDocumentContent(
   signal?: AbortSignal,
 ): Promise<DocumentContent | null> {
   if (env.useMocks) {
+    const text = getMockTextContent(documentId);
+    if (text !== null) return { kind: "text", text };
+    const uploaded = getMockUploadedFile(documentId);
+    if (uploaded) {
+      if (!isViewerMimeType(uploaded.type)) {
+        throw new ApiError(415, "UNSUPPORTED_DOCUMENT_TYPE", "El formato del documento no es compatible con el visor.");
+      }
+      return { kind: "file", blob: uploaded, mimeType: uploaded.type };
+    }
     const fileName = mockDocumentFiles[documentId];
 
     if (!fileName) {

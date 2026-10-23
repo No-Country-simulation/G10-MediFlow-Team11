@@ -4,6 +4,7 @@ import {
   FileText,
   CircleHelp,
   ClipboardCheck,
+  History,
   Settings,
 } from "lucide-react"
 
@@ -54,6 +55,19 @@ export const PRIMARY_NAVIGATION: NavigationItem[] = [
       />
     ),
     to: "/audit",
+  },
+  {
+    label: "Historial",
+    description: "Consulte la trazabilidad de documentos existentes",
+    section: "Consultar",
+    icon: (
+      <History
+        className="app-shell__nav-icon"
+        strokeWidth={1.25}
+        aria-hidden="true"
+      />
+    ),
+    to: "/history",
   },
 ]
 

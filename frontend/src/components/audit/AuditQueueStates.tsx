@@ -55,14 +55,14 @@ export function AuditQueueLoadingState() {
   );
 }
 
-export function AuditQueueErrorState({ onRetry }: { onRetry: () => void }) {
+export function AuditQueueErrorState({ onRetry, description }: { onRetry: () => void; description?: string | null }) {
   return (
     <div className="audit-queue__error" role="alert">
       <p className="audit-queue__error-title">
         No fue posible cargar los documentos pendientes.
       </p>
       <p className="audit-queue__error-description">
-        Intente nuevamente.
+        {description ?? "Intente nuevamente."}
       </p>
       <button className="audit-queue__retry" onClick={onRetry} type="button">
         Reintentar
