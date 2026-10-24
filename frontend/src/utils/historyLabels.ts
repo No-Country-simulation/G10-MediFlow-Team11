@@ -1,17 +1,9 @@
 import { auditReasonLabel } from "../config/auditLabels";
 import { missingFieldLabel } from "../config/missingFieldLabels";
+import { getDocumentTypeName } from "../config/documentTypeLabels";
 
 export function getDocumentTypeLabel(value: unknown): string {
-  const labels: Record<string, string> = {
-    PRESCRIPTION: "Receta médica",
-    IMAGING_REPORT: "Informe de imágenes",
-    STUDY_REPORT: "Informe de estudio",
-    PROCEDURE_ORDER: "Orden de procedimiento",
-    DISCHARGE_SUMMARY: "Epicrisis",
-    MEDICAL_CERTIFICATE: "Certificado médico",
-  };
-
-  return typeof value === "string" ? (labels[value] ?? value) : "No disponible";
+  return typeof value === "string" ? getDocumentTypeName(value) : "No disponible";
 }
 
 export function getPriorityLabel(value: unknown): string {

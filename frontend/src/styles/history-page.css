@@ -983,3 +983,8 @@
 [data-mediflow-color-scheme="dark"] .app-shell__main:has(> .history-page) {
   scrollbar-color: var(--mui-palette-mediflow-illustrationDetail) var(--mui-palette-mediflow-background);
 }
+
+[data-mediflow-color-scheme="dark"] .history-page__search-input::placeholder {
+  color: var(--hist-muted);
+  opacity: 1;
+}
