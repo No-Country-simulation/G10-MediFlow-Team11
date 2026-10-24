@@ -8,13 +8,13 @@ import { theme } from "../theme/theme";
 import SettingsPage from "./SettingsPage";
 
 describe("appearance settings integration", () => {
-  it("enables only Settings in secondary navigation", () => {
+  it("enables Help and Settings in secondary navigation", () => {
     const settings = SECONDARY_NAVIGATION.find((item) => item.label === "Configuración");
     const help = SECONDARY_NAVIGATION.find((item) => item.label === "Centro de ayuda");
     expect(settings?.to).toBe("/settings");
     expect(settings?.disabled).not.toBe(true);
-    expect(help?.disabled).toBe(true);
-    expect(help?.to).toBeUndefined();
+    expect(help?.disabled).not.toBe(true);
+    expect(help?.to).toBe("/help");
   });
 
   it("renders one native radio group with three uniquely labelled options", () => {

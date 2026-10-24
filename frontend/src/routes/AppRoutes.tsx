@@ -7,6 +7,7 @@ import LoginPage from "../pages/LoginPage";
 import ProcessingPage from "../pages/ProcessingPage";
 import ResultPage from "../pages/ResultPage";
 import HistoryPage from "../pages/HistoryPage";
+import HelpPage from "../pages/HelpPage";
 import ClinicalReviewPage from "../pages/ClinicalReviewPage";
 
 const router = createBrowserRouter(
@@ -21,6 +22,7 @@ const router = createBrowserRouter(
           <Route path="audit" element={<AuditPage />} />
           <Route path="audit/:documentId/review" element={<ClinicalReviewPage />} />
           <Route path="history" element={<HistoryPage />} />
+          <Route path="help" element={<HelpPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </>
