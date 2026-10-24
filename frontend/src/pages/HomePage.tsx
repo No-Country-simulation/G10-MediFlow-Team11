@@ -20,17 +20,17 @@ type HomeCapability = {
 const capabilities = [
   {
     title: "Procesamiento de documentos",
-    description: "Carga archivos PDF, JPG o PNG, o ingresa texto clínico para clasificarlos, extraer sus datos y asignar su destino.",
+    description: "Cargue un PDF, una imagen o texto clínico. MediFlow lo clasifica, extrae sus datos y propone su destino.",
     icon: ClinicalProcessingIcon,
   },
   {
     title: "Revisión humana",
-    description: "Consulta los documentos que requieren validación en la sección de auditoría y registra una decisión.",
+    description: "Los documentos dudosos o incompletos esperan en Auditoría. Compare con el original, corrija y apruebe o rechace.",
     icon: ClinicalReviewIcon,
   },
   {
     title: "Trazabilidad",
-    description: "Consulta el resultado y el historial de cada documento, con trazabilidad completa del proceso.",
+    description: "Consulte el resultado de cada documento y las decisiones de revisión registradas.",
     icon: ClinicalTraceabilityIcon,
   },
 ] satisfies readonly HomeCapability[];
@@ -47,18 +47,17 @@ function HomePage() {
               ¡Bienvenido a MediFlow!
             </Typography>
             <Typography component="h1" id="home-title" className="home-page__title">
-              Menos tareas manuales.<br />
-              <span>Más tiempo para cuidar.</span>
+              MediFlow clasifica documentos clínicos <span>con IA.</span>
             </Typography>
             <Typography component="p" className="home-page__description">
-              Organiza y revisa documentos clínicos desde un solo lugar, con trazabilidad y revisión humana cuando hace falta.
+              Cargue un PDF, una imagen o texto. MediFlow extrae los datos importantes y propone su destino. Los casos dudosos o incompletos pasan a revisión humana.
             </Typography>
             <Box className="home-page__actions">
               <Button component={RouterLink} to="/processing" className="home-page__cta home-page__cta--primary" disableElevation disableFocusRipple>
-                Comenzar procesamiento <ArrowRight size={20} aria-hidden="true" />
+                Cargar documento <ArrowRight size={20} aria-hidden="true" />
               </Button>
               <Button component={RouterLink} to="/audit" className="home-page__cta home-page__cta--secondary" disableFocusRipple>
-                <ShieldCheck size={23} aria-hidden="true" /> Ir a auditoría
+                <ShieldCheck size={23} aria-hidden="true" /> Revisar casos pendientes
               </Button>
             </Box>
           </Box>
