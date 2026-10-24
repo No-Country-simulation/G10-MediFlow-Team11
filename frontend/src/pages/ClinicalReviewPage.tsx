@@ -21,7 +21,8 @@ import type {
 } from "../types/processing";
 import {
   activeReviewSection, approvalBlockers, createReviewPatch, hasSpecialtyChanged, hasUnsavedReviewChanges,
-  humanizeMissingField, parseAdditionalJson, reviewSourceLabel, reviewWarningMessages, shouldBlockReviewNavigation,
+  humanizeMissingField, parseAdditionalJson, restoredTextValue, reviewSourceLabel, reviewWarningMessages,
+  shouldBlockReviewNavigation, writeReviewField,
 } from "./clinicalReviewModel";
 import "../styles/clinical-review.css";
 
@@ -64,22 +65,10 @@ function copyData(data: ExtractedData): ExtractedData {
 function readPath(data: ExtractedData, path: string[]): unknown {
   let value: unknown = data;
   for (const key of path) {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return value === null ? null : undefined;
     value = (value as Record<string, unknown>)[key];
   }
   return value;
-}
-
-function writePath(data: ExtractedData, path: string[], value: unknown): ExtractedData {
-  const next = copyData(data);
-  let parent: Record<string, unknown> = next;
-  for (const key of path.slice(0, -1)) {
-    const child = parent[key];
-    if (typeof child !== "object" || child === null || Array.isArray(child)) parent[key] = {};
-    parent = parent[key] as Record<string, unknown>;
-  }
-  parent[path[path.length - 1]] = value;
-  return next;
 }
 
 function emptyValidation(): Validation {
@@ -149,6 +138,8 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   const [specialty, setSpecialty] = useState(result.classification?.specialty ?? "");
   const [destination, setDestination] = useState<RoutingDestination>(result.routing_decision.primary_destination);
   const [extracted, setExtracted] = useState<ExtractedData>(() => copyData(result.extracted_data ?? {}));
+  const medicationOriginals = useRef<Medication[]>(structuredClone(result.extracted_data?.medications ?? []));
+  const studyOriginals = useRef<RequestedStudy[]>(structuredClone(result.extracted_data?.requested_studies ?? []));
   const [validation, setValidation] = useState<Validation>(() => ({
     missing_fields: [...(result.validation?.missing_fields ?? [])],
     inconsistencies: [...(result.validation?.inconsistencies ?? [])],
@@ -241,18 +232,18 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   const canApprove = approvalReasons.length === 0;
 
   const updateExtraction = (path: string[], value: unknown) => {
-    setExtracted((previous) => writePath(previous, path, value));
+    setExtracted((previous) => writeReviewField(result.extracted_data, previous, path, value));
     setConfirmed(false);
   };
-  const updateMedication = (index: number, key: keyof Medication, value: string) => {
+  const updateMedication = (index: number, key: keyof Medication, raw: string) => {
     const items = (extracted.medications ?? []).map((item) => ({ ...item }));
-    items[index][key] = value;
+    items[index][key] = restoredTextValue(raw, medicationOriginals.current[index]?.[key]);
     setExtracted((previous) => ({ ...previous, medications: items }));
     setConfirmed(false);
   };
-  const updateStudy = (index: number, value: string) => {
+  const updateStudy = (index: number, raw: string) => {
     const items: RequestedStudy[] = (extracted.requested_studies ?? []).map((item) => ({ ...item }));
-    items[index].name = value;
+    items[index].name = restoredTextValue(raw, studyOriginals.current[index]?.name);
     setExtracted((previous) => ({ ...previous, requested_studies: items }));
     setConfirmed(false);
   };
@@ -278,7 +269,8 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
     if (saving || success || conflict || (decision === "APPROVE" && !canApprove)) return;
     const request = createReviewPatch({
       decision, result, documentType, priority, specialty, destination,
-      extracted, validation, confirmed, hasExtraError,
+      extracted, medicationOriginals: medicationOriginals.current, studyOriginals: studyOriginals.current,
+      validation, confirmed, hasExtraError,
     });
     setDialog(null);
     setSaving(true);
@@ -381,7 +373,10 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                             onChange={(event) => {
                               const raw = event.target.value;
                               if (field.number && raw !== "" && (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)))) return;
-                              updateExtraction(field.path, raw === "" ? null : field.number ? Number(raw) : raw);
+                              const original = readPath(result.extracted_data ?? {}, field.path);
+                              const value = field.number ? (raw === "" ? null : Number(raw))
+                                : restoredTextValue(raw, original as string | null | undefined);
+                              updateExtraction(field.path, value);
                             }} />
                         </span>
                         {missing && <span id={missingDescriptionId} className="clinical-review__missing-note">No identificado</span>}
@@ -395,20 +390,20 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                       <div className="clinical-review__array-row" key={index}>
                         <label>Medicamento {index + 1}<input value={item.name ?? ""} placeholder="Nombre" disabled={saving || !!success} onChange={(event) => updateMedication(index, "name", event.target.value)} /></label>
                         <label>Dosis<input value={item.dosage ?? ""} placeholder="Sin valor" disabled={saving || !!success} onChange={(event) => updateMedication(index, "dosage", event.target.value)} /></label>
-                        <button type="button" aria-label={`Eliminar medicamento ${index + 1}`} disabled={saving || !!success} onClick={() => { setExtracted((previous) => ({ ...previous, medications: (previous.medications ?? []).filter((_, i) => i !== index) })); setConfirmed(false); }}><X size={16} /></button>
+                        <button type="button" aria-label={`Eliminar medicamento ${index + 1}`} disabled={saving || !!success} onClick={() => { medicationOriginals.current.splice(index, 1); setExtracted((previous) => ({ ...previous, medications: (previous.medications ?? []).filter((_, i) => i !== index) })); setConfirmed(false); }}><X size={16} /></button>
                       </div>
                     ))}
-                    <button type="button" className="clinical-review__add" disabled={saving || !!success} onClick={() => { setExtracted((previous) => ({ ...previous, medications: [...(previous.medications ?? []), { name: null, dosage: null }] })); setConfirmed(false); }}>Agregar medicamento</button>
+                    <button type="button" className="clinical-review__add" disabled={saving || !!success} onClick={() => { medicationOriginals.current.push({ name: null, dosage: null }); setExtracted((previous) => ({ ...previous, medications: [...(previous.medications ?? []), { name: null, dosage: null }] })); setConfirmed(false); }}>Agregar medicamento</button>
                   </div>
                   <div className="clinical-review__array-group">
                     <h4>Estudios solicitados</h4>
                     {(extracted.requested_studies ?? []).map((item, index) => (
                       <div className="clinical-review__array-row" key={index}>
                         <label>Estudio {index + 1}<input value={item.name ?? ""} placeholder="Sin valor" disabled={saving || !!success} onChange={(event) => updateStudy(index, event.target.value)} /></label>
-                        <button type="button" aria-label={`Eliminar estudio ${index + 1}`} disabled={saving || !!success} onClick={() => { setExtracted((previous) => ({ ...previous, requested_studies: (previous.requested_studies ?? []).filter((_, i) => i !== index) })); setConfirmed(false); }}><X size={16} /></button>
+                        <button type="button" aria-label={`Eliminar estudio ${index + 1}`} disabled={saving || !!success} onClick={() => { studyOriginals.current.splice(index, 1); setExtracted((previous) => ({ ...previous, requested_studies: (previous.requested_studies ?? []).filter((_, i) => i !== index) })); setConfirmed(false); }}><X size={16} /></button>
                       </div>
                     ))}
-                    <button type="button" className="clinical-review__add" disabled={saving || !!success} onClick={() => { setExtracted((previous) => ({ ...previous, requested_studies: [...(previous.requested_studies ?? []), { name: null }] })); setConfirmed(false); }}>Agregar estudio</button>
+                    <button type="button" className="clinical-review__add" disabled={saving || !!success} onClick={() => { studyOriginals.current.push({ name: null }); setExtracted((previous) => ({ ...previous, requested_studies: [...(previous.requested_studies ?? []), { name: null }] })); setConfirmed(false); }}>Agregar estudio</button>
                   </div>
                   {Object.keys(extraJson).length > 0 && <div className="clinical-review__array-group"><h4>Otros datos</h4>
                     {Object.entries(extraJson).map(([key, value], index) => <label key={key}>{key}

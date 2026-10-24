@@ -21,26 +21,59 @@ export function changedFields(before: Record<string, unknown>, after: Record<str
   return patch;
 }
 
-function normalizeEditedText(value: string | null | undefined, originalValues: (string | null | undefined)[]): string | null {
-  if (originalValues.includes(value)) return value ?? null;
+function normalizeEditedText(value: string | null | undefined, original: string | null | undefined): string | null | undefined {
+  if (value === original) return value;
   return value?.trim() || null;
 }
 
-export function normalizeReviewExtraction(original: ExtractedData | null, draft: ExtractedData): ExtractedData {
+export function restoredTextValue(raw: string, original: string | null | undefined): string | null | undefined {
+  return raw === "" ? (original === "" || original == null ? original : null) : raw;
+}
+
+export function writeReviewField(original: ExtractedData | null, draft: ExtractedData, path: string[], value: unknown): ExtractedData {
+  const next: ExtractedData = structuredClone(draft);
+  let parent: Record<string, unknown> = next;
+  for (const key of path.slice(0, -1)) {
+    if (!parent[key] || typeof parent[key] !== "object") parent[key] = {};
+    parent = parent[key] as Record<string, unknown>;
+  }
+  const originalParent = path.slice(0, -1).reduce<unknown>((current, key) =>
+    current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, original);
+  if (value === undefined || (value === null && path.length > 1 && originalParent === null)) {
+    delete parent[path.at(-1)!];
+    for (let length = path.length - 1; length > 0; length--) {
+      const prefix = path.slice(0, length);
+      const child = prefix.reduce<unknown>((current, key) =>
+        current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, next);
+      const source = prefix.reduce<unknown>((current, key) =>
+        current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, original);
+      if (!child || typeof child !== "object" || Object.keys(child).length > 0) break;
+      const owner = prefix.slice(0, -1).reduce<Record<string, unknown>>((current, key) =>
+        current[key] as Record<string, unknown>, next);
+      if (source === null) { owner[prefix.at(-1)!] = null; break; }
+      if (source !== undefined) break;
+      delete owner[prefix.at(-1)!];
+    }
+  } else parent[path.at(-1)!] = value;
+  return next;
+}
+
+export function normalizeReviewExtraction(
+  original: ExtractedData | null, draft: ExtractedData,
+  medicationOriginals = original?.medications ?? [], studyOriginals = original?.requested_studies ?? [],
+): ExtractedData {
   const normalized: ExtractedData = structuredClone(draft);
   if (draft.medications) {
-    const source = original?.medications ?? [];
-    normalized.medications = draft.medications.map((item): Medication => ({
+    normalized.medications = draft.medications.map((item, index): Medication => ({
       ...item,
-      name: normalizeEditedText(item.name, source.map((entry) => entry.name)),
-      dosage: normalizeEditedText(item.dosage, source.map((entry) => entry.dosage)),
+      name: normalizeEditedText(item.name, medicationOriginals[index]?.name),
+      dosage: normalizeEditedText(item.dosage, medicationOriginals[index]?.dosage),
     }));
   }
   if (draft.requested_studies) {
-    const source = original?.requested_studies ?? [];
-    normalized.requested_studies = draft.requested_studies.map((item): RequestedStudy => ({
+    normalized.requested_studies = draft.requested_studies.map((item, index): RequestedStudy => ({
       ...item,
-      name: normalizeEditedText(item.name, source.map((entry) => entry.name)),
+      name: normalizeEditedText(item.name, studyOriginals[index]?.name),
     }));
   }
   return normalized;
@@ -175,6 +208,8 @@ export function createReviewPatch(input: {
   specialty: string;
   destination: RoutingDestination;
   extracted: ExtractedData;
+  medicationOriginals?: Medication[];
+  studyOriginals?: RequestedStudy[];
   validation: Validation;
   confirmed: boolean;
   hasExtraError: boolean;
@@ -188,7 +223,7 @@ export function createReviewPatch(input: {
   const normalizedSpecialty = specialty.trim() || null;
   if (hasSpecialtyChanged(result.classification?.specialty, specialty)) classification.specialty = normalizedSpecialty;
   const classificationChanged = Object.keys(classification).length > 0;
-  const extracted = normalizeReviewExtraction(result.extracted_data, input.extracted);
+  const extracted = normalizeReviewExtraction(result.extracted_data, input.extracted, input.medicationOriginals, input.studyOriginals);
   const extractionPatch = changedFields(result.extracted_data ?? {}, extracted);
   const extractedChanged = Object.keys(extractionPatch).length > 0;
   const destinationChanged = destination !== result.routing_decision.primary_destination;
