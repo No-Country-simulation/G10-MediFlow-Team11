@@ -47,7 +47,7 @@ function CopyIdButton({ value }: CopyIdButtonProps) {
       ? "Copiado"
       : state === "failed"
         ? "No copiado"
-        : "Copiar ID";
+        : "Copiar ID del documento";
 
   return (
     <>
@@ -55,11 +55,12 @@ function CopyIdButton({ value }: CopyIdButtonProps) {
         type="button"
         className={`result-copy-button result-copy-button--${state}`}
         onClick={handleCopy}
+        aria-label={label}
+        title={label}
       >
         <Copy aria-hidden="true" size={15} strokeWidth={1.25} />
-        <span>{label}</span>
       </button>
-      <span className="result-visually-hidden" role="status" aria-live="polite">
+      <span className="document-identity__sr-only" role="status" aria-live="polite">
         {FEEDBACK_MESSAGES[state]}
       </span>
     </>

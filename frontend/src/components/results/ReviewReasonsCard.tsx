@@ -1,10 +1,14 @@
 import { useId } from "react";
+import { Link } from "react-router-dom";
 import { auditReasonLabel } from "../../config/auditLabels";
+import { missingFieldLabel } from "../../config/missingFieldLabels";
 import type { AuditReason } from "../../types/processing";
 
 interface ReviewReasonsCardProps {
   reasons: AuditReason[];
   requiresHumanReview: boolean;
+  documentId?: string;
+  missingFields?: string[];
 }
 
 function WarningIcon() {
@@ -30,10 +34,12 @@ function WarningIcon() {
 function ReviewReasonsCard({
   reasons,
   requiresHumanReview,
+  documentId,
+  missingFields = [],
 }: ReviewReasonsCardProps) {
   const titleId = useId();
 
-  if (reasons.length === 0) {
+  if (reasons.length === 0 && !requiresHumanReview) {
     return null;
   }
 
@@ -56,6 +62,8 @@ function ReviewReasonsCard({
             disponible puede ser parcial o no verificada.
           </p>
         )}
+        {missingFields.length > 0 && <p className="result-card__note">Datos no identificados: {[...new Set(missingFields.filter(Boolean).map(missingFieldLabel))].join(", ")}.</p>}
+        {reasons.length === 0 && <p className="result-card__note">Consulte los detalles en Validación.</p>}
         <ul className="result-reason-list">
           {reasons.map((reason) => (
             <li key={reason} className="result-reason-list__item">
@@ -64,6 +72,7 @@ function ReviewReasonsCard({
             </li>
           ))}
         </ul>
+        {requiresHumanReview && documentId && <Link className="result-audit-link" to={`/audit/${encodeURIComponent(documentId)}/review`}>Revisar documento</Link>}
       </div>
     </section>
   );

@@ -3,6 +3,8 @@ import type {
   ProcessingResponse, RequestedStudy, RoutingDestination, Validation,
 } from "../types/processing";
 import type { ReviewDecision, ReviewRequest } from "../services/reviewService";
+import { auditReasonLabel } from "../config/auditLabels";
+import { missingFieldLabel } from "../config/missingFieldLabels";
 
 export function changedFields(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -19,26 +21,59 @@ export function changedFields(before: Record<string, unknown>, after: Record<str
   return patch;
 }
 
-function normalizeEditedText(value: string | null | undefined, originalValues: (string | null | undefined)[]): string | null {
-  if (originalValues.includes(value)) return value ?? null;
+function normalizeEditedText(value: string | null | undefined, original: string | null | undefined): string | null | undefined {
+  if (value === original) return value;
   return value?.trim() || null;
 }
 
-export function normalizeReviewExtraction(original: ExtractedData | null, draft: ExtractedData): ExtractedData {
+export function restoredTextValue(raw: string, original: string | null | undefined): string | null | undefined {
+  return raw === "" ? (original === "" || original == null ? original : null) : raw;
+}
+
+export function writeReviewField(original: ExtractedData | null, draft: ExtractedData, path: string[], value: unknown): ExtractedData {
+  const next: ExtractedData = structuredClone(draft);
+  let parent: Record<string, unknown> = next;
+  for (const key of path.slice(0, -1)) {
+    if (!parent[key] || typeof parent[key] !== "object") parent[key] = {};
+    parent = parent[key] as Record<string, unknown>;
+  }
+  const originalParent = path.slice(0, -1).reduce<unknown>((current, key) =>
+    current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, original);
+  if (value === undefined || (value === null && path.length > 1 && originalParent === null)) {
+    delete parent[path.at(-1)!];
+    for (let length = path.length - 1; length > 0; length--) {
+      const prefix = path.slice(0, length);
+      const child = prefix.reduce<unknown>((current, key) =>
+        current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, next);
+      const source = prefix.reduce<unknown>((current, key) =>
+        current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, original);
+      if (!child || typeof child !== "object" || Object.keys(child).length > 0) break;
+      const owner = prefix.slice(0, -1).reduce<Record<string, unknown>>((current, key) =>
+        current[key] as Record<string, unknown>, next);
+      if (source === null) { owner[prefix.at(-1)!] = null; break; }
+      if (source !== undefined) break;
+      delete owner[prefix.at(-1)!];
+    }
+  } else parent[path.at(-1)!] = value;
+  return next;
+}
+
+export function normalizeReviewExtraction(
+  original: ExtractedData | null, draft: ExtractedData,
+  medicationOriginals = original?.medications ?? [], studyOriginals = original?.requested_studies ?? [],
+): ExtractedData {
   const normalized: ExtractedData = structuredClone(draft);
   if (draft.medications) {
-    const source = original?.medications ?? [];
-    normalized.medications = draft.medications.map((item): Medication => ({
+    normalized.medications = draft.medications.map((item, index): Medication => ({
       ...item,
-      name: normalizeEditedText(item.name, source.map((entry) => entry.name)),
-      dosage: normalizeEditedText(item.dosage, source.map((entry) => entry.dosage)),
+      name: normalizeEditedText(item.name, medicationOriginals[index]?.name),
+      dosage: normalizeEditedText(item.dosage, medicationOriginals[index]?.dosage),
     }));
   }
   if (draft.requested_studies) {
-    const source = original?.requested_studies ?? [];
-    normalized.requested_studies = draft.requested_studies.map((item): RequestedStudy => ({
+    normalized.requested_studies = draft.requested_studies.map((item, index): RequestedStudy => ({
       ...item,
-      name: normalizeEditedText(item.name, source.map((entry) => entry.name)),
+      name: normalizeEditedText(item.name, studyOriginals[index]?.name),
     }));
   }
   return normalized;
@@ -71,17 +106,59 @@ export function parseAdditionalJson(original: unknown, text: string, key: string
   return { value };
 }
 
+export function warningMissingFieldLabels(missingFields: Validation["missing_fields"] | null | undefined): string[] {
+  return [...new Set((missingFields ?? [])
+    .filter((field) => field.trim().length > 0 && field !== "__proto__")
+    .map(missingFieldLabel)
+    .filter((label) => label !== "Dato no identificado"))];
+}
+
+export function reviewWarningMessages(auditReasons: string[], missingFields: Validation["missing_fields"] | null | undefined): string[] {
+  const labels = warningMissingFieldLabels(missingFields);
+  const missingMessage = labels.length > 0
+    ? `Datos no identificados: ${labels.join(", ")}.`
+    : "Datos no identificados. Revise la validación y el documento original.";
+  const messages = auditReasons.map((reason) => {
+    if (reason === "MISSING_CRITICAL_FIELDS") return labels.length > 0
+      ? `Información crítica incompleta: ${labels.join(", ")}.`
+      : "Información crítica incompleta. Revise la validación y el documento original.";
+    if (reason === "LOW_CONFIDENCE") return "La IA asignó baja confianza al análisis. Verifique los datos con el documento original.";
+    return auditReasonLabel(reason);
+  });
+  if (labels.length > 0 && !auditReasons.includes("MISSING_CRITICAL_FIELDS")) messages.push(missingMessage);
+  return messages;
+}
+
 export function humanizeMissingField(value: string): string {
-  const labels: Record<string, string> = {
-    "patient.name": "Nombre del paciente", "patient.age": "Edad del paciente",
-    "requesting_doctor.name": "Médico responsable", "requesting_doctor.license_number": "N.º de colegiado / matrícula profesional",
-    primary_diagnosis: "Diagnóstico principal", suggested_icd10: "CIE-10 sugerido (opcional)",
-    medications: "Medicamentos", requested_studies: "Estudios solicitados",
-  };
-  if (labels[value]) return labels[value];
-  if (/\s/.test(value)) return value;
-  const readable = value.replace(/[._]/g, " ");
-  return readable.charAt(0).toUpperCase() + readable.slice(1);
+  return missingFieldLabel(value);
+}
+
+export function hasSpecialtyChanged(original: string | null | undefined, draft: string): boolean {
+  return draft !== (original ?? "");
+}
+
+export function approvalBlockers(input: {
+  documentType: DocumentType | "";
+  priority: PriorityLevel | "";
+  destination: RoutingDestination;
+  hasExtraError: boolean;
+  needsValidation: boolean;
+  confirmed: boolean;
+  saving: boolean;
+  success: boolean;
+  conflict: boolean;
+}): string[] {
+  if (input.conflict) return ["El documento ya no está pendiente de revisión."];
+  if (input.success) return ["La revisión ya fue registrada."];
+  if (input.saving) return ["Se está registrando la revisión."];
+
+  const reasons: string[] = [];
+  if (!input.documentType) reasons.push("Seleccione el tipo de documento.");
+  if (!input.priority) reasons.push("Seleccione la prioridad.");
+  if (input.destination === "HUMAN_REVIEW") reasons.push("Seleccione un destino final.");
+  if (input.hasExtraError) reasons.push("Corrija los errores de formato en Otros datos.");
+  if (input.needsValidation && !input.confirmed) reasons.push("Confirme la validación revisada.");
+  return reasons;
 }
 
 export function reviewSourceLabel(documentId: string, textContent: boolean, routeState: unknown): string {
@@ -131,6 +208,8 @@ export function createReviewPatch(input: {
   specialty: string;
   destination: RoutingDestination;
   extracted: ExtractedData;
+  medicationOriginals?: Medication[];
+  studyOriginals?: RequestedStudy[];
   validation: Validation;
   confirmed: boolean;
   hasExtraError: boolean;
@@ -142,9 +221,9 @@ export function createReviewPatch(input: {
   if (documentType && documentType !== result.classification?.document_type) classification.document_type = documentType;
   if (priority && priority !== result.classification?.priority_level) classification.priority_level = priority;
   const normalizedSpecialty = specialty.trim() || null;
-  if (normalizedSpecialty !== (result.classification?.specialty ?? null)) classification.specialty = normalizedSpecialty;
+  if (hasSpecialtyChanged(result.classification?.specialty, specialty)) classification.specialty = normalizedSpecialty;
   const classificationChanged = Object.keys(classification).length > 0;
-  const extracted = normalizeReviewExtraction(result.extracted_data, input.extracted);
+  const extracted = normalizeReviewExtraction(result.extracted_data, input.extracted, input.medicationOriginals, input.studyOriginals);
   const extractionPatch = changedFields(result.extracted_data ?? {}, extracted);
   const extractedChanged = Object.keys(extractionPatch).length > 0;
   const destinationChanged = destination !== result.routing_decision.primary_destination;

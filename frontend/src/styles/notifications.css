@@ -8,3 +8,21 @@
     left: 16px;
   }
 }
+
+.app-notification .MuiAlert-filled.MuiAlert-colorWarning {
+  color: var(--mui-palette-mediflow-textPrimary);
+}
+
+/* These notifications can sit outside AppLayout; scheme variables live on html. */
+[data-mediflow-color-scheme="dark"] .app-notification .MuiAlert-filled.MuiAlert-colorSuccess {
+  color: var(--mui-palette-mediflow-successText);
+  background-color: var(--mui-palette-mediflow-successSurface);
+}
+[data-mediflow-color-scheme="dark"] .app-notification .MuiAlert-filled.MuiAlert-colorWarning {
+  color: var(--mui-palette-mediflow-warningText);
+  background-color: var(--mui-palette-mediflow-warningSurface);
+}
+[data-mediflow-color-scheme="dark"] .app-notification .MuiAlert-filled.MuiAlert-colorError {
+  color: var(--mui-palette-mediflow-errorText);
+  background-color: var(--mui-palette-mediflow-errorSurface);
+}

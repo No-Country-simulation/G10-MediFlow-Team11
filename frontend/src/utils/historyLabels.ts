@@ -1,16 +1,9 @@
 import { auditReasonLabel } from "../config/auditLabels";
+import { missingFieldLabel } from "../config/missingFieldLabels";
+import { getDocumentTypeName } from "../config/documentTypeLabels";
 
 export function getDocumentTypeLabel(value: unknown): string {
-  const labels: Record<string, string> = {
-    PRESCRIPTION: "Receta médica",
-    IMAGING_REPORT: "Informe de imágenes",
-    STUDY_REPORT: "Informe de estudio",
-    PROCEDURE_ORDER: "Orden de procedimiento",
-    DISCHARGE_SUMMARY: "Epicrisis",
-    MEDICAL_CERTIFICATE: "Certificado médico",
-  };
-
-  return typeof value === "string" ? (labels[value] ?? value) : "No disponible";
+  return typeof value === "string" ? getDocumentTypeName(value) : "No disponible";
 }
 
 export function getPriorityLabel(value: unknown): string {
@@ -39,7 +32,7 @@ export function getAuditReasonLabel(value: string): string {
 
   const labels: Record<string, string> = {
     ILLEGIBLE_DOCUMENT: "Documento ilegible",
-    MISSING_CRITICAL_FIELDS: "Faltan campos críticos",
+    MISSING_CRITICAL_FIELDS: "Información crítica incompleta",
     INCONSISTENT_DATA: "Datos inconsistentes",
     INVALID_AI_RESPONSE: "Respuesta inválida de la IA",
     AI_TIMEOUT: "Tiempo de espera agotado de la IA",
@@ -50,38 +43,7 @@ export function getAuditReasonLabel(value: string): string {
 }
 
 export function getMissingFieldLabel(field: string): string {
-  const labels: Record<string, string> = {
-    "patient.name": "Nombre del paciente",
-    "patient.age": "Edad del paciente",
-    "requesting_doctor.name": "Médico solicitante",
-    "requesting_doctor.license_number": "N.º de colegiado / matrícula profesional",
-    primary_diagnosis: "Diagnóstico principal",
-    suggested_icd10: "Código CIE-10 sugerido",
-    medications: "Medicamentos",
-    requested_studies: "Estudios solicitados",
-  };
-
-  const normalizedField = field.replace(/\[\d+\]/g, "");
-
-  const medicationMatch = normalizedField.match(
-    /^medications(?:\.\d+)?\.(name|dosage)$/,
-  );
-
-  if (medicationMatch) {
-    return medicationMatch[1] === "name"
-      ? "Nombre del medicamento"
-      : "Dosis del medicamento";
-  }
-
-  const studyMatch = normalizedField.match(
-    /^requested_studies(?:\.\d+)?\.name$/,
-  );
-
-  if (studyMatch) {
-    return "Nombre del estudio solicitado";
-  }
-
-  return labels[field] ?? field;
+  return missingFieldLabel(field);
 }
 
 export function getStatusLabel(status: unknown): string {

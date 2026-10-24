@@ -671,7 +671,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                           <div className="history-page__detail-card-body history-page__validation-findings">
                             {[
                               {
-                                title: "Campos faltantes",
+                                title: "Datos no identificados",
                                 items: missingFields,
                               },
                               {
@@ -697,7 +697,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                                       <span className="history-page__detail-value">
                                         {items
                                           .map((item) =>
-                                            title === "Campos faltantes"
+                                            title === "Datos no identificados"
                                               ? getMissingFieldLabel(item)
                                               : item,
                                           )

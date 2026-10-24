@@ -5,11 +5,14 @@
  */
 .app-shell__main:has(> .processing-page) {
   padding: 0;
+  background: var(--mui-palette-mediflow-background);
 }
 
 .processing-page {
   --proc-primary: #1a5fd0;
   --proc-primary-hover: #174fa9;
+  --proc-primary-fill: var(--proc-primary);
+  --proc-on-primary: var(--mui-palette-mediflow-onAction);
   --proc-required: #ff6b35;
   --proc-border: #e5e5e5;
   --proc-border-strong: #d9d9d9;
@@ -26,6 +29,14 @@
   --proc-error-surface: #fff8e6;
   --proc-hover-surface: #eef4ff;
   --proc-focus: #1a5fd0;
+  --proc-focus-ring: rgba(26, 95, 208, 0.1);
+  --proc-disabled-text: var(--proc-muted);
+  --proc-control-border: var(--proc-border);
+  --proc-drop-border: #d3d3d3;
+  --proc-drop-surface: #fbfbfb;
+  --proc-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  --proc-illustration-paper: var(--mui-palette-mediflow-illustrationPaper);
+  --proc-illustration-detail: var(--mui-palette-mediflow-illustrationDetail);
   --proc-radius-card: 12px;
   --proc-radius: 8px;
   --proc-radius-sm: 7px;
@@ -45,6 +56,7 @@
   font-size: var(--proc-text-sm);
   line-height: calc(var(--proc-u) * 5);
   color: var(--proc-text);
+  background: var(--proc-page-bg);
 }
 
 @media (min-width: 640px) {
@@ -163,7 +175,7 @@
 }
 
 .processing-page__required {
-  color: var(--proc-required);
+  color: var(--mui-palette-mediflow-errorText);
 }
 
 .processing-page__section-title {
@@ -187,8 +199,8 @@
 }
 
 .processing-page__upload-drop--drag {
-  border-color: #d3d3d3;
-  background: #fbfbfb;
+  border-color: var(--proc-drop-border);
+  background: var(--proc-drop-surface);
 }
 
 .processing-page__illustration {
@@ -267,7 +279,7 @@
   display: block;
   width: 100%;
   height: var(--proc-control-h);
-  border: 1px solid var(--proc-border);
+  border: 1px solid var(--proc-control-border);
   border-radius: var(--proc-radius);
   background-color: var(--proc-surface);
   color: var(--proc-text);
@@ -278,7 +290,7 @@
 .processing-page__select {
   padding: 0 calc(var(--proc-u) * 10) 0 calc(var(--proc-u) * 3);
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: var(--proc-select-arrow);
   background-repeat: no-repeat;
   background-position: right 12px center;
   cursor: pointer;
@@ -342,7 +354,7 @@
 
 .processing-page__textarea:focus {
   border-color: var(--proc-primary);
-  box-shadow: 0 0 0 2px rgba(26, 95, 208, 0.1);
+  box-shadow: 0 0 0 2px var(--proc-focus-ring);
 }
 
 .processing-page__textarea:disabled {
@@ -381,8 +393,8 @@
 .processing-page__btn-primary {
   padding: 0 calc(var(--proc-u) * 5);
   border: 0;
-  background: var(--proc-primary);
-  color: #ffffff;
+  background: var(--proc-primary-fill);
+  color: var(--proc-on-primary);
 }
 
 .processing-page__btn-primary:hover:not(:disabled) {
@@ -391,14 +403,14 @@
 
 .processing-page__btn-primary:disabled {
   background: var(--proc-surface-alt);
-  color: var(--proc-muted);
+  color: var(--proc-disabled-text);
   cursor: not-allowed;
 }
 
 .processing-page__btn-primary--loading,
 .processing-page__btn-primary--loading:disabled {
-  background: var(--proc-primary);
-  color: #ffffff;
+  background: var(--proc-primary-fill);
+  color: var(--proc-on-primary);
   opacity: 0.85;
 }
 
@@ -451,7 +463,7 @@
 }
 
 .processing-page__status-chip-label {
-  color: var(--proc-muted);
+  color: var(--mui-palette-mediflow-textOnMuted);
 }
 
 .processing-page__status-chip-value {
@@ -505,7 +517,7 @@
   margin-top: var(--proc-u);
   font-size: var(--proc-text-xs);
   line-height: calc(var(--proc-u) * 5);
-  color: var(--proc-muted);
+  color: var(--mui-palette-mediflow-textOnMuted);
 }
 
 .processing-page__grid {
@@ -738,4 +750,66 @@
   .processing-page--split .processing-page__viewer-panel {
     height: auto;
   }
+}
+
+[data-mediflow-color-scheme="dark"] .processing-page {
+  --proc-primary: var(--mui-palette-mediflow-actionText);
+  --proc-primary-fill: var(--mui-palette-mediflow-action);
+  --proc-primary-hover: var(--mui-palette-mediflow-actionHover);
+  --proc-required: var(--mui-palette-mediflow-warningText);
+  --proc-border: var(--mui-palette-mediflow-border);
+  --proc-border-strong: var(--mui-palette-mediflow-borderStrong);
+  --proc-border-hover: var(--mui-palette-mediflow-focus);
+  --proc-control-border: var(--mui-palette-mediflow-borderStrong);
+  --proc-surface: var(--mui-palette-mediflow-surface);
+  --proc-surface-alt: var(--mui-palette-mediflow-surfaceMuted);
+  --proc-page-bg: var(--mui-palette-mediflow-background);
+  --proc-text: var(--mui-palette-mediflow-textPrimary);
+  --proc-muted: var(--mui-palette-mediflow-textSecondary);
+  --proc-placeholder: var(--mui-palette-mediflow-textSecondary);
+  --proc-disabled-text: var(--mui-palette-mediflow-disabledText);
+  --proc-status: var(--mui-palette-mediflow-successText);
+  --proc-error-bg: var(--mui-palette-mediflow-warningSurface);
+  --proc-error-border: var(--mui-palette-mediflow-warningText);
+  --proc-error-surface: var(--mui-palette-mediflow-warningSurface);
+  --proc-hover-surface: var(--mui-palette-mediflow-actionSurface);
+  --proc-focus: var(--mui-palette-mediflow-focus);
+  --proc-focus-ring: color-mix(in srgb, var(--proc-focus) 30%, transparent);
+  --proc-drop-border: var(--mui-palette-mediflow-actionText);
+  --proc-drop-surface: var(--mui-palette-mediflow-actionSurface);
+  --proc-illustration-tray: var(--mui-palette-mediflow-borderStrong);
+  /* A data-URI SVG cannot inherit CSS variables; its stroke matches textSecondary. */
+  --proc-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b7cfee' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+[data-mediflow-color-scheme="dark"] .processing-page .processing-page__select option {
+  background: var(--proc-surface);
+}
+[data-mediflow-color-scheme="dark"] .processing-page .processing-page__btn-primary--loading {
+  opacity: 1;
+}
+[data-mediflow-color-scheme="dark"] .processing-page .processing-page__tab-icon {
+  filter: brightness(0) saturate(100%) invert(87%) sepia(15%) saturate(788%) hue-rotate(178deg) brightness(98%) contrast(91%);
+}
+[data-mediflow-color-scheme="dark"] .processing-page .processing-page__tab--active .processing-page__tab-icon {
+  filter: brightness(0) saturate(100%) invert(76%) sepia(18%) saturate(1355%) hue-rotate(173deg) brightness(103%) contrast(103%);
+}
+[data-mediflow-color-scheme="dark"] .processing-page :is(textarea, .processing-page__config-body),
+[data-mediflow-color-scheme="dark"] .app-shell__main:has(> .processing-page) {
+  scrollbar-color: var(--mui-palette-mediflow-illustrationDetail) var(--mui-palette-mediflow-background);
+}
+/* Preserve the viewer's independent light/dark UI and the original document colors. */
+.processing-page__viewer {
+  color-scheme: light;
+  scrollbar-color: auto;
+  color: #1a1a1a;
+}
+.processing-page__viewer .document-viewer__pdf-viewer--dark {
+  color-scheme: dark;
+}
+[data-mediflow-color-scheme="dark"] .processing-page__viewer .document-viewer__message {
+  color: var(--proc-text);
+  background: var(--proc-surface);
+}
+[data-mediflow-color-scheme="dark"] .processing-page__viewer .document-viewer__message .MuiCircularProgress-root {
+  color: var(--proc-primary);
 }

@@ -1,13 +1,31 @@
 .app-shell__main:has(> .history-page) {
   padding: 0;
+  background: var(--mui-palette-mediflow-background);
 }
 
 .history-page {
+  --hist-warning: #b84e00;
+  --hist-warning-border: rgba(255, 107, 53, 0.35);
+  --hist-warning-surface: #fffbf7;
+  --hist-error-border: rgba(166, 64, 64, 0.35);
+  --hist-error-surface: #faeeee;
+  --hist-info-border: rgba(26, 95, 208, 0.25);
+  --hist-info-surface: #eef4ff;
+  --hist-success-surface: #eaf7f5;
+  --hist-attention-surface: rgba(255, 107, 53, 0.1);
+  --hist-neutral-surface: #f5f5f5;
+  --hist-neutral-text: #666666;
+  --hist-bg: #f5f5f5;
+  --hist-warning-dot: #ff6b35;
+  --hist-action-hover: rgba(26, 95, 208, 0.08);
+  --hist-storage-error: #b91c1c;
+  --hist-storage-warning: #a16207;
   --hist-primary: #1a5fd0;
   --hist-border: #e5e5e5;
   --hist-surface: #ffffff;
   --hist-text: #1a1a1a;
   --hist-muted: #737373;
+  --hist-text-muted: var(--hist-muted);
   --hist-success: #0b7573;
   --hist-danger: #a64040;
   --hist-radius: 8px;
@@ -162,7 +180,7 @@
 }
 
 .history-page__clear-filters:hover {
-  background: #eef4ff;
+  background: var(--hist-action-hover);
 }
 
 @media (min-width: 768px) {
@@ -234,7 +252,7 @@
 }
 
 .history-page__document-action:hover {
-  background: #eef4ff;
+  background: var(--hist-action-hover);
 }
 
 .history-page__document-action:focus-visible {
@@ -322,20 +340,20 @@
 }
 
 .history-page__state--warning {
-  border-color: rgba(255, 107, 53, 0.35);
-  background: #fffbf7;
-  color: #b84e00;
+  border-color: var(--hist-warning-border);
+  background: var(--hist-warning-surface);
+  color: var(--hist-warning);
 }
 
 .history-page__state--error {
-  border-color: rgba(166, 64, 64, 0.35);
-  background: #faeeee;
+  border-color: var(--hist-error-border);
+  background: var(--hist-error-surface);
   color: var(--hist-danger);
 }
 
 .history-page__state--info {
-  border-color: rgba(26, 95, 208, 0.25);
-  background: #eef4ff;
+  border-color: var(--hist-info-border);
+  background: var(--hist-info-surface);
   color: var(--hist-primary);
 }
 
@@ -389,7 +407,7 @@
 }
 
 .history-page__summary-result-link:hover {
-  background: rgba(26, 95, 208, 0.08);
+  background: var(--hist-action-hover);
 }
 
 .history-page__summary-list-link {
@@ -444,23 +462,23 @@
 }
 
 .history-page__status--success {
-  background: #eaf7f5;
-  color: #0b7573;
+  background: var(--hist-success-surface);
+  color: var(--hist-success);
 }
 
 .history-page__status--error {
-  background: #faeeee;
+  background: var(--hist-error-surface);
   color: var(--hist-danger);
 }
 
 .history-page__status--warning {
-  background: rgba(255, 107, 53, 0.1);
-  color: #b84e00;
+  background: var(--hist-attention-surface);
+  color: var(--hist-warning);
 }
 
 .history-page__status--default {
-  background: #f5f5f5;
-  color: #666666;
+  background: var(--hist-neutral-surface);
+  color: var(--hist-neutral-text);
 }
 
 .history-page__status-dot {
@@ -472,7 +490,7 @@
 }
 
 .history-page__status--warning .history-page__status-dot {
-  background: #ff6b35;
+  background: var(--hist-warning-dot);
 }
 
 .history-page__back-link {
@@ -493,7 +511,7 @@
 }
 
 .history-page__back-link:hover {
-  background: rgba(26, 95, 208, 0.08);
+  background: var(--hist-action-hover);
 }
 
 .history-page__back-link:focus-visible {
@@ -579,7 +597,7 @@
 }
 
 .history-page__event-toggle:hover {
-  background: #f5f5f5;
+  background: var(--hist-neutral-surface);
 }
 
 .history-page__event-toggle:focus-visible {
@@ -888,11 +906,11 @@
 }
 
 .history-page__storage-badge--error {
-  color: #b91c1c;
+  color: var(--hist-storage-error);
 }
 
 .history-page__storage-badge--warning {
-  color: #a16207;
+  color: var(--hist-storage-warning);
 }
 
 .history-page__json {
@@ -933,4 +951,40 @@
   .history-page__event-chevron {
     grid-column: 2;
   }
+}
+[data-mediflow-color-scheme="dark"] .history-page {
+  --hist-primary: var(--mui-palette-mediflow-actionText);
+  --hist-border: var(--mui-palette-mediflow-border);
+  --hist-surface: var(--mui-palette-mediflow-surface);
+  --hist-text: var(--mui-palette-mediflow-textPrimary);
+  --hist-muted: var(--mui-palette-mediflow-textSecondary);
+  --hist-text-muted: var(--mui-palette-mediflow-textSecondary);
+  --hist-bg: var(--mui-palette-mediflow-surfaceMuted);
+  --hist-success: var(--mui-palette-mediflow-successText);
+  --hist-danger: var(--mui-palette-mediflow-errorText);
+  --hist-warning: var(--mui-palette-mediflow-warningText);
+  --hist-warning-border: var(--mui-palette-mediflow-warningText);
+  --hist-warning-surface: var(--mui-palette-mediflow-warningSurface);
+  --hist-error-border: var(--mui-palette-mediflow-errorText);
+  --hist-error-surface: var(--mui-palette-mediflow-errorSurface);
+  --hist-info-border: var(--mui-palette-mediflow-actionText);
+  --hist-info-surface: var(--mui-palette-mediflow-infoSurface);
+  --hist-success-surface: var(--mui-palette-mediflow-successSurface);
+  --hist-attention-surface: var(--mui-palette-mediflow-warningSurface);
+  --hist-neutral-surface: var(--mui-palette-mediflow-surfaceMuted);
+  --hist-neutral-text: var(--mui-palette-mediflow-textSecondary);
+  --hist-warning-dot: var(--mui-palette-mediflow-warningText);
+  --hist-action-hover: var(--mui-palette-mediflow-actionSurface);
+  --hist-storage-error: var(--mui-palette-mediflow-errorText);
+  --hist-storage-warning: var(--mui-palette-mediflow-warningText);
+}
+
+[data-mediflow-color-scheme="dark"] .history-page__json,
+[data-mediflow-color-scheme="dark"] .app-shell__main:has(> .history-page) {
+  scrollbar-color: var(--mui-palette-mediflow-illustrationDetail) var(--mui-palette-mediflow-background);
+}
+
+[data-mediflow-color-scheme="dark"] .history-page__search-input::placeholder {
+  color: var(--hist-muted);
+  opacity: 1;
 }

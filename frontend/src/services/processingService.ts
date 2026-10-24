@@ -5,8 +5,7 @@ import type {
   ProcessTextRequest,
   ProcessingResponse,
 } from "../types/processing";
-import { successfulProcessingResponse } from "../mocks/processingMocks";
-import { registerMockFileReview } from "../mocks/auditWorkflowStore";
+import { getMockTextContent, getMockWorkflowResult, registerMockFileReview } from "../mocks/auditWorkflowStore";
 
 const PROCESS_TEXT_ENDPOINT = "/api/v1/documents/process-text";
 const PROCESS_FILE_ENDPOINT = "/api/v1/documents/process-file";
@@ -15,7 +14,13 @@ export async function processText(
   request: ProcessTextRequest,
 ): Promise<ProcessingResponse> {
   if (env.useMocks) {
-    return successfulProcessingResponse;
+    const fixtureId = "DOC-2026-0006";
+    const fixtureText = getMockTextContent(fixtureId);
+    const fixtureResult = getMockWorkflowResult(fixtureId);
+    if (fixtureText && fixtureResult && request.document_text === fixtureText) {
+      return fixtureResult;
+    }
+    throw new ApiError(422, "MOCK_TEXT_UNAVAILABLE", "El modo de demostración no procesa texto libre. Use el escenario de texto existente en Auditoría o Historial.");
   }
 
   const response = await fetch(`${env.apiBaseUrl}${PROCESS_TEXT_ENDPOINT}`, {

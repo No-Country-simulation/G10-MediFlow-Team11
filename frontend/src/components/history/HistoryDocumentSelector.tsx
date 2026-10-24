@@ -4,6 +4,7 @@ import { getDocumentList } from "../../services/documentListService";
 import type { DocumentListItem } from "../../types/documentList";
 import type { DocumentStatus } from "../../types/processing";
 import { getDocumentTypeLabel, getStatusLabel } from "../../utils/historyLabels";
+import { formatDocumentListDate } from "../../utils/formatDocumentListDate";
 import {
   buildDocumentHistoryPath,
   filterDocuments,
@@ -33,17 +34,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function getInputTypeLabel(inputType: DocumentListItem["inputType"]): string {
-  return inputType === "TEXT" ? "Texto" : "Archivo";
-}
-
-function formatDocumentDate(iso: string): string {
-  return new Date(iso).toLocaleString("es-MX", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return inputType === "TEXT" ? "Texto ingresado" : "Archivo";
 }
 
 function HistoryDocumentSelector() {
@@ -217,7 +208,7 @@ function HistoryDocumentSelector() {
                       : ""}
                     {" · "}
                     <time dateTime={document.createdAt}>
-                      {formatDocumentDate(document.createdAt)}
+                      {formatDocumentListDate(document.createdAt)}
                     </time>
                   </span>
                 </div>
@@ -243,6 +234,7 @@ function HistoryDocumentSelector() {
                 <Link
                   className="history-page__document-action"
                   to={buildDocumentHistoryPath(document.documentId)}
+                  aria-label={`Consultar historial del documento ${document.documentId}`}
                 >
                   Consultar historial
                 </Link>

@@ -5,28 +5,29 @@
   .app-notification
 ) {
   --mediflow-shell-font: "Plus Jakarta Sans", system-ui, sans-serif;
-  --mediflow-shell-text: #1a1a1a;
-  --mediflow-shell-muted: #737373;
-  --mediflow-shell-disabled: #a9a9a9;
-  --mediflow-shell-primary: #1a5fd0;
-  --mediflow-shell-focus: #1570ef;
-  --mediflow-shell-active-background: rgba(21, 112, 239, 0.12);
-  --mediflow-shell-desktop-state-background: rgba(26, 95, 208, 0.12);
-  --mediflow-shell-border: rgba(15, 26, 61, 0.09);
-  --mediflow-shell-desktop-border: #e5e5e5;
-  --mediflow-shell-surface: #ffffff;
-  --mediflow-shell-page-background: #fafafa;
-  --mediflow-shell-hover-background: rgba(0, 0, 0, 0.04);
+  --mediflow-shell-text: var(--mui-palette-mediflow-textPrimary);
+  --mediflow-shell-muted: var(--mui-palette-mediflow-textSecondary);
+  --mediflow-shell-disabled: var(--mui-palette-mediflow-disabledText);
+  --mediflow-shell-primary: var(--mui-palette-mediflow-actionText);
+  --mediflow-shell-focus: var(--mui-palette-primary-main);
+  --mediflow-shell-active-background: rgba(var(--mui-palette-primary-mainChannel) / 0.12);
+  --mediflow-shell-desktop-state-background: var(--mui-palette-mediflow-navigationSelected);
+  --mediflow-shell-border: var(--mui-palette-divider);
+  --mediflow-shell-desktop-border: var(--mui-palette-mediflow-border);
+  --mediflow-shell-surface: var(--mui-palette-mediflow-surface);
+  --mediflow-shell-navigation-surface: var(--mui-palette-mediflow-navigationSurface);
+  --mediflow-shell-page-background: var(--mui-palette-mediflow-legacyContentSurface);
+  --mediflow-shell-hover-background: var(--mui-palette-mediflow-navigationHover);
   --mediflow-shell-header-height: 49px;
   --mediflow-shell-header-padding-inline: 10.5px;
   --mediflow-shell-header-control-size: 31.5px;
-  --mediflow-shell-header-border: #e5e5e5;
-  --mediflow-shell-control-hover-background: rgba(26, 95, 208, 0.12);
+  --mediflow-shell-header-border: var(--mui-palette-mediflow-border);
+  --mediflow-shell-control-hover-background: var(--mui-palette-mediflow-navigationSelected);
   --mediflow-shell-sidebar-collapsed-width: 65px;
   --mediflow-shell-sidebar-expanded-width: 240px;
   --mediflow-shell-drawer-width: 210px;
   --mediflow-shell-drawer-padding: 10.5px;
-  --mediflow-shell-drawer-backdrop: rgba(0, 0, 0, 0.2);
+  --mediflow-shell-drawer-backdrop: var(--mui-palette-mediflow-overlay);
   --mediflow-shell-radius: 8px;
   --mediflow-shell-transition-duration: 200ms;
   --mediflow-shell-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
@@ -134,7 +135,7 @@
   width: var(--mediflow-shell-drawer-width);
   height: calc(100dvh - var(--mediflow-shell-header-height));
   overflow: hidden;
-  background: var(--mediflow-shell-surface);
+  background: var(--mediflow-shell-navigation-surface);
 }
 
 .app-shell__drawer .app-shell__drawer-backdrop {
@@ -165,15 +166,6 @@
   background: var(--mediflow-shell-page-background);
 }
 
-.app-shell__demo-notice {
-  margin: 24px 0 0;
-  color: var(--mediflow-shell-text);
-  font-size: 12px;
-  line-height: 1.5;
-  opacity: 0.7;
-  text-align: center;
-}
-
 .app-shell__sidebar {
   position: absolute;
   top: 0;
@@ -183,7 +175,7 @@
   flex-shrink: 0;
   width: var(--mediflow-shell-sidebar-expanded-width);
   height: calc(100dvh - var(--mediflow-shell-header-height));
-  background: var(--mediflow-shell-surface);
+  background: var(--mediflow-shell-navigation-surface);
   border-right: 1px solid var(--mediflow-shell-border);
   transition: width var(--mediflow-shell-transition-duration)
     var(--mediflow-shell-transition-easing);
@@ -489,9 +481,9 @@
 
 .app-shell__tooltip.app-shell__tooltip {
   padding: 5.25px 8.75px;
-  color: #ffffff;
+  color: var(--mui-palette-mediflow-tooltipText);
   white-space: nowrap;
-  background: var(--mediflow-shell-text);
+  background: var(--mui-palette-mediflow-tooltipSurface);
   border-radius: 6px;
   font-family: var(--mediflow-shell-font);
   font-size: 10.5px;
@@ -513,4 +505,9 @@
   .app-shell__nav-item {
     transition: none;
   }
+}
+
+/* The secondary copy is information, including on selected/hovered surfaces. */
+.app-shell__nav-item:not(.Mui-disabled):is(.active, :hover, .Mui-focusVisible) .MuiListItemText-secondary {
+  color: var(--mui-palette-mediflow-navigationTextOnSelected);
 }

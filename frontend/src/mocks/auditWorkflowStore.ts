@@ -14,6 +14,7 @@ const textResult: ProcessingResponse = {
   ...structuredClone(needsAuditResultMock),
   document_id: textDocumentId,
   classification: { document_type: "STUDY_REPORT", specialty: "Radiología", priority_level: "ROUTINE" },
+  confidence: null,
   extracted_data: {
     patient: { name: "Sofía Ramírez", age: null },
     requesting_doctor: { name: "Dr. Luis Vega", license_number: null },
@@ -23,6 +24,11 @@ const textResult: ProcessingResponse = {
     missing_fields: ["patient.age", "requesting_doctor.license_number"],
     inconsistencies: [],
     warnings: ["Confirme los datos extraídos del texto original."],
+  },
+  routing_decision: {
+    primary_destination: "HUMAN_REVIEW", requires_human_review: true,
+    audit_reasons: ["MISSING_CRITICAL_FIELDS"],
+    justification: "El texto de demostración no incluye edad ni matrícula profesional; requiere revisión humana.",
   },
 };
 

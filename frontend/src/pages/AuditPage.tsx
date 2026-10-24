@@ -1,3 +1,4 @@
+import { formatDocumentListDate } from "../utils/formatDocumentListDate";
 import {
   AuditQueueEmptyState,
   AuditQueueErrorState,
@@ -6,52 +7,6 @@ import {
 import AuditQueueCard from "../components/audit/AuditQueueCard";
 import { useAuditQueue } from "../hooks/useAuditQueue";
 import "../styles/audit-queue.css";
-
-function formatQueueDate(iso: string): string {
-  const date = new Date(iso);
-  const dateOptions: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  };
-  const timeOptions: Intl.DateTimeFormatOptions = {
-    hour: "2-digit",
-    minute: "2-digit",
-  };
-  const dateParts = new Intl.DateTimeFormat("es-CO", {
-    ...dateOptions,
-  }).formatToParts(date);
-  const timeParts = new Intl.DateTimeFormat("es-CO", {
-    ...timeOptions,
-  }).formatToParts(date);
-  const partValue = (
-    parts: Intl.DateTimeFormatPart[],
-    type: Intl.DateTimeFormatPartTypes,
-  ): string | undefined => {
-    return parts.find((part) => part.type === type)?.value;
-  };
-  const day = partValue(dateParts, "day");
-  const month = partValue(dateParts, "month");
-  const year = partValue(dateParts, "year");
-  const hour = partValue(timeParts, "hour");
-  const minute = partValue(timeParts, "minute");
-  const rawDayPeriod = partValue(timeParts, "dayPeriod");
-
-  if (
-    day === undefined ||
-    month === undefined ||
-    year === undefined ||
-    hour === undefined ||
-    minute === undefined ||
-    rawDayPeriod === undefined
-  ) {
-    return date.toLocaleString("es-CO", { ...dateOptions, ...timeOptions });
-  }
-
-  const dayPeriod = rawDayPeriod.replace(/[\u00a0\u202f]/g, " ");
-
-  return `${day} ${month} ${year}, ${hour}:${minute} ${dayPeriod}`;
-}
 
 function AuditPage() {
   const { state, items, error, reload } = useAuditQueue();
@@ -62,8 +17,7 @@ function AuditPage() {
         <header className="audit-queue__header">
           <h1 className="audit-queue__title">Auditoría de documentos</h1>
           <p className="audit-queue__description">
-            Revise los documentos derivados a revisión humana por baja confianza,
-            ambigüedad, inconsistencias o condiciones técnicas.
+            Revise los documentos pendientes, compárelos con el original y registre una decisión.
           </p>
         </header>
 
@@ -92,7 +46,7 @@ function AuditPage() {
                   <AuditQueueCard
                     key={item.document_id}
                     item={item}
-                    formatDate={formatQueueDate}
+                    formatDate={formatDocumentListDate}
                   />
                 ))}
               </div>

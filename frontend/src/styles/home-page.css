@@ -81,7 +81,7 @@
 .home-page__hero-copy { position: relative; z-index: 1; min-width: 0; }
 .home-page .home-page__welcome { margin: 0 0 16px; color: var(--home-page-action-text); font-family: inherit; font-size: 14px; line-height: 22px; font-weight: 600; letter-spacing: normal; }
 .home-page .home-page__title { margin: 0; color: var(--home-page-text); font-family: inherit; font-size: clamp(28px, 3.45vw, 46px); font-weight: 700; line-height: 1.2; letter-spacing: -1.55px; }
-.home-page__title span { color: var(--home-page-accent); }
+.home-page__title span { color: var(--home-page-action-text); white-space: nowrap; }
 .home-page .home-page__description { margin: 17px 0 0; color: var(--home-page-text-secondary); font-family: inherit; font-size: 17px; line-height: 1.6; font-weight: 500; letter-spacing: normal; }
 .home-page__actions { display: flex; align-items: stretch; gap: 16px; margin-top: 24px; }
 .home-page .home-page__cta { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; padding: 16px 28px; border: 1px solid var(--home-page-action); border-radius: 10px; white-space: nowrap; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 22px; letter-spacing: normal; text-transform: none; text-decoration: none; transition: background-color 150ms; }

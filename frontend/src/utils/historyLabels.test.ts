@@ -6,13 +6,13 @@ describe("getAuditReasonLabel", () => {
   it("uses the shared LOW_CONFIDENCE label without a trailing period", () => {
     const label = getAuditReasonLabel("LOW_CONFIDENCE");
 
-    expect(label).toBe("El sistema tuvo dudas al analizar este documento");
+    expect(label).toBe("Baja confianza del análisis");
     expect(label).toBe(auditReasonLabel("LOW_CONFIDENCE"));
   });
 
   it.each([
     ["ILLEGIBLE_DOCUMENT", "Documento ilegible"],
-    ["MISSING_CRITICAL_FIELDS", "Faltan campos críticos"],
+    ["MISSING_CRITICAL_FIELDS", "Información crítica incompleta"],
     ["INCONSISTENT_DATA", "Datos inconsistentes"],
     ["INVALID_AI_RESPONSE", "Respuesta inválida de la IA"],
     ["AI_TIMEOUT", "Tiempo de espera agotado de la IA"],

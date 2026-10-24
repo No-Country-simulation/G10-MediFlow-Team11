@@ -4,13 +4,13 @@ import { auditReasonLabel } from "./auditLabels";
 describe("auditReasonLabel", () => {
   it("explains LOW_CONFIDENCE in plain language", () => {
     expect(auditReasonLabel("LOW_CONFIDENCE")).toBe(
-      "El sistema tuvo dudas al analizar este documento",
+      "Baja confianza del análisis",
     );
   });
 
   it.each([
     ["ILLEGIBLE_DOCUMENT", "Documento ilegible"],
-    ["MISSING_CRITICAL_FIELDS", "Campos obligatorios no detectados"],
+    ["MISSING_CRITICAL_FIELDS", "Información crítica incompleta"],
     ["INCONSISTENT_DATA", "Datos inconsistentes"],
     ["INVALID_AI_RESPONSE", "No se obtuvo una respuesta válida del servicio de análisis"],
     ["AI_TIMEOUT", "Tiempo de espera agotado"],

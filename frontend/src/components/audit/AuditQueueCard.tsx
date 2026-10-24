@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { auditReasonLabel, documentTypeLabel } from "../../config/auditLabels";
 import type { AuditQueueItem } from "../../types/audit";
+import { DocumentIdentityValue } from "../DocumentIdentity";
 
 interface AuditQueueCardProps {
   item: AuditQueueItem;
@@ -85,7 +86,7 @@ function AuditQueueCard({ item, formatDate }: AuditQueueCardProps) {
       to={getAuditReviewPath(item.document_id)}
       state={{ documentId: item.document_id, inputType: item.input_type, fileName: item.file_name }}
       className="audit-queue__card"
-      aria-label={`Revisar documento ${item.document_id}`}
+      aria-label={`Revisar documento ${item.document_id}: ${documentTypeLabel(item.document_type)}`}
     >
       <span className="audit-queue__type-icon">
         {item.input_type === "FILE" ? <FileIcon /> : <TextIcon />}
@@ -94,36 +95,33 @@ function AuditQueueCard({ item, formatDate }: AuditQueueCardProps) {
       <span className="audit-queue__card-content">
         <span className="audit-queue__card-top">
           <span className="audit-queue__identity">
-            <span className="audit-queue__document-id">
-              {item.document_id}
+            <span className="audit-queue__document-type">
+              {documentTypeLabel(item.document_type)}
             </span>
             {item.input_type === "TEXT" ? (
-              <span className="audit-queue__file-name">Texto</span>
+              <span className="audit-queue__file-name">Texto ingresado</span>
             ) : item.file_name ? (
               <span className="audit-queue__file-name">{item.file_name}</span>
             ) : (
               <span className="audit-queue__file-name">Archivo sin nombre</span>
             )}
-          </span>
-
-          <span className="audit-queue__action-group">
-            <time className="audit-queue__date" dateTime={item.created_at}>
-              {formatDate(item.created_at)}
-            </time>
-            <span className="audit-queue__action">
-              Revisar documento
-              <ChevronRight />
+            <span className="audit-queue__document-id">
+              <DocumentIdentityValue documentId={item.document_id} />
             </span>
           </span>
+
+          <time className="audit-queue__date" dateTime={item.created_at}>
+            {formatDate(item.created_at)}
+          </time>
         </span>
 
         <span className="audit-queue__metadata">
-          <span className="audit-queue__document-type">
-            {documentTypeLabel(item.document_type)}
-          </span>
           {item.audit_reasons.map((reason) => (
             <AuditReason key={reason} reason={reason} />
           ))}
+        </span>
+        <span className="audit-queue__action-group">
+          <span className="audit-queue__action">Revisar documento<ChevronRight /></span>
         </span>
       </span>
     </Link>
