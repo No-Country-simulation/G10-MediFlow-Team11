@@ -41,6 +41,14 @@ describe("MediFlow theme contract", () => {
       expect(getContrastRatio(colors.focus, colors.focusOffset)).toBeGreaterThanOrEqual(3);
     });
   });
+
+  it.each(["light", "dark"] as const)("keeps required markers legible and distinct from actions in %s mode", (mode) => {
+    const colors = theme.colorSchemes[mode]!.palette.mediflow;
+    expect(colors.errorText).not.toBe(colors.actionText);
+    for (const surface of [colors.surface, colors.surfaceMuted]) {
+      expect(getContrastRatio(colors.errorText, surface)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
 
 describe("appearance wiring and semantic roles", () => {

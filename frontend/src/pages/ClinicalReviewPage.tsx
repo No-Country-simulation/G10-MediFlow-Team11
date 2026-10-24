@@ -20,7 +20,7 @@ import type {
   Validation,
 } from "../types/processing";
 import {
-  activeReviewSection, approvalBlockers, createReviewPatch, hasUnsavedReviewChanges,
+  activeReviewSection, approvalBlockers, createReviewPatch, hasSpecialtyChanged, hasUnsavedReviewChanges,
   humanizeMissingField, parseAdditionalJson, reviewSourceLabel, reviewWarningMessages, shouldBlockReviewNavigation,
 } from "./clinicalReviewModel";
 import "../styles/clinical-review.css";
@@ -210,7 +210,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
 
   const classificationChanged = documentType !== (result.classification?.document_type ?? "")
     || priority !== (result.classification?.priority_level ?? "")
-    || (specialty.trim() || null) !== (result.classification?.specialty ?? null);
+    || hasSpecialtyChanged(result.classification?.specialty, specialty);
   const extractedChanged = JSON.stringify(extracted) !== JSON.stringify(result.extracted_data ?? {});
   const destinationChanged = destination !== result.routing_decision.primary_destination;
   const validationChanged = JSON.stringify(validation) !== JSON.stringify(result.validation ?? emptyValidation());

@@ -100,6 +100,10 @@ export function humanizeMissingField(value: string): string {
   return missingFieldLabel(value);
 }
 
+export function hasSpecialtyChanged(original: string | null | undefined, draft: string): boolean {
+  return draft !== (original ?? "");
+}
+
 export function approvalBlockers(input: {
   documentType: DocumentType | "";
   priority: PriorityLevel | "";
@@ -182,7 +186,7 @@ export function createReviewPatch(input: {
   if (documentType && documentType !== result.classification?.document_type) classification.document_type = documentType;
   if (priority && priority !== result.classification?.priority_level) classification.priority_level = priority;
   const normalizedSpecialty = specialty.trim() || null;
-  if (normalizedSpecialty !== (result.classification?.specialty ?? null)) classification.specialty = normalizedSpecialty;
+  if (hasSpecialtyChanged(result.classification?.specialty, specialty)) classification.specialty = normalizedSpecialty;
   const classificationChanged = Object.keys(classification).length > 0;
   const extracted = normalizeReviewExtraction(result.extracted_data, input.extracted);
   const extractionPatch = changedFields(result.extracted_data ?? {}, extracted);

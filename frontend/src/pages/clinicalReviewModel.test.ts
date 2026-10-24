@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProcessingResponse } from "../types/processing";
 import {
-  activeReviewSection, approvalBlockers, changedFields, createReviewPatch, hasUnsavedReviewChanges,
+  activeReviewSection, approvalBlockers, changedFields, createReviewPatch, hasSpecialtyChanged, hasUnsavedReviewChanges,
   humanizeMissingField, normalizeReviewExtraction, parseAdditionalJson,
   reviewSourceLabel, reviewWarningMessages, shouldBlockReviewNavigation, warningMissingFieldLabels,
 } from "./clinicalReviewModel";
@@ -94,6 +94,62 @@ describe("clinical review form model", () => {
       validation: result.validation!, confirmed: false, hasExtraError: false,
     });
     expect(request).toEqual({ decision: "REJECT" });
+  });
+
+  it.each(["", null, "Cardiología"] as const)("leaves an untouched specialty %s out of APPROVE and confirmed REJECT", (original) => {
+    const source: ProcessingResponse = {
+      ...result,
+      classification: { ...result.classification!, specialty: original },
+      routing_decision: { ...result.routing_decision, primary_destination: "PHARMACY" },
+    };
+    const draft = original ?? "";
+    expect(hasSpecialtyChanged(original, draft)).toBe(false);
+    expect(shouldBlockReviewNavigation({
+      dirty: hasSpecialtyChanged(original, draft), saving: false, success: false,
+      currentPath: "/audit/DOC-22/review", nextPath: "/audit",
+    })).toBe(false);
+    for (const decision of ["APPROVE", "REJECT"] as const) {
+      expect(createReviewPatch({
+        decision, result: source, documentType: "PRESCRIPTION", priority: "ROUTINE",
+        specialty: draft, destination: "PHARMACY", extracted: source.extracted_data!,
+        validation: source.validation!, confirmed: true, hasExtraError: false,
+      })).toEqual({ decision });
+    }
+  });
+
+  it.each([
+    ["", " Cardiología ", "Cardiología"],
+    [null, " Cardiología ", "Cardiología"],
+    ["Cardiología", "", null],
+    ["Cardiología", "Neurología", "Neurología"],
+  ] as const)("patches an intentional specialty change from %s to %s", (original, draft, expected) => {
+    const source: ProcessingResponse = {
+      ...result,
+      classification: { ...result.classification!, specialty: original },
+      routing_decision: { ...result.routing_decision, primary_destination: "PHARMACY" },
+    };
+    expect(hasSpecialtyChanged(original, draft)).toBe(true);
+    expect(createReviewPatch({
+      decision: "APPROVE", result: source, documentType: "PRESCRIPTION", priority: "ROUTINE",
+      specialty: draft, destination: "PHARMACY", extracted: source.extracted_data!,
+      validation: source.validation!, confirmed: true, hasExtraError: false,
+    })).toEqual({
+      decision: "APPROVE", classification: { specialty: expected }, validation: source.validation,
+    });
+  });
+
+  it("does not include untouched empty specialty when another classification field changes", () => {
+    const source: ProcessingResponse = {
+      ...result,
+      classification: { ...result.classification!, specialty: "" },
+    };
+    expect(createReviewPatch({
+      decision: "APPROVE", result: source, documentType: "PRESCRIPTION", priority: "URGENT",
+      specialty: "", destination: "HUMAN_REVIEW", extracted: source.extracted_data!,
+      validation: source.validation!, confirmed: true, hasExtraError: false,
+    })).toEqual({
+      decision: "APPROVE", classification: { priority_level: "URGENT" }, validation: source.validation,
+    });
   });
 
   it("tracks confirmation, unfinished observations and JSON edits as unsaved", () => {

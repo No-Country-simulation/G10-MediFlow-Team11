@@ -175,7 +175,7 @@
 }
 
 .processing-page__required {
-  color: var(--mui-palette-mediflow-warningText);
+  color: var(--mui-palette-mediflow-errorText);
 }
 
 .processing-page__section-title {

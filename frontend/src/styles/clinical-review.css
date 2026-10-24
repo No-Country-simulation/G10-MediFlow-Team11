@@ -7,6 +7,7 @@
   --cr-muted: #737373;
   --cr-border: #e5e5e5;
   --cr-action: #1a5fd0;
+  --cr-required: var(--mui-palette-mediflow-errorText);
   box-sizing: border-box;
   min-height: 100%;
   padding: 0 16px;
@@ -59,12 +60,12 @@
 .clinical-review__section-body { padding: 16px 20px 20px; }
 .clinical-review__field-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 12px; color: var(--cr-muted); font-size: 12px; line-height: 18px; }
 .clinical-review__field-legend > span { display: inline-flex; align-items: center; gap: 5px; }
-.clinical-review__legend-required { color: var(--cr-action); font-size: 16px; font-weight: 700; line-height: 16px; }
+.clinical-review__legend-required { color: var(--cr-required); font-size: 16px; font-weight: 700; line-height: 16px; }
 .clinical-review__legend-missing { display: inline-block; width: 2px; height: 16px; border-radius: 1px; background: #ff6b35; }
 .clinical-review__fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
 .clinical-review__fields--three { grid-template-columns: repeat(3, minmax(0,1fr)); }
 .clinical-review__section label { min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 500; }
-.clinical-review__section label em { color: var(--cr-action); font-style: normal; }
+.clinical-review__section label em { color: var(--cr-required); font-style: normal; }
 .clinical-review__section :where(input:not([type="checkbox"]), select, textarea) { width: 100%; min-width: 0; min-height: 40px; border: 1px solid #d9d9d9; border-radius: 8px; padding: 7px 12px; background: #fff; color: var(--cr-text); font-size: 13px; font-weight: 400; }
 .clinical-review__section :where(input:not([type="checkbox"]), select) { height: 40px; }
 .clinical-review__section select { appearance: none; padding-right: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px 16px; cursor: pointer; }
