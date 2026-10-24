@@ -17,6 +17,7 @@ describe("ProcessingSummary", () => {
         classification={result.classification}
         confidence={result.confidence}
         auditReasons={result.routing_decision.audit_reasons}
+        status={result.status}
       />,
     );
 
@@ -52,6 +53,7 @@ describe("ProcessingSummary", () => {
           classification={result.classification}
           confidence={result.confidence}
           auditReasons={result.routing_decision.audit_reasons}
+          status={result.status}
         />
       </>,
     );

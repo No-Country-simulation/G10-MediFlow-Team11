@@ -12,7 +12,7 @@ describe("getAuditReasonLabel", () => {
 
   it.each([
     ["ILLEGIBLE_DOCUMENT", "Documento ilegible"],
-    ["MISSING_CRITICAL_FIELDS", "Faltan campos críticos"],
+    ["MISSING_CRITICAL_FIELDS", "Información crítica incompleta"],
     ["INCONSISTENT_DATA", "Datos inconsistentes"],
     ["INVALID_AI_RESPONSE", "Respuesta inválida de la IA"],
     ["AI_TIMEOUT", "Tiempo de espera agotado de la IA"],

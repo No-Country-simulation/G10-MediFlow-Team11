@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
 import ResultIdentity from "../components/results/ResultIdentity";
@@ -207,30 +207,29 @@ function ResultPage() {
                   <ReviewReasonsCard
                     reasons={result.routing_decision.audit_reasons}
                     requiresHumanReview={
-                      result.routing_decision.requires_human_review
+                      result.status === "NEEDS_AUDIT"
                     }
+                    documentId={result.document_id}
+                    missingFields={result.validation?.missing_fields}
                   />
                   <ProcessingSummary
                     classification={result.classification}
                     confidence={result.confidence}
                     auditReasons={result.routing_decision.audit_reasons}
                     destination={result.routing_decision.primary_destination}
+                    status={result.status}
                   />
                   <NotificationCard notification={result.notification} />
                   {result.extracted_data && (
-                    <ExtractedDataCard data={result.extracted_data} />
+                    <ExtractedDataCard data={result.extracted_data} missingFields={result.validation?.missing_fields} />
                   )}
                   {result.validation && (
                     <ValidationCard validation={result.validation} />
                   )}
                   <RoutingCard
                     routing={result.routing_decision}
+                    status={result.status}
                   />
-                  {result.status === "NEEDS_AUDIT" && (
-                    <Link className="result-audit-link" to={`/audit/${encodeURIComponent(result.document_id)}/review`}>
-                      Revisar documento
-                    </Link>
-                  )}
                 </div>
               </section>
             </div>

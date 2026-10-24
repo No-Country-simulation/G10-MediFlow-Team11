@@ -96,7 +96,7 @@ describe("validación", () => {
     ]);
     expect(sections[0].items).toEqual([
       "Nombre del paciente",
-      "campo_desconocido",
+      "Campo desconocido",
     ]);
     expect(sections[0].tone).toBe("attention");
   });
@@ -115,7 +115,7 @@ describe("validación", () => {
     expect(formatMissingField("primary_diagnosis")).toBe(
       "Diagnóstico principal",
     );
-    expect(formatMissingField("otro.campo")).toBe("otro.campo");
+    expect(formatMissingField("otro.campo")).toBe("Campo");
   });
 });
 

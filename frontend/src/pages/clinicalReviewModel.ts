@@ -4,6 +4,7 @@ import type {
 } from "../types/processing";
 import type { ReviewDecision, ReviewRequest } from "../services/reviewService";
 import { auditReasonLabel } from "../config/auditLabels";
+import { missingFieldLabel } from "../config/missingFieldLabels";
 
 export function changedFields(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -72,26 +73,22 @@ export function parseAdditionalJson(original: unknown, text: string, key: string
   return { value };
 }
 
-const missingFieldLabels: Record<string, string> = {
-  "patient.name": "Nombre del paciente", "patient.age": "Edad del paciente",
-  "requesting_doctor.name": "Médico responsable", "requesting_doctor.license_number": "N.º de colegiado / matrícula profesional",
-  primary_diagnosis: "Diagnóstico principal", suggested_icd10: "CIE-10 sugerido (opcional)",
-  medications: "Medicamentos", requested_studies: "Estudios solicitados",
-};
-
 export function warningMissingFieldLabels(missingFields: Validation["missing_fields"] | null | undefined): string[] {
   return [...new Set((missingFields ?? [])
-    .map((field) => Object.hasOwn(missingFieldLabels, field) ? missingFieldLabels[field] : undefined)
-    .filter((label): label is string => !!label))];
+    .filter((field) => field.trim().length > 0 && field !== "__proto__")
+    .map(missingFieldLabel)
+    .filter((label) => label !== "Dato no identificado"))];
 }
 
 export function reviewWarningMessages(auditReasons: string[], missingFields: Validation["missing_fields"] | null | undefined): string[] {
   const labels = warningMissingFieldLabels(missingFields);
   const missingMessage = labels.length > 0
-    ? `Datos no detectados por IA: ${labels.join(", ")}.`
-    : "Campos obligatorios no detectados. Revise la validación y el documento original.";
+    ? `Datos no identificados: ${labels.join(", ")}.`
+    : "Datos no identificados. Revise la validación y el documento original.";
   const messages = auditReasons.map((reason) => {
-    if (reason === "MISSING_CRITICAL_FIELDS") return missingMessage;
+    if (reason === "MISSING_CRITICAL_FIELDS") return labels.length > 0
+      ? `Información crítica incompleta: ${labels.join(", ")}.`
+      : "Información crítica incompleta. Revise la validación y el documento original.";
     if (reason === "LOW_CONFIDENCE") return "La IA asignó baja confianza al análisis. Verifique los datos con el documento original.";
     return auditReasonLabel(reason);
   });
@@ -100,10 +97,7 @@ export function reviewWarningMessages(auditReasons: string[], missingFields: Val
 }
 
 export function humanizeMissingField(value: string): string {
-  if (Object.hasOwn(missingFieldLabels, value)) return missingFieldLabels[value];
-  if (/\s/.test(value)) return value;
-  const readable = value.replace(/[._]/g, " ");
-  return readable.charAt(0).toUpperCase() + readable.slice(1);
+  return missingFieldLabel(value);
 }
 
 export function approvalBlockers(input: {

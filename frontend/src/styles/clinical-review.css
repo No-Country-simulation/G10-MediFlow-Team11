@@ -94,7 +94,12 @@
 .clinical-review__validation-add { display: flex; gap: 8px; margin-top: 10px; }
 .clinical-review__validation-add button { border: 1px solid #d9d9d9; border-radius: 8px; padding: 0 12px; background: #fff; font-size: 12px; }
 .clinical-review__section .clinical-review__confirmation { flex-direction: row; align-items: center; margin-top: 14px; gap: 10px; font-size: 13px; }
-.clinical-review__confirmation input { width: 16px; height: 16px; accent-color: var(--cr-action); }
+.clinical-review__confirmation input { appearance: none; display: grid; place-items: center; width: 20px; height: 20px; margin: 0; border: 2px solid var(--cr-action); border-radius: 4px; background: var(--cr-surface); cursor: pointer; }
+.clinical-review__confirmation input:checked { background: var(--cr-action-fill, var(--cr-action)); }
+.clinical-review__confirmation input:checked::after { width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); content: ""; }
+.clinical-review__confirmation input:focus-visible { outline: 2px solid var(--cr-action); outline-offset: 3px; }
+.clinical-review__validation-jump { border: 0; padding: 4px 0; background: transparent; color: var(--cr-action); font-size: 12px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.clinical-review__validation-jump:focus-visible { outline: 2px solid var(--cr-action); outline-offset: 2px; }
 .clinical-review__hint, .clinical-review__destination small { color: var(--cr-muted); font-size: 12px; line-height: 18px; font-weight: 400; }
 .clinical-review__destination { max-width: 520px; }
 .clinical-review__error, .clinical-review__success { padding: 12px 14px; border: 1px solid #d9e7fa; border-radius: 8px; font-size: 13px; }

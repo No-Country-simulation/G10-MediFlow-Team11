@@ -2,13 +2,16 @@ import { useId, type ReactNode } from "react";
 import {
   destinationLabel,
 } from "../../config/resultLabels";
+import { destinationPresentation } from "../../config/destinationPresentation";
 import type {
   RoutingDecision,
   RoutingDestination,
+  DocumentStatus,
 } from "../../types/processing";
 
 interface RoutingCardProps {
   routing: RoutingDecision;
+  status: DocumentStatus;
 }
 
 interface IconProps {
@@ -68,7 +71,7 @@ const destinationIcons: Record<RoutingDestination, ReactNode> = {
   ),
 };
 
-function RoutingCard({ routing }: RoutingCardProps) {
+function RoutingCard({ routing, status }: RoutingCardProps) {
   const titleId = useId();
 
   return (
@@ -86,11 +89,12 @@ function RoutingCard({ routing }: RoutingCardProps) {
           </span>
           <div>
             <p className="result-routing__destination-label">
-              Destino principal
+              {destinationPresentation(status).label}
             </p>
             <p className="result-routing__destination-value">
               {destinationLabel(routing.primary_destination)}
             </p>
+            {destinationPresentation(status).note && <p className="result-card__note">{destinationPresentation(status).note}</p>}
           </div>
         </div>
 

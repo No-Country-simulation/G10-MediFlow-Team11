@@ -1,5 +1,6 @@
 import type { DocumentStatus, Validation } from "../../types/processing";
 import type { DataRow } from "./extractedDataRows";
+import { missingFieldLabel } from "../../config/missingFieldLabels";
 
 export type StatusTone = "success" | "attention" | "danger" | "neutral";
 
@@ -13,16 +14,6 @@ export interface ValidationSection {
 }
 
 const BLOCK_VALUE_MIN_LENGTH = 56;
-
-const MISSING_FIELD_LABELS: Record<string, string> = {
-  "patient.name": "Nombre del paciente",
-  "patient.age": "Edad del paciente",
-  "requesting_doctor.name": "Nombre del médico responsable",
-  "requesting_doctor.license_number":
-    "N.º de colegiado / matrícula profesional",
-  primary_diagnosis: "Diagnóstico principal",
-  suggested_icd10: "Código CIE-10 sugerido",
-};
 
 export function getStatusTone(status: DocumentStatus): StatusTone {
   switch (status) {
@@ -49,7 +40,7 @@ export function clampPercent(percent: number): number {
 }
 
 export function formatMissingField(field: string): string {
-  return MISSING_FIELD_LABELS[field] ?? field;
+  return missingFieldLabel(field);
 }
 
 export function getDataRowLayout(row: DataRow): DataRowLayout {
@@ -71,7 +62,7 @@ export function getValidationSections(
   const sections: ValidationSection[] = [
     {
       key: "missing_fields",
-      title: "Campos faltantes",
+      title: "Datos no identificados",
       tone: "attention",
       items: validation.missing_fields.map(formatMissingField),
     },

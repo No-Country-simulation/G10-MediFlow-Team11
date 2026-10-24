@@ -40,7 +40,7 @@ const destinations: { value: RoutingDestination; label: string }[] = [
   { value: "HUMAN_REVIEW", label: "Revisión Humana" },
 ];
 const validationGroups: { key: ValidationKey; label: string; empty: string }[] = [
-  { key: "missing_fields", label: "Omisiones detectadas por IA", empty: "Sin omisiones detectadas por IA" },
+  { key: "missing_fields", label: "Datos no identificados", empty: "Sin datos no identificados" },
   { key: "inconsistencies", label: "Inconsistencias", empty: "Sin inconsistencias" },
   { key: "warnings", label: "Advertencias", empty: "Sin advertencias" },
 ];
@@ -171,6 +171,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   const [conflict, setConflict] = useState(false);
   const [success, setSuccess] = useState<ReviewDecision | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const validationCheckboxRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
   const redirectTimer = useRef<number | undefined>(undefined);
   const initialExtraJson = Object.fromEntries(Object.entries(result.extracted_data ?? {})
@@ -343,7 +344,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                 <ReviewSection id="review-classification" title="Clasificación">
                   <div className="clinical-review__field-legend">
                     <span><span className="clinical-review__legend-required" aria-hidden="true">*</span> Requerido para aprobar</span>
-                    <span><span className="clinical-review__legend-missing" aria-hidden="true" /> Dato no detectado por IA; no bloquea por sí solo</span>
+                    <span><span className="clinical-review__legend-missing" aria-hidden="true" /> Dato no identificado; no bloquea por sí solo</span>
                   </div>
                   <div className="clinical-review__fields clinical-review__fields--three">
                     <label><span>Tipo de documento <em aria-hidden="true">*</em></span>
@@ -383,7 +384,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                               updateExtraction(field.path, raw === "" ? null : field.number ? Number(raw) : raw);
                             }} />
                         </span>
-                        {missing && <span id={missingDescriptionId} className="clinical-review__missing-note">No detectado por IA</span>}
+                        {missing && <span id={missingDescriptionId} className="clinical-review__missing-note">No identificado</span>}
                         {field.hint && <small id={hintId} className="clinical-review__hint">{field.hint}</small>}
                       </label>;
                     })}
@@ -419,18 +420,18 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                 <ReviewSection id="review-validation" title="Validación">
                   {validationGroups.map((group) => <div className="clinical-review__validation-group" key={group.key}>
                     <h4>{group.label}</h4>
-                    {group.key === "missing_fields" && <p>Son hallazgos de la IA, no requisitos automáticos para aprobar.</p>}
+                    {group.key === "missing_fields" && <p>Son hallazgos del análisis, no requisitos automáticos para aprobar.</p>}
                     {validation[group.key].length ? <ul>{validation[group.key].map((item, index) =>
                       <li key={`${item}-${index}`}><span>{group.key === "missing_fields" ? humanizeMissingField(item) : item}</span><button type="button" aria-label={`Eliminar ${item}`} disabled={saving || !!success} onClick={() => updateValidation(group.key, validation[group.key].filter((_, i) => i !== index))}><X size={14} /></button></li>)}</ul>
                       : <p>{group.empty}</p>}
                     <div className="clinical-review__validation-add">
-                      <input aria-label={`Agregar a ${group.label.toLowerCase()}`} placeholder="Agregar observación" value={drafts[group.key]} disabled={saving || !!success}
+                      <input aria-label={`Agregar a ${group.label.toLowerCase()}`} placeholder={group.key === "missing_fields" ? "Agregar dato no identificado" : group.key === "inconsistencies" ? "Agregar inconsistencia" : "Agregar advertencia"} value={drafts[group.key]} disabled={saving || !!success}
                         onChange={(event) => setDrafts((previous) => ({ ...previous, [group.key]: event.target.value }))}
                         onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addValidation(group.key); } }} />
                       <button type="button" disabled={!drafts[group.key].trim() || saving || !!success} onClick={() => addValidation(group.key)}>Agregar</button>
                     </div>
                   </div>)}
-                  <label className="clinical-review__confirmation"><input type="checkbox" checked={confirmed} disabled={saving || !!success} onChange={(event) => setConfirmed(event.target.checked)} />Validación revisada</label>
+                  <label className="clinical-review__confirmation"><input ref={validationCheckboxRef} type="checkbox" checked={confirmed} disabled={saving || !!success} onChange={(event) => setConfirmed(event.target.checked)} />Validación revisada</label>
                   {needsValidation && !confirmed && <p className="clinical-review__hint">Confirme la validación después de revisar los cambios realizados.</p>}
                 </ReviewSection>
                 <ReviewSection id="review-destination" title="Destino">
@@ -438,7 +439,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                     <select value={destination} required aria-required="true" aria-describedby="clinical-destination-hint" disabled={saving || !!success} onChange={(event) => { setDestination(event.target.value as RoutingDestination); setConfirmed(false); }}>
                       {destinations.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}
                     </select>
-                    <small id="clinical-destination-hint">{destination === "HUMAN_REVIEW" ? "Seleccione un destino final para poder aprobar la revisión." : "El destino se aplicará al aprobar la revisión."}</small>
+                    <small id="clinical-destination-hint">{destination === "HUMAN_REVIEW" ? "Seleccione un destino final para poder aprobar la revisión." : "Se confirmará el destino lógico al aprobar la revisión."}</small>
                   </label>
                 </ReviewSection>
                 {success && <div className="clinical-review__success" role="status"><Check size={16} />{success === "APPROVE" ? "Revisión aprobada" : "Documento rechazado"}. Redirigiendo al resultado…</div>}
@@ -455,6 +456,11 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                     ? approvalReasons.join(" ")
                     : `Para aprobar: ${approvalReasons.join(" ")}`)}
                 </p>
+                {needsValidation && !confirmed && !saving && !success && !conflict && <button type="button" className="clinical-review__validation-jump" onClick={() => {
+                  setActiveTab("review-validation");
+                  validationCheckboxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  validationCheckboxRef.current?.focus({ preventScroll: true });
+                }}>Ir a validación</button>}
                 <span>{dirty && !success ? "● Cambios sin registrar" : ""}</span>
               </div>
               <div className="clinical-review__action-buttons">

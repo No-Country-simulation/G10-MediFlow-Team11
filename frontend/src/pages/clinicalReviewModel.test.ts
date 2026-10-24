@@ -121,7 +121,7 @@ describe("clinical review form model", () => {
       .toBe("destination");
     expect(humanizeMissingField("patient.name")).toBe("Nombre del paciente");
     expect(humanizeMissingField("requesting_doctor.license_number")).toBe("N.º de colegiado / matrícula profesional");
-    expect(humanizeMissingField("suggested_icd10")).toBe("CIE-10 sugerido (opcional)");
+    expect(humanizeMissingField("suggested_icd10")).toBe("Código CIE-10 sugerido");
   });
 
   it("explains every condition that disables approval and clears the help when ready", () => {
@@ -150,23 +150,23 @@ describe("clinical review form model", () => {
   it("shows only identifiable AI omissions in the warning", () => {
     expect(warningMissingFieldLabels(null)).toEqual([]);
     expect(warningMissingFieldLabels(["", "unknown_field", "__proto__", "patient.age", "patient.age", "suggested_icd10"]))
-      .toEqual(["Edad del paciente", "CIE-10 sugerido (opcional)"]);
+      .toEqual(["Edad del paciente", "Código CIE-10 sugerido"]);
   });
 
   it("replaces the generic missing-fields reason with known data or an informative fallback", () => {
     expect(reviewWarningMessages(["MISSING_CRITICAL_FIELDS"], ["patient.age", "unknown_field"]))
-      .toEqual(["Datos no detectados por IA: Edad del paciente."]);
+      .toEqual(["Información crítica incompleta: Edad del paciente."]);
     expect(reviewWarningMessages(["MISSING_CRITICAL_FIELDS"], ["unknown_field"]))
-      .toEqual(["Campos obligatorios no detectados. Revise la validación y el documento original."]);
+      .toEqual(["Información crítica incompleta. Revise la validación y el documento original."]);
     expect(reviewWarningMessages(["INCONSISTENT_DATA"], ["patient.age"]))
-      .toEqual(["Datos inconsistentes", "Datos no detectados por IA: Edad del paciente."]);
+      .toEqual(["Datos inconsistentes", "Datos no identificados: Edad del paciente."]);
   });
 
   it("explains low confidence only when that audit reason is present", () => {
     const lowConfidence = reviewWarningMessages(["LOW_CONFIDENCE", "MISSING_CRITICAL_FIELDS"], []);
     expect(lowConfidence).toEqual([
       "La IA asignó baja confianza al análisis. Verifique los datos con el documento original.",
-      "Campos obligatorios no detectados. Revise la validación y el documento original.",
+      "Información crítica incompleta. Revise la validación y el documento original.",
     ]);
     expect(reviewWarningMessages(["INCONSISTENT_DATA"], []).join(" ")).not.toContain("confianza");
   });
