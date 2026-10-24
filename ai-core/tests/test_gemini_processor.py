@@ -113,6 +113,7 @@ def test_processes_text_and_requests_contract_schema() -> None:
     assert "requested_studies" in (
         response_schema["$defs"]["ExtractedData"]["properties"]
     )
+    assert "lab_results" in response_schema["$defs"]["ExtractedData"]["properties"]
     assert "additionalProperties" not in json.dumps(response_schema)
     assert client.models.arguments["config"].response_mime_type == "application/json"
     assert "no infieras ni sugieras estudios" in (
@@ -128,6 +129,35 @@ def test_processes_text_and_requests_contract_schema() -> None:
     assert "AUDIT_CONFIDENCE_THRESHOLD" in instruction
     assert "Conserva primary_destination" in instruction
     assert client.models.arguments["contents"][1] == "Solicito hemograma."
+
+
+def test_study_report_preserves_three_explicit_lab_results() -> None:
+    payload = valid_response_payload()
+    payload["classification"]["document_type"] = "STUDY_REPORT"
+    payload["extracted_data"] = {
+        "patient": {"name": None, "age": None},
+        "primary_diagnosis": None,
+        "suggested_icd10": None,
+        "requested_studies": [],
+        "lab_results": [
+            {"name": "Glucosa en sangre", "value": "174", "unit": "mg/dL", "reference_range": "70–99 mg/dL"},
+            {"name": "HbA1c", "value": "8.2", "unit": "%", "reference_range": "Inferior a 5.7 %"},
+            {"name": "Creatinina sérica", "value": "0.86", "unit": "mg/dL", "reference_range": "0.6–1.1 mg/dL"},
+        ],
+    }
+    payload["routing_decision"]["audit_reasons"] = ["MISSING_CRITICAL_FIELDS"]
+    payload["routing_decision"]["primary_destination"] = "MEDICAL_RECORD"
+    processor, client = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.extracted_data.model_dump(mode="json")["lab_results"] == payload["extracted_data"]["lab_results"]
+    assert result.extracted_data.patient.name is None
+    assert result.extracted_data.primary_diagnosis is None
+    assert result.extracted_data.suggested_icd10 is None
+    assert result.extracted_data.requested_studies == []
+    assert [reason.value for reason in result.routing_decision.audit_reasons] == ["MISSING_CRITICAL_FIELDS"]
+    assert "No incluyas resultados obtenidos en requested_studies" in client.models.arguments["config"].system_instruction
 
 
 @pytest.mark.parametrize(

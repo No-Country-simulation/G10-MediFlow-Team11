@@ -149,6 +149,23 @@ class AiCoreClientContextTest {
         });
     }
 
+    @Test
+    void labResultsSurviveHttpDeserializationAndReserialization() throws IOException {
+        withHttpExchange(InputType.TEXT, RESPONSE_WITH_LAB_RESULTS, (request, response) -> {
+            var mapper = JacksonConfig.createJsonMapper();
+            var expected = mapper.readTree(RESPONSE_WITH_LAB_RESULTS).get("extracted_data");
+            var actual = mapper.readTree(mapper.writeValueAsString(response)).get("extracted_data");
+
+            assertThat(response.getClassification().getDocumentType()).isEqualTo(DocumentType.STUDY_REPORT);
+            assertThat(actual.get("lab_results")).isEqualTo(expected.get("lab_results"));
+            assertThat(actual.get("lab_results").size()).isEqualTo(3);
+            assertThat(actual.get("patient").get("name").isNull()).isTrue();
+            assertThat(actual.get("requested_studies")).isEqualTo(expected.get("requested_studies"));
+            assertThat(response.getRoutingDecision().getAuditReasons())
+                    .containsExactly(AuditReason.MISSING_CRITICAL_FIELDS);
+        });
+    }
+
     private void withHttpExchange(InputType inputType, HttpAssertions assertions) throws IOException {
         withHttpExchange(inputType, VALID_AI_RESPONSE, assertions);
     }
@@ -238,6 +255,30 @@ class AiCoreClientContextTest {
               "routing_decision": {
                 "primary_destination": "MEDICAL_RECORD", "audit_reasons": [],
                 "justification": "Resultado sintético de rutina."
+              }
+            }
+            """;
+
+    private static final String RESPONSE_WITH_LAB_RESULTS = """
+            {
+              "document_id": "HTTP-CONTRACT-59",
+              "classification": {"document_type": "STUDY_REPORT", "specialty": null, "priority_level": "ROUTINE"},
+              "confidence": {"classification": 0.99, "extraction": 0.94, "global": 0.96},
+              "extracted_data": {
+                "patient": {"name": null, "age": null},
+                "primary_diagnosis": null,
+                "suggested_icd10": null,
+                "requested_studies": [],
+                "lab_results": [
+                  {"name": "Glucosa en sangre", "value": "174", "unit": "mg/dL", "reference_range": "70–99 mg/dL"},
+                  {"name": "HbA1c", "value": "8.2", "unit": "%", "reference_range": "Inferior a 5.7 %"},
+                  {"name": "Creatinina sérica", "value": "0.86", "unit": "mg/dL", "reference_range": "0.6–1.1 mg/dL"}
+                ]
+              },
+              "validation": {"missing_fields": ["patient.name"], "inconsistencies": [], "warnings": []},
+              "routing_decision": {
+                "primary_destination": "MEDICAL_RECORD", "audit_reasons": ["MISSING_CRITICAL_FIELDS"],
+                "justification": "Falta identificación clínica esencial."
               }
             }
             """;

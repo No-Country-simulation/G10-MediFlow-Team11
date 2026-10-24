@@ -39,6 +39,12 @@ requested_studies debe ser siempre un array de objetos con la clave name, por
 ejemplo [{"name": "Hemograma"}]. Incluye solo estudios solicitados explícitamente
 en el documento; no infieras ni sugieras estudios. Si no hay estudios solicitados
 explícitamente, devuelve [].
+En lab_results conserva cada resultado de laboratorio explícito como un objeto
+separado con name, value, unit y reference_range. Copia el valor, la unidad y el
+intervalo de referencia tal como figuran en el documento, como texto; usa null
+si la unidad o el intervalo no constan. No infieras resultados ni intervalos.
+No incluyas resultados obtenidos en requested_studies. Si no hay resultados de
+laboratorio explícitos, devuelve lab_results como [].
 """
 
 
