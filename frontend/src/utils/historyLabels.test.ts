@@ -6,7 +6,7 @@ describe("getAuditReasonLabel", () => {
   it("uses the shared LOW_CONFIDENCE label without a trailing period", () => {
     const label = getAuditReasonLabel("LOW_CONFIDENCE");
 
-    expect(label).toBe("El sistema tuvo dudas al analizar este documento");
+    expect(label).toBe("Baja confianza del análisis");
     expect(label).toBe(auditReasonLabel("LOW_CONFIDENCE"));
   });
 

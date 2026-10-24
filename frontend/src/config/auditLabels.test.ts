@@ -4,7 +4,7 @@ import { auditReasonLabel } from "./auditLabels";
 describe("auditReasonLabel", () => {
   it("explains LOW_CONFIDENCE in plain language", () => {
     expect(auditReasonLabel("LOW_CONFIDENCE")).toBe(
-      "El sistema tuvo dudas al analizar este documento",
+      "Baja confianza del análisis",
     );
   });
 

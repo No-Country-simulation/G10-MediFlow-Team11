@@ -60,7 +60,7 @@ describe("ProcessingSummary", () => {
 
     expect(markup).toContain(label);
     expect(markup).toContain("Confianza insuficiente");
-    expect(markup).toContain("El sistema tuvo dudas al analizar este documento");
+    expect(markup).toContain("Baja confianza del análisis");
     expect(markup).not.toContain("Requiere revisión");
     expect(markup).not.toContain("Este documento ha sido derivado a revisión manual.");
   });

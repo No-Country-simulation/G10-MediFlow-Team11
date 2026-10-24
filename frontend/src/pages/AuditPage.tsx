@@ -62,8 +62,7 @@ function AuditPage() {
         <header className="audit-queue__header">
           <h1 className="audit-queue__title">Auditoría de documentos</h1>
           <p className="audit-queue__description">
-            Revise los documentos derivados a revisión humana por baja confianza,
-            ambigüedad, inconsistencias o condiciones técnicas.
+            Revise los documentos pendientes, compárelos con el original y registre una decisión.
           </p>
         </header>
 

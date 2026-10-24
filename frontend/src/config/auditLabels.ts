@@ -1,7 +1,7 @@
 import type { AuditReason, DocumentType } from "../types/processing";
 
 const AUDIT_REASON_LABELS: Record<AuditReason, string> = {
-  LOW_CONFIDENCE: "El sistema tuvo dudas al analizar este documento",
+  LOW_CONFIDENCE: "Baja confianza del análisis",
   ILLEGIBLE_DOCUMENT: "Documento ilegible",
   MISSING_CRITICAL_FIELDS: "Información crítica incompleta",
   INCONSISTENT_DATA: "Datos inconsistentes",
