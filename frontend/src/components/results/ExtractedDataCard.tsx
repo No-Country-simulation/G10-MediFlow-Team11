@@ -1,10 +1,11 @@
 import { useId } from "react";
-import type { ExtractedData } from "../../types/processing";
+import type { ExtractedData, Validation } from "../../types/processing";
 import { buildExtractedDataRows, type DataRow } from "./extractedDataRows";
 import { getDataRowLayout } from "./resultPresentation";
 
 interface ExtractedDataCardProps {
   data: ExtractedData;
+  missingFields?: Validation["missing_fields"];
 }
 
 function DataRowValue({ value }: { value: DataRow["value"] }) {
@@ -26,9 +27,9 @@ function DataRowValue({ value }: { value: DataRow["value"] }) {
   return <span>{value}</span>;
 }
 
-function ExtractedDataCard({ data }: ExtractedDataCardProps) {
+function ExtractedDataCard({ data, missingFields }: ExtractedDataCardProps) {
   const titleId = useId();
-  const rows = buildExtractedDataRows(data);
+  const rows = buildExtractedDataRows(data, missingFields);
 
   if (rows.length === 0) {
     return null;

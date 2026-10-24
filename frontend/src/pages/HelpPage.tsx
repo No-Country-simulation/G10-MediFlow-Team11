@@ -48,6 +48,10 @@ const faqs = [
   ["¿Qué ocurre si falla el procesamiento?", "Depende de la situación. Si el documento puede recuperarse y revisarse, MediFlow puede enviarlo a auditoría. Si no puede completarse ni conservarse de forma recuperable, puede quedar en estado Fallido."],
   ["¿Qué significa el estado de mi documento?", "El estado indica en qué etapa se encuentra tu documento. «Recibido» significa que ingresó al sistema; «En procesamiento», que está siendo analizado; y «Procesado», que terminó sin una revisión humana pendiente."],
   ["¿Cómo puedo consultar el historial de un documento?", <>Entra a «<Link className="help-page__inline-link" to="/history">Historial</Link>» desde el menú lateral. Busca el documento por su identificador o nombre de archivo y selecciona «Consultar historial» para revisar los registros disponibles. No necesitas volver a procesar el documento.</>],
+  ["¿Cómo cambio entre modo claro y oscuro?", <>Entra a <Link className="help-page__inline-link" to="/settings">Configuración</Link>, busca Apariencia y selecciona Claro u Oscuro.</>],
+  ["¿Qué significa la opción Sistema?", <>La opción Sistema hace que MediFlow utilice el modo claro u oscuro definido en tu dispositivo. Puedes seleccionarla en <Link className="help-page__inline-link" to="/settings">Configuración</Link>.</>],
+  ["¿Se guarda mi preferencia de apariencia?", "Sí. MediFlow guarda tu elección de apariencia en el navegador para utilizarla cuando vuelvas a ingresar. Si el navegador no permite guardar esta información, podrás seguir utilizando el tema seleccionado mientras la aplicación permanezca abierta."],
+  ["¿Qué hago si el modo oscuro no se aplica correctamente?", <>Entra a <Link className="help-page__inline-link" to="/settings">Configuración</Link> y selecciona nuevamente Oscuro. Si utilizas Sistema, comprueba también el modo de apariencia configurado en tu dispositivo.</>],
 ] as const;
 
 function SectionTitle({

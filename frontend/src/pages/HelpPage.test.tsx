@@ -80,6 +80,10 @@ const expectedFaqs = [
   "¿Qué ocurre si falla el procesamiento?",
   "¿Qué significa el estado de mi documento?",
   "¿Cómo puedo consultar el historial de un documento?",
+  "¿Cómo cambio entre modo claro y oscuro?",
+  "¿Qué significa la opción Sistema?",
+  "¿Se guarda mi preferencia de apariencia?",
+  "¿Qué hago si el modo oscuro no se aplica correctamente?",
 ];
 
 const expectedStates = [
@@ -181,7 +185,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
     }
   });
 
-  it("T76-04 conserva las ocho preguntas aprobadas y añade la pregunta de Historial", () => {
+  it("T76-04 conserva las preguntas aprobadas y añade las cuatro de apariencia", () => {
     const details = pageElements.filter((element) => element.type === "details");
     const questions = details.map((detail) => {
       const summary = walkElements(detail).find((element) => element.type === "summary");
@@ -194,7 +198,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
   it("T76-05 usa disclosures nativos cerrados inicialmente", () => {
     const details = pageElements.filter((element) => element.type === "details");
 
-    expect(details).toHaveLength(9);
+    expect(details).toHaveLength(13);
     for (const detail of details) {
       expect(detail.props.open).toBeUndefined();
       expect(walkElements(detail).some((element) => element.type === "summary")).toBe(true);
@@ -342,7 +346,26 @@ describe("Ticket #76 - Centro de ayuda", () => {
     expect((helpRoute?.element as ReactElement).type).toBe(HelpPage);
   });
 
-  it("T76-10 habilita Centro de ayuda, mantiene Configuración deshabilitada y conecta el cierre móvil", () => {
+  it("enlaza las preguntas de apariencia con Configuración cuando corresponde", () => {
+    const appearanceQuestions = expectedFaqs.slice(-4);
+    const details = pageElements.filter((element) => element.type === "details");
+
+    for (const question of appearanceQuestions) {
+      const detail = details.find((candidate) => {
+        const summary = walkElements(candidate).find((element) => element.type === "summary");
+        return summary ? textContent(summary) === question : false;
+      });
+      expect(detail).toBeDefined();
+    }
+
+    const settingsLinks = details
+      .flatMap((detail) => walkElements(detail))
+      .filter((element) => element.type === Link && element.props.to === "/settings");
+    expect(settingsLinks).toHaveLength(3);
+    expect(settingsLinks.every((link) => textContent(link) === "Configuración")).toBe(true);
+  });
+
+  it("T76-10 habilita Centro de ayuda y Configuración, y conecta el cierre móvil", () => {
     const onNavigate = vi.fn();
     const sidebar = AppSidebar({
       id: "test-sidebar",
@@ -357,10 +380,10 @@ describe("Ticket #76 - Centro de ayuda", () => {
     const settingsItem = items.find((element) => element.props.label === "Configuración");
 
     expect(helpItem?.props.to).toBe("/help");
-    expect(helpItem?.props.disabled).toBe(false);
+    expect(helpItem?.props.disabled).not.toBe(true);
     expect(helpItem?.props.onClick).toBe(onNavigate);
-    expect(settingsItem?.props.to).toBeUndefined();
-    expect(settingsItem?.props.disabled).toBe(true);
+    expect(settingsItem?.props.to).toBe("/settings");
+    expect(settingsItem?.props.disabled).not.toBe(true);
 
     const renderedHelpItem = SidebarNavItem(helpItem?.props as never);
     const clickableNode = walkElements(renderedHelpItem).find(
@@ -411,7 +434,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
     ]);
   });
 
-  it("define navegación interna hacia Procesamiento, Auditoría e Historial", () => {
+  it("define navegación interna hacia Procesamiento, Auditoría, Historial y Configuración", () => {
     const routeLinks = pageElements
       .filter((element) => element.type === Link)
       .map((element) => ({ to: element.props.to, label: textContent(element) }));
@@ -424,6 +447,9 @@ describe("Ticket #76 - Centro de ayuda", () => {
       { to: "/audit", label: "Auditoría" },
       { to: "/history", label: "Historial" },
       { to: "/history", label: "Historial" },
+      { to: "/settings", label: "Configuración" },
+      { to: "/settings", label: "Configuración" },
+      { to: "/settings", label: "Configuración" },
     ]);
 
     const processingAction = pageElements.find(

@@ -1,6 +1,7 @@
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
 import AuditPage from "../pages/AuditPage";
+import SettingsPage from "../pages/SettingsPage";
 import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import ProcessingPage from "../pages/ProcessingPage";
@@ -22,6 +23,7 @@ const router = createBrowserRouter(
           <Route path="audit/:documentId/review" element={<ClinicalReviewPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="help" element={<HelpPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </>
   ),

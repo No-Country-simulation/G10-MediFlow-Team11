@@ -104,3 +104,12 @@
   font-weight: 600;
   line-height: 18px;
 }
+
+[data-mediflow-color-scheme="dark"] .confidence-display {
+  --confidence-primary: var(--res-primary, var(--hist-primary, var(--mui-palette-mediflow-actionText)));
+  --confidence-warning: var(--res-attention-text, var(--mui-palette-mediflow-warningText));
+  --confidence-text: var(--res-text, var(--hist-text, var(--mui-palette-mediflow-textPrimary)));
+  --confidence-muted: var(--mui-palette-mediflow-textSecondary);
+  --confidence-surface: var(--res-surface, var(--hist-surface, var(--mui-palette-mediflow-surface)));
+  --confidence-track: var(--mui-palette-mediflow-borderStrong);
+}

@@ -2,7 +2,7 @@
 
 Esta guía documenta el despliegue y la operación de Backend, PostgreSQL e IA Core en la instancia existente `MediFlow_Core_VM`. Reutiliza el único [`compose.yaml`](../../compose.yaml), PostgreSQL de #13, Backend de #53, IA Core de #72 y el cliente Backend → IA de #30. No crea infraestructura OCI, credenciales estáticas, otro Compose ni contratos funcionales.
 
-**Configuración actual del entorno de demostración del MVP:** Ubuntu 22.04 ARM64, con HTTPS público limitado a `/actuator/health`. La API funcional permanece sin publicación pública. El [registro de evidencias](./oci-compute-deployment-evidence.md) concentra fecha, revisión desplegada, fuentes, resultados y pendientes.
+**Entorno observado y configuración preparada:** Ubuntu 22.04 ARM64. El Caddyfile versionado en [`deploy/caddy/Caddyfile`](../../deploy/caddy/Caddyfile) conserva `mediflow-core.duckdns.org` solo para `/actuator/health` y prepara `mediflowia.dev` para el Frontend y las rutas funcionales públicas del MVP ([guía](./oci-frontend-deployment.md)). La VM puede seguir ejecutando una revisión anterior: no declarar la API publicada ni funcional hasta verificar el Caddyfile activo, el Backend desplegado y el flujo externo con documentos sintéticos. El [registro de evidencias](./oci-compute-deployment-evidence.md) concentra fecha, revisión desplegada, fuentes, resultados y pendientes.
 
 Los comandos de esta guía son procedimientos para sesiones operativas autorizadas; su inclusión no acredita que se hayan ejecutado. Registrar cada nueva verificación por separado, sin confundir despliegue (#59) con validación funcional end-to-end (#56).
 
@@ -12,7 +12,7 @@ Los comandos de esta guía son procedimientos para sesiones operativas autorizad
 - La instancia debe pertenecer a `MediFlow_VM_Group` y tener la política existente para el bucket privado `mediflow-documentos-clinicos`. La preparación de #59 no modifica Dynamic Groups, IAM, VCN ni el bucket.
 - Usar una revisión aprobada que incluya #13, #53, #72, PR #82 y la preparación de #59. Consultar el SHA en el registro de evidencias; para una actualización registrar su nuevo SHA aprobado, sin desplegar cambios locales no revisados.
 - Confirmar espacio para las imágenes y el volumen, salida HTTPS hacia registros de imágenes, dependencias de construcción, OCI y Gemini, y disponibilidad del puerto loopback del Backend.
-- El mecanismo HTTPS actual es Caddy v2 en el host, con el dominio DuckDNS `mediflow-core.duckdns.org` y certificado TLS público válido. Mantener la restricción de rutas descrita en la sección 8.
+- El mecanismo HTTPS actual es Caddy v2 en el host, con los dominios `mediflow-core.duckdns.org` (DuckDNS) y `mediflowia.dev` y certificados TLS públicos. Mantener la restricción de rutas descrita en la sección 8.
 
 ### Obtener el checkout y seleccionar el commit aprobado
 
@@ -306,7 +306,7 @@ La arquitectura exige HTTPS en el despliegue y bucket privado. `compose.yaml` co
 
 #12 aporta la instancia, Ubuntu ARM64, acceso administrativo, Docker/Compose y la infraestructura OCI existente (red, Security List e IAM). #59 configura el despliegue sobre esa base: Caddy v2, su ruta HTTPS, el dominio temporal y las aperturas 80/443 del firewall del host con persistencia. Las reglas OCI son un prerrequisito que debe coordinarse con infraestructura si falta; estos procedimientos no las modifican.
 
-Los pasos de instalación siguientes son solo para un host que aún carezca de esos componentes y una sesión autorizada. En `MediFlow_Core_VM` ya configurada, comprobar y reutilizar lo existente; no reinstalar, actualizar paquetes ni reemplazar configuraciones como parte de una consulta de salud. Antes de instalar Caddy, comprobar que 80/443 no pertenecen a otro servicio y que el DNS confirmado apunta al host. El paquete inicia el servicio automáticamente: coordinar esa primera instalación y aplicar enseguida el Caddyfile restringido.
+Los pasos de instalación siguientes son solo para un host que aún carezca de esos componentes y una sesión autorizada. En `MediFlow_Core_VM` ya configurada, comprobar y reutilizar lo existente; no reinstalar, actualizar paquetes ni reemplazar configuraciones como parte de una consulta de salud. Antes de instalar Caddy, comprobar que 80/443 no pertenecen a otro servicio y que el DNS confirmado apunta al host. El paquete inicia el servicio automáticamente: coordinar esa primera instalación y aplicar enseguida el [Caddyfile versionado](../../deploy/caddy/Caddyfile) con el procedimiento de esta sección.
 
 En Ubuntu 22.04 con `dpkg --print-architecture` igual a `arm64`, usar el [repositorio estable oficial de Caddy](https://caddyserver.com/docs/install#debian-ubuntu-raspbian). Si ya existen la clave o la lista APT, verificar su origen y reutilizarlas; no sobrescribirlas con este bloque:
 
@@ -339,59 +339,166 @@ systemctl is-enabled caddy
 
 Registrar la versión y arquitectura obtenidas; no atribuirlas retrospectivamente al despliegue registrado. Si el servicio no está activo, diagnosticar con `sudo journalctl -u caddy --no-pager -n 50` antes de continuar; sanear los logs antes de compartirlos.
 
-### Caddy v2 y DuckDNS: exposición actual
+### Caddy v2: configuración y exposición actual
 
-Caddy v2 se ejecuta en el host Ubuntu y termina TLS en `443` para `mediflow-core.duckdns.org`, **dominio temporal del entorno de demostración del MVP**, no una solución definitiva de producción. Su configuración aplicada reside en `/etc/caddy/Caddyfile`:
+Caddy v2 se ejecuta en el host Ubuntu y termina TLS en `443`. La configuración de referencia es [`deploy/caddy/Caddyfile`](../../deploy/caddy/Caddyfile); se instala como `/etc/caddy/Caddyfile` y no se reproduce en otros documentos. Define dos sitios:
 
-```caddyfile
-mediflow-core.duckdns.org {
-    handle /actuator/health {
-        reverse_proxy 127.0.0.1:8080
-    }
-    handle {
-        respond "Not found" 404
-    }
-}
-```
+- `mediflow-core.duckdns.org`, **dominio temporal del entorno de demostración del MVP**, no una solución definitiva de producción: solo `/actuator/health` llega al Backend; las demás rutas devuelven `404`.
+- `mediflowia.dev`: el Caddyfile versionado sirve el Frontend públicamente y permite exclusivamente las rutas y métodos de la [guía del Frontend](./oci-frontend-deployment.md#acceso-público-de-la-demostración). `/actuator/health` sigue público y lo demás queda denegado.
 
-HTTP redirige a HTTPS con `308`. La única ruta pública es `/actuator/health`; las demás, incluida `/api/v1/documents/audit`, devuelven `404`. Backend permanece en `127.0.0.1:8080`, IA Core en `127.0.0.1:8000` y PostgreSQL en `127.0.0.1:5432`. **La API funcional no está públicamente disponible.** Un `200` interno de auditoría y un `404` público son compatibles con esta restricción.
+HTTP redirige a HTTPS (`308`, comprobado en DuckDNS). Backend permanece en `127.0.0.1:8080`, IA Core en `127.0.0.1:8000` y PostgreSQL en `127.0.0.1:5432`. Hasta aplicar y verificar la nueva configuración, la API activa de la VM permanece bloqueada. Un `200` interno de auditoría y un `404` público son compatibles con ese estado anterior.
 
-Para aplicar exactamente el bloque anterior, conservar primero una copia protegida y preparar un candidato. En `sudoedit`, sustituir el contenido del candidato por ese Caddyfile; revisar que no se amplían rutas. El [servicio oficial](https://caddyserver.com/docs/running#using-the-service) utiliza `/etc/caddy/Caddyfile`; verificarlo antes si existe una instalación personalizada. Ejecutar en la misma sesión:
+El `Caddyfile` versionado contiene **todos** los sitios: aplicarlo siempre completo. Un archivo que omita `mediflowia.dev` deja sin servicio al Frontend. Antes de aplicarlo, comparar el versionado con el activo (`sudo diff -u`) y confirmar que solo cambian las líneas previstas.
 
-`caddy_backup` existe solo en la sesión Bash donde se asigna. Registrar su ruta en el registro operativo protegido del host; en otra sesión, recuperar y comprobar esa ruta antes de restaurar. El directorio creado por `sudo mktemp -d` queda protegido en el host y no se elimina al cerrar Bash. Conservar propietario, grupo, permisos y demás atributos del Caddyfile original; comprobar la lectura con el usuario efectivo del servicio. Si no puede leerlo, detenerse y diagnosticar sin imponer permisos nuevos.
+Para aplicar el Caddyfile versionado de una revisión aprobada, el procedimiento se divide en dos etapas que se ejecutan por separado y en la misma sesión Bash: **preparar y revisar**, que no modifica el Caddyfile activo, y **aplicar**, que exige una confirmación explícita. No copiar ambas etapas en una sola operación. El [servicio oficial](https://caddyserver.com/docs/running#using-the-service) utiliza `/etc/caddy/Caddyfile`; verificarlo antes si existe una instalación personalizada.
+
+`caddy_backup`, `caddy_service_user` y `caddy_candidate_sha` existen solo en la sesión Bash donde se asignan. Registrar la ruta de `caddy_backup` en el registro operativo protegido del host; en otra sesión, recuperar y comprobar esa ruta antes de restaurar. El directorio creado por `sudo mktemp -d` queda protegido en el host y no se elimina al cerrar Bash. Conservar propietario, grupo, permisos y demás atributos del Caddyfile original; comprobar la lectura con el usuario efectivo del servicio. Si no puede leerlo, detenerse y diagnosticar sin imponer permisos nuevos.
+
+**Etapa 1: preparar y revisar.** Crea el respaldo protegido y un candidato, abre `sudoedit` para que el candidato contenga el contenido íntegro de `deploy/caddy/Caddyfile` de esa revisión, valida su sintaxis y comprueba que contiene los dos dominios analizando la configuración que interpreta Caddy, no el texto. Después muestra el `diff` contra el activo (código 0: sin diferencias; 1: diferencias; superior: error) y el SHA-256 del candidato. Si se añade o retira un sitio, actualizar la lista `required` del script.
 
 ```bash
-sudo test -f /etc/caddy/Caddyfile && sudo test ! -L /etc/caddy/Caddyfile || exit 1
-caddy_service_user=$(systemctl show caddy --property=User --value) || exit 1
-test -n "$caddy_service_user" || exit 1
-caddy_backup=$(sudo mktemp -d /etc/caddy/mediflow-backup.XXXXXX) || exit 1
-sudo cp -a /etc/caddy/Caddyfile "$caddy_backup/Caddyfile" || exit 1
-sudo test ! -e /etc/caddy/Caddyfile.candidate || exit 1
-sudo cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.candidate || exit 1
-sudoedit /etc/caddy/Caddyfile.candidate || exit 1
-sudo cp --attributes-only --preserve=all "$caddy_backup/Caddyfile" /etc/caddy/Caddyfile.candidate || exit 1
-sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile.candidate || exit 1
-sudo caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || exit 1
-sudo cp --preserve=all /etc/caddy/Caddyfile.candidate /etc/caddy/Caddyfile || exit 1
-sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile || exit 1
-sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || exit 1
-if ! sudo systemctl reload caddy; then
-  sudo cp -a "$caddy_backup/Caddyfile" /etc/caddy/Caddyfile || exit 1
-  sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || exit 1
-  sudo systemctl reload caddy
-  exit 1
-fi
-sudo systemctl enable caddy || exit 1
-sudo systemctl is-active caddy
-sudo systemctl is-enabled caddy
+caddy_preparar() {
+  sudo test -f /etc/caddy/Caddyfile && sudo test ! -L /etc/caddy/Caddyfile || return 1
+  caddy_service_user=$(systemctl show caddy --property=User --value) || return 1
+  test -n "$caddy_service_user" || return 1
+  if sudo test -e /etc/caddy/Caddyfile.candidate; then
+    echo 'Existe un candidato residual: gestionarlo antes (ver "Candidato residual").' >&2
+    return 1
+  fi
+  caddy_backup=$(sudo mktemp -d /etc/caddy/mediflow-backup.XXXXXX) || return 1
+  sudo cp -a /etc/caddy/Caddyfile "$caddy_backup/Caddyfile" || return 1
+  sudo cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.candidate || return 1
+  sudoedit /etc/caddy/Caddyfile.candidate || return 1
+  sudo cp --attributes-only --preserve=all "$caddy_backup/Caddyfile" /etc/caddy/Caddyfile.candidate || return 1
+  sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile.candidate || return 1
+  sudo caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || return 1
+  adapted=$(sudo caddy adapt --config /etc/caddy/Caddyfile.candidate --adapter caddyfile) || return 1
+  printf '%s' "$adapted" | python3 -c '
+import json
+import sys
+
+required = {"mediflow-core.duckdns.org", "mediflowia.dev"}
+
+def hosts(node):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "host" and isinstance(value, list):
+                yield from value
+            else:
+                yield from hosts(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from hosts(item)
+
+found = set(hosts(json.load(sys.stdin)))
+missing = sorted(required - found)
+if missing:
+    print("Dominios ausentes en el candidato: " + ", ".join(missing), file=sys.stderr)
+    sys.exit(1)
+print("Dominios presentes: " + ", ".join(sorted(found)))
+' || { echo 'El candidato no contiene todos los dominios requeridos.' >&2; return 1; }
+  sudo diff -u /etc/caddy/Caddyfile /etc/caddy/Caddyfile.candidate
+  diff_status=$?
+  case "$diff_status" in
+    0) echo 'Sin diferencias con el Caddyfile activo.' ;;
+    1) echo 'Diferencias mostradas arriba.' ;;
+    *) echo "diff falló (código $diff_status)." >&2; return 1 ;;
+  esac
+  caddy_candidate_sha=$(sudo sha256sum /etc/caddy/Caddyfile.candidate | awk '{print substr($1,1,12)}')
+  test -n "$caddy_candidate_sha" || return 1
+  echo "SHA-256 del candidato (12 primeros caracteres): $caddy_candidate_sha"
+  echo 'Revisar el diff. Para aplicar, ejecutar caddy_aplicar por separado.'
+}
+caddy_preparar
+```
+
+Revisar el `diff` completo: solo deben cambiar las líneas previstas (por ejemplo, la ruta del release), sin ampliar rutas ni retirar ningún sitio. Si no es el previsto, no continuar y retirar el candidato como se indica en "Candidato residual".
+
+**Etapa 2: aplicar.** Solo después de esa revisión, en un comando separado. Comprueba que el candidato no cambió desde la revisión, pide escribir los 12 primeros caracteres de su SHA-256 mostrados en la etapa 1 y, si coinciden, valida el candidato y comprueba que el Caddyfile activo sigue idéntico al respaldo creado en la etapa 1; si difiere o no puede compararse, aborta sin modificarlo. Después sustituye el Caddyfile activo y recarga Caddy. Una confirmación vacía o incorrecta, incluida la que resulte de pegar más comandos a continuación, aborta sin cambios.
+
+Esa comparación reduce el riesgo de sobrescribir cambios que otro administrador haya hecho al activo entre ambas etapas, pero no es un bloqueo: queda una ventana breve entre la comparación y el renombrado, y compara solo el contenido, no propietario ni permisos. Coordinar con otros administradores los cambios del Caddyfile.
+
+La sustitución es atómica (`caddy_instalar`): copia el origen a un archivo temporal del mismo directorio conservando propietario, permisos y atributos, comprueba que es idéntico y lo escribe en disco, y solo entonces lo renombra sobre `/etc/caddy/Caddyfile`. Una copia interrumpida o con error solo deja el temporal, que se elimina, y el activo no cambia. Ante un fallo posterior a la sustitución (lectura, validación o recarga) se restaura el respaldo con el mismo mecanismo.
+
+```bash
+caddy_instalar() {
+  local nuevo
+  nuevo=$(sudo mktemp /etc/caddy/Caddyfile.new.XXXXXX) || return 1
+  if ! sudo cp --preserve=all -- "$1" "$nuevo" \
+     || ! sudo cmp -s -- "$1" "$nuevo" \
+     || ! sudo sync -- "$nuevo" \
+     || ! sudo mv -T -- "$nuevo" /etc/caddy/Caddyfile; then
+    sudo rm -f -- "$nuevo"
+    return 1
+  fi
+}
+
+caddy_aplicar() {
+  test -n "${caddy_backup:-}" && test -n "${caddy_candidate_sha:-}" && test -n "${caddy_service_user:-}" || {
+    echo 'Ejecutar antes caddy_preparar en esta sesión.' >&2
+    return 1
+  }
+  sudo test -f /etc/caddy/Caddyfile.candidate || return 1
+  current_sha=$(sudo sha256sum /etc/caddy/Caddyfile.candidate | awk '{print substr($1,1,12)}')
+  if [ "$current_sha" != "$caddy_candidate_sha" ]; then
+    echo 'El candidato cambió después de la revisión: repetir caddy_preparar.' >&2
+    return 1
+  fi
+  read -r -p 'SHA-256 (12 caracteres) del candidato revisado para confirmar: ' confirmation
+  if [ "$confirmation" != "$caddy_candidate_sha" ]; then
+    echo 'Confirmación no válida: no se aplicó nada.' >&2
+    return 1
+  fi
+  sudo caddy validate --config /etc/caddy/Caddyfile.candidate --adapter caddyfile || return 1
+  sudo cmp -s -- /etc/caddy/Caddyfile "$caddy_backup/Caddyfile"
+  cmp_status=$?
+  if [ "$cmp_status" -eq 1 ]; then
+    echo 'La configuración activa cambió desde la preparación: no se aplicó nada. Retirar el candidato residual y repetir caddy_preparar y su revisión.' >&2
+    return 1
+  elif [ "$cmp_status" -ne 0 ]; then
+    echo "No se pudo comparar el Caddyfile activo con el respaldo (código $cmp_status): no se aplicó nada." >&2
+    return 1
+  fi
+  caddy_instalar /etc/caddy/Caddyfile.candidate || {
+    echo 'No se pudo sustituir el Caddyfile; el activo no se modificó.' >&2
+    return 1
+  }
+  if ! sudo -u "$caddy_service_user" test -r /etc/caddy/Caddyfile \
+     || ! sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile \
+     || ! sudo systemctl reload caddy; then
+    echo 'Fallo tras sustituir el Caddyfile: restaurando el respaldo.' >&2
+    caddy_instalar "$caddy_backup/Caddyfile" || return 1
+    sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile || return 1
+    sudo systemctl reload caddy
+    return 1
+  fi
+  unset caddy_candidate_sha
+  sudo systemctl enable caddy || return 1
+  sudo systemctl is-active caddy
+  sudo systemctl is-enabled caddy
+  sudo rm -- /etc/caddy/Caddyfile.candidate
+}
+caddy_aplicar
+```
+
+**Candidato residual.** Si `caddy_preparar` informa un `/etc/caddy/Caddyfile.candidate` previo (por una validación fallida, una revisión rechazada o una sesión interrumpida), primero inspeccionarlo sin modificar nada:
+
+```bash
+sudo ls -l /etc/caddy/Caddyfile.candidate
+sudo diff -u /etc/caddy/Caddyfile /etc/caddy/Caddyfile.candidate
+```
+
+Solo si es un resto propio que ya no se necesita, retirar únicamente ese archivo. No tocar `/etc/caddy/Caddyfile`:
+
+```bash
 sudo rm -- /etc/caddy/Caddyfile.candidate
 ```
 
-Conservar el respaldo hasta completar las comprobaciones externas de esta sección: health `200`, redirección `308` y ruta funcional `404`. Si falla alguna, diagnosticar y restaurar el archivo respaldado, validarlo y recargarlo con los mismos pasos; no reiniciar Caddy a ciegas ni ampliar rutas. Una validación fallida del candidato no altera la configuración activa.
+Conservar el respaldo hasta completar las comprobaciones externas de esta sección: health `200`, redirección `308` y ruta funcional `404` en DuckDNS, y las verificaciones de `mediflowia.dev` de la [guía del Frontend](./oci-frontend-deployment.md#5-verificación). Si falla alguna, diagnosticar y restaurar el archivo respaldado, validarlo y recargarlo con los mismos pasos; no reiniciar Caddy a ciegas ni ampliar rutas. Una validación fallida del candidato no altera la configuración activa.
 
-Mantener esa restricción al operar el host. Antes de cualquier exposición adicional, quedan pendientes la decisión de acceso seguro para API/Frontend, rutas permitidas y controles de acceso. No ampliar el proxy a `/api/v1/...` ni a todo Actuator como parte de una verificación de salud.
+Mantener esa restricción hasta completar los prerrequisitos de la [guía del Frontend](./oci-frontend-deployment.md#acceso-público-de-la-demostración): Caddy compatible y validado, Backend actualizado, controles de consumo de Gemini, validación del candidato y pruebas externas. No ampliar el proxy a `/api/v1/*` ni a todo Actuator.
 
-La renovación futura del certificado y la estrategia de actualización DuckDNS requieren verificación separada; no incluir tokens ni claves privadas en el registro. Para habilitar consumo funcional, verificar timeouts que contemplen hasta 60 segundos de IA más transporte y PostgreSQL/OCI, así como límites de carga y origen del Frontend, sin cambiar contratos. El health público no prueba ese procesamiento.
+La renovación futura del certificado y la estrategia de actualización DuckDNS requieren verificación separada; no incluir tokens ni claves privadas en el registro. El Caddyfile preparado limita multipart a 11 MB, espera hasta 90 segundos por cabeceras en escritura y exige origen del Frontend en POST/PATCH; comprobarlo en la versión instalada antes de activar. El health público no prueba ese procesamiento.
 
 ### Firewall OCI y Ubuntu
 
@@ -491,13 +598,30 @@ Esperar `UP` por HTTPS, `308` por HTTP (sin `-L`, para observar la redirección)
 
 ## 9. Operación, logs y persistencia
 
-Usar el mismo checkout, archivo de entorno y proyecto en cada sesión:
+Usar el mismo checkout, archivo de entorno y proyecto en cada sesión. Consultar los logs no modifica los servicios:
 
 ```bash
 dc logs --tail 100 postgres backend ai-core
+```
+
+Los tres comandos siguientes son operaciones **alternativas e independientes**: ejecutar solo la que se necesita y no copiarlos consecutivamente. `dc stop` detiene los tres servicios y la aplicación deja de responder hasta un `dc start`.
+
+Detener los contenedores (interrumpe el servicio):
+
+```bash
 dc stop
+```
+
+Iniciar contenedores detenidos previamente con `dc stop`:
+
+```bash
 dc start
 dc ps
+```
+
+Reiniciar los contenedores en una sola operación, sin `stop` previo:
+
+```bash
 dc restart
 dc ps
 ```

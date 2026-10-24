@@ -1,4 +1,4 @@
-import type { ExtractedData } from "../../types/processing";
+import type { ExtractedData, Validation } from "../../types/processing";
 
 export interface DataRow {
   label: string;
@@ -14,8 +14,15 @@ const KNOWN_KEYS = new Set([
   "requested_studies",
 ]);
 
+const ADDITIONAL_LABELS: Record<string, string> = {
+  measurements: "Mediciones",
+  systolic: "Presión sistólica",
+  diastolic: "Presión diastólica",
+  unit: "Unidad",
+};
+
 function humanizeKey(key: string): string {
-  return key
+  return ADDITIONAL_LABELS[key] ?? key
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -96,7 +103,7 @@ function formatAdditionalValue(value: unknown): string | string[] | null {
   return null;
 }
 
-export function buildExtractedDataRows(data: ExtractedData): DataRow[] {
+export function buildExtractedDataRows(data: ExtractedData, missingFields: Validation["missing_fields"] = []): DataRow[] {
   const rows: DataRow[] = [];
 
   if (data.patient?.name) {
@@ -104,6 +111,9 @@ export function buildExtractedDataRows(data: ExtractedData): DataRow[] {
       label: "Paciente",
       value: data.patient.name,
     });
+  }
+  else if (missingFields.includes("patient.name") || missingFields.includes("patient")) {
+    rows.push({ label: "Paciente", value: "No identificado" });
   }
 
   if (data.patient?.age != null) {

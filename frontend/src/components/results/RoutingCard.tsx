@@ -1,18 +1,17 @@
 import { useId, type ReactNode } from "react";
 import {
   destinationLabel,
-  storageStateLabel,
 } from "../../config/resultLabels";
+import { destinationPresentation } from "../../config/destinationPresentation";
 import type {
   RoutingDecision,
   RoutingDestination,
-  Storage,
-  StorageState,
+  DocumentStatus,
 } from "../../types/processing";
 
 interface RoutingCardProps {
   routing: RoutingDecision;
-  storage: Storage;
+  status: DocumentStatus;
 }
 
 interface IconProps {
@@ -72,28 +71,7 @@ const destinationIcons: Record<RoutingDestination, ReactNode> = {
   ),
 };
 
-const storageIcons: Record<StorageState, ReactNode> = {
-  SUCCESS: (
-    <Icon>
-      <polyline points="20 6 9 17 4 12" />
-    </Icon>
-  ),
-  PENDING: (
-    <Icon>
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </Icon>
-  ),
-  ERROR: (
-    <Icon>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </Icon>
-  ),
-};
-
-function RoutingCard({ routing, storage }: RoutingCardProps) {
+function RoutingCard({ routing, status }: RoutingCardProps) {
   const titleId = useId();
 
   return (
@@ -111,11 +89,12 @@ function RoutingCard({ routing, storage }: RoutingCardProps) {
           </span>
           <div>
             <p className="result-routing__destination-label">
-              Destino principal
+              {destinationPresentation(status).label}
             </p>
             <p className="result-routing__destination-value">
               {destinationLabel(routing.primary_destination)}
             </p>
+            {destinationPresentation(status).note && <p className="result-card__note">{destinationPresentation(status).note}</p>}
           </div>
         </div>
 
@@ -135,12 +114,6 @@ function RoutingCard({ routing, storage }: RoutingCardProps) {
           </div>
         )}
 
-        <div
-          className={`result-routing__storage result-routing__storage--${storage.state.toLowerCase()}`}
-        >
-          {storageIcons[storage.state]}
-          <span>{storageStateLabel(storage.state)}</span>
-        </div>
       </div>
     </section>
   );

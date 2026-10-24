@@ -28,6 +28,16 @@ const documents: DocumentListItem[] = [
 ];
 
 describe("historySelection", () => {
+  it.each([
+    "585b7f42-99ba-44dd-9b0a-dea23e633207",
+    "LAB-SYN-047",
+    "DOC/especial con espacios",
+  ])("finds full and partial alternate identifiers and preserves the history route: %s", (documentId) => {
+    const document = { ...documents[0], documentId };
+    expect(filterDocuments([document], `  ${documentId.toUpperCase()}  `, "PROCESSED")).toEqual([document]);
+    expect(filterDocuments([document], documentId.slice(-6), "")).toEqual([document]);
+    expect(buildDocumentHistoryPath(documentId)).toBe(`/history?documentId=${encodeURIComponent(documentId)}`);
+  });
   it("keeps the existing history URL contract used from Results", () => {
     expect(buildDocumentHistoryPath("DOC-2026-0001")).toBe(
       "/history?documentId=DOC-2026-0001",

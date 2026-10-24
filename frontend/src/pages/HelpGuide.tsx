@@ -39,11 +39,11 @@ const GUIDE_DEFINITIONS: Record<GuideMode, GuideDefinition> = {
     image: fileProcedureImage,
     imageAlt: "Pantalla de Procesamiento de MediFlow en la modalidad Archivo, con un documento seleccionado y su vista previa.",
     steps: [
-      { title: "Ingresa a Procesamiento", description: "Abre Procesamiento desde el menú lateral.", highlight: [12, 98, 241, 73] },
-      { title: "Selecciona Archivo", description: "Elige la modalidad Archivo.", highlight: [288, 144, 81, 38] },
-      { title: "Carga el documento", description: "Selecciona un archivo PDF, JPG o PNG.", highlight: [299, 302, 503, 106] },
-      { title: "Selecciona el Canal de origen", description: "Selecciona el canal correspondiente.", highlight: [299, 462, 503, 70] },
-      { title: "Inicia el procesamiento", description: "Pulsa Procesar documento.", highlight: [301, 706, 180, 49] },
+      { title: "Ingresa a Procesamiento", description: "Abre Procesamiento desde el menú lateral.", highlight: [12, 159, 216, 64] },
+      { title: "Selecciona Archivo", description: "Elige la modalidad Archivo.", highlight: [264, 132, 70, 36] },
+      { title: "Carga el documento", description: "Selecciona un archivo PDF, JPG o PNG.", highlight: [274, 275, 514, 102] },
+      { title: "Selecciona el Canal de origen", description: "Selecciona el canal correspondiente.", highlight: [274, 419, 514, 60] },
+      { title: "Inicia el procesamiento", description: "Pulsa Procesar documento.", highlight: [274, 713, 162, 42] },
       RESULT_STEP,
     ],
   },
@@ -53,11 +53,11 @@ const GUIDE_DEFINITIONS: Record<GuideMode, GuideDefinition> = {
     image: textProcedureImage,
     imageAlt: "Pantalla de Procesamiento de MediFlow en la modalidad Texto, con contenido clínico y Canal de origen.",
     steps: [
-      { title: "Ingresa a Procesamiento", description: "Abre Procesamiento desde el menú lateral.", highlight: [12, 98, 241, 73] },
-      { title: "Selecciona Texto", description: "Elige la modalidad Texto.", highlight: [387, 144, 67, 38] },
-      { title: "Escribe o pega el contenido", description: "Introduce el texto clínico en el campo correspondiente.", highlight: [410, 252, 809, 253] },
-      { title: "Selecciona el Canal de origen", description: "Selecciona el canal correspondiente.", highlight: [410, 527, 561, 65] },
-      { title: "Inicia el procesamiento", description: "Pulsa Procesar texto.", highlight: [410, 631, 139, 48] },
+      { title: "Ingresa a Procesamiento", description: "Abre Procesamiento desde el menú lateral.", highlight: [13, 159, 216, 64] },
+      { title: "Selecciona Texto", description: "Elige la modalidad Texto.", highlight: [354, 132, 57, 36] },
+      { title: "Escribe o pega el contenido", description: "Introduce el texto clínico en el campo correspondiente.", highlight: [437, 230, 735, 227] },
+      { title: "Selecciona el Canal de origen", description: "Selecciona el canal correspondiente.", highlight: [437, 483, 506, 56] },
+      { title: "Inicia el procesamiento", description: "Pulsa Procesar texto.", highlight: [437, 576, 124, 40] },
       RESULT_STEP,
     ],
   },
@@ -98,9 +98,9 @@ function GuideImage({ definition, activeStep }: { definition: GuideDefinition; a
       {highlight && <span className="help-guide__highlight" style={highlightStyle} aria-hidden="true" />}
       {showFileArrow && (
         <svg className="help-guide__arrow" viewBox="0 0 1366 768" preserveAspectRatio="none" aria-hidden="true">
-          <line className="help-guide__arrow-halo" x1="802" y1="355" x2="884" y2="355" />
-          <line x1="802" y1="355" x2="884" y2="355" />
-          <polygon points="900,355 882,344 882,366" />
+          <line className="help-guide__arrow-halo" x1="788" y1="326" x2="799" y2="326" />
+          <line x1="788" y1="326" x2="799" y2="326" />
+          <polygon points="807,326 797,320 797,332" />
         </svg>
       )}
     </div>

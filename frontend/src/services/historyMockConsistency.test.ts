@@ -1,7 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { getDocumentList } from "./documentListService";
-import { getDocumentHistory } from "./historyService";
-import { getDocumentResult } from "./resultService";
 
 vi.mock("../config/env", () => ({
   env: { apiBaseUrl: "http://localhost:8080", useMocks: true },
@@ -9,6 +6,12 @@ vi.mock("../config/env", () => ({
 
 describe("document history mocks", () => {
   it("keeps the empty-history document in RECEIVED before initial triage", async () => {
+    vi.resetModules();
+    const [{ getDocumentList }, { getDocumentHistory }, { getDocumentResult }] = await Promise.all([
+      import("./documentListService"),
+      import("./historyService"),
+      import("./resultService"),
+    ]);
     const documentId = "DOC-2026-0005";
     const [list, history, result] = await Promise.all([
       getDocumentList(),
@@ -37,6 +40,8 @@ describe("document history mocks", () => {
   });
 
   it("retains initial triage for processed documents", async () => {
+    vi.resetModules();
+    const { getDocumentHistory } = await import("./historyService");
     const history = await getDocumentHistory("DOC-2026-0001");
 
     expect(history?.entries[0]).toMatchObject({

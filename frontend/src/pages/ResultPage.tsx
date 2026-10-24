@@ -1,10 +1,8 @@
 import { useEffect, useId, useState } from "react";
-import { Clock3 } from "lucide-react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
-import ResultStatus from "../components/results/ResultStatus";
-import CopyIdButton from "../components/results/CopyIdButton";
+import ResultIdentity from "../components/results/ResultIdentity";
 import ProcessingSummary from "../components/results/ProcessingSummary";
 import ReviewReasonsCard from "../components/results/ReviewReasonsCard";
 import ExtractedDataCard from "../components/results/ExtractedDataCard";
@@ -15,7 +13,6 @@ import { getDocumentSourceLabels } from "../components/results/resultPresentatio
 import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
 import type { DocumentViewerState } from "../components/DocumentViewer/types";
 import { getDocumentContent } from "../services/documentService";
-import { env } from "../config/env";
 import "../styles/result-page.css";
 import "../styles/result-cards.css";
 
@@ -57,10 +54,6 @@ function ResultMessageState({
 
 function ResultPage() {
   const { documentId } = useParams<{ documentId: string }>();
-  const location = useLocation();
-  const navigationState = location.state as
-    | { sourceKind?: "text" | "file"; sourceText?: string | null }
-    | null;
   const resultTitleId = useId();
   const documentTitleId = useId();
 
@@ -118,19 +111,6 @@ function ResultPage() {
     let active = true;
 
     async function loadDocument() {
-      if (
-        env.useMocks &&
-        navigationState?.sourceKind === "text" &&
-        typeof navigationState.sourceText === "string"
-      ) {
-        setViewerState({
-          status: "text",
-          documentKey: documentId!,
-          text: navigationState.sourceText,
-        });
-        return;
-      }
-
       try {
         const content = await getDocumentContent(
           documentId!,
@@ -182,7 +162,7 @@ function ResultPage() {
       active = false;
       controller.abort();
     };
-  }, [documentId, navigationState]);
+  }, [documentId]);
 
   const currentViewerState: DocumentViewerState | null = result
     ? viewerState.documentKey === result.document_id
@@ -221,61 +201,35 @@ function ResultPage() {
                 className="result-panel"
                 aria-labelledby={resultTitleId}
               >
-                <div className="result-panel__header">
-                  <h2
-                    id={resultTitleId}
-                    className="result-panel__title result-panel__title--result"
-                  >
-                    Resultado
-                  </h2>
-                  <Link
-                    className="result-history-link"
-                    to={`/history?documentId=${encodeURIComponent(result.document_id)}`}
-                  >
-                    <Clock3 aria-hidden="true" size={14} strokeWidth={1.5} />
-                    Ver historial
-                  </Link>
-                </div>
+                <ResultIdentity documentId={result.document_id} status={result.status} storageState={result.storage.state} titleId={resultTitleId} />
 
                 <div className="result-panel__body">
-                  <div className="result-meta">
-                    <div className="result-meta__reference">
-                      <span className="result-meta__label">Documento</span>
-                      <span className="result-meta__id">
-                        {result.document_id}
-                      </span>
-                      <CopyIdButton value={result.document_id} />
-                    </div>
-                    <ResultStatus status={result.status} />
-                  </div>
-
                   <ReviewReasonsCard
                     reasons={result.routing_decision.audit_reasons}
                     requiresHumanReview={
-                      result.routing_decision.requires_human_review
+                      result.status === "NEEDS_AUDIT"
                     }
+                    documentId={result.document_id}
+                    missingFields={result.validation?.missing_fields}
                   />
                   <ProcessingSummary
                     classification={result.classification}
                     confidence={result.confidence}
                     auditReasons={result.routing_decision.audit_reasons}
+                    destination={result.routing_decision.primary_destination}
+                    status={result.status}
                   />
                   <NotificationCard notification={result.notification} />
                   {result.extracted_data && (
-                    <ExtractedDataCard data={result.extracted_data} />
+                    <ExtractedDataCard data={result.extracted_data} missingFields={result.validation?.missing_fields} />
                   )}
                   {result.validation && (
                     <ValidationCard validation={result.validation} />
                   )}
                   <RoutingCard
                     routing={result.routing_decision}
-                    storage={result.storage}
+                    status={result.status}
                   />
-                  {result.status === "NEEDS_AUDIT" && (
-                    <Link className="result-audit-link" to={`/audit/${encodeURIComponent(result.document_id)}/review`}>
-                      Revisar documento
-                    </Link>
-                  )}
                 </div>
               </section>
             </div>

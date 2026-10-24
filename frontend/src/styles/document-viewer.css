@@ -19,23 +19,74 @@
   gap: 12px;
   text-align: center;
 }
+.document-viewer__image-viewer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  background: var(--mui-palette-mediflow-background, #fafafa);
+  color: var(--mui-palette-mediflow-textPrimary, #1a1a1a);
+  font-family: "Plus Jakarta Sans", Arial, sans-serif;
+}
+.document-viewer__image-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--mui-palette-mediflow-border, #e5e5e5);
+  background: var(--mui-palette-mediflow-surfaceMuted, #f5f5f5);
+}
+.document-viewer__image-tool,
+.document-viewer__image-reset {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.document-viewer__image-reset { padding: 0 8px; font: 500 12px/1 "Plus Jakarta Sans", Arial, sans-serif; }
+.document-viewer__image-tool:hover:not(:disabled),
+.document-viewer__image-reset:hover:not(:disabled) { background: var(--mui-palette-mediflow-actionSurface, rgba(0, 0, 0, .06)); }
+.document-viewer__image-tool:disabled,
+.document-viewer__image-reset:disabled { opacity: .45; cursor: not-allowed; }
+.document-viewer__image-tool:focus-visible,
+.document-viewer__image-reset:focus-visible,
+.document-viewer__image-stage:focus-visible {
+  outline: 2px solid var(--mui-palette-mediflow-focus, #1a5fd0);
+  outline-offset: -2px;
+}
+.document-viewer__image-zoom-value {
+  min-width: 64px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+}
 .document-viewer__image-stage {
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
   max-width: 100%;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 .document-viewer__image {
   display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  flex: none;
+  margin: auto;
 }
 .document-viewer__image[hidden] { display: none; }
 
@@ -456,4 +507,8 @@
   line-height: var(--viewer-text-line-height);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.document-viewer__pdf-viewer--dark :where(button, input, .document-viewer__canvas):focus-visible {
+  outline-color: var(--mui-palette-mediflow-focus, #78c9ff);
 }

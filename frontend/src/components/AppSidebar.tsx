@@ -81,7 +81,6 @@ function AppSidebar({
             <SidebarNavItem
               key={item.label}
               {...item}
-              disabled={!item.to}
               collapsed={collapsed}
               onClick={onNavigate}
             />

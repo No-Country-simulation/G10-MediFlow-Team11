@@ -13,6 +13,7 @@ export type NavigationItem = {
   description: string
   section?: string
   icon: ReactNode
+  disabled?: boolean
   to?: string
 }
 
@@ -85,6 +86,7 @@ export const SECONDARY_NAVIGATION: NavigationItem[] = [
   },
   {
     label: "Configuración",
+    to: "/settings",
     description: "Preferencias de la aplicación",
     icon: (
       <Settings
