@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, Check, Copy, X } from "lucide-react";
+import { AlertTriangle, Check, X } from "lucide-react";
+import DocumentIdentity from "../components/DocumentIdentity";
 import { Link, useBlocker, useLocation, useNavigate, useParams } from "react-router-dom";
 import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
 import type { DocumentViewerState } from "../components/DocumentViewer/types";
@@ -169,7 +170,6 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   const [saveError, setSaveError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [success, setSuccess] = useState<ReviewDecision | null>(null);
-  const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
   const redirectTimer = useRef<number | undefined>(undefined);
@@ -299,15 +299,6 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
     }
   };
 
-  const copyId = async () => {
-    try {
-      await navigator.clipboard.writeText(result.document_id);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setCopied(false);
-    }
-  };
   const leave = () => blocker.state === "blocked" ? blocker.proceed() : navigate("/audit");
   const sourceName = reviewSourceLabel(result.document_id, viewer.status === "text", location.state);
   const warningMessages = reviewWarningMessages(result.routing_decision.audit_reasons, result.validation?.missing_fields);
@@ -323,10 +314,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
           <section className="clinical-review__panel clinical-review__panel--review" aria-label="Revisión">
             <div className="clinical-review__panel-title clinical-review__panel-title--review">
               <h2>Revisión</h2>
-              <div className="clinical-review__document-id">
-                <span>Documento</span><code>{result.document_id}</code>
-                <button type="button" onClick={() => void copyId()}><Copy size={15} aria-hidden="true" /> {copied ? "Copiado" : "Copiar ID"}</button>
-              </div>
+              <DocumentIdentity documentId={result.document_id} />
             </div>
             <div ref={scrollRef} className="clinical-review__scroll">
               <div className="clinical-review__modules">

@@ -30,9 +30,10 @@
 .clinical-review__panel--review { order: 1; }
 .clinical-review__panel--document { order: 2; height: 620px; }
 .clinical-review__panel-title { height: 36px; flex: 0 0 auto; padding: 7px 12px; border-bottom: 1px solid var(--cr-border); font-size: 13px; font-weight: 500; line-height: 22px; }
-.clinical-review__panel-title--review { height: auto; min-height: 36px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding-block: 4px; }
+.clinical-review__panel-title--review { height: 40px; display: flex; align-items: center; gap: 12px; padding-block: 4px; }
+.clinical-review__panel-title--review h2 { flex-shrink: 0; }
 .clinical-review__panel-title--review h2 { font-size: 13px; line-height: 22px; font-weight: 500; }
-.clinical-review__panel-title--document { height: 32px; display: flex; justify-content: space-between; gap: 12px; padding: 5px 16px; }
+.clinical-review__panel-title--document { height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 16px; }
 .clinical-review__panel-title--document h2 { font-size: 13px; line-height: 22px; font-weight: 500; }
 .clinical-review__panel-title--document span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6b6b6b; font-size: 12px; font-weight: 400; }
 .clinical-review__scroll { flex: 1; min-height: 0; overflow-y: auto; }
@@ -144,6 +145,8 @@
   .clinical-review__panel { height: 100%; min-height: 0; }
 }
 @media (max-width: 639px) {
+  .clinical-review__panel-title--review { height: auto; flex-wrap: wrap; }
+  .clinical-review__panel-title--review .document-identity { flex-basis: 100%; }
   .clinical-review__fields, .clinical-review__fields--three { grid-template-columns: minmax(0, 1fr); }
   .clinical-review__array-row { flex-wrap: wrap; }
   .clinical-review__actions { grid-template-columns: minmax(0, 1fr); }
