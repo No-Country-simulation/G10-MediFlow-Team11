@@ -32,6 +32,8 @@ describe("appearance settings integration", () => {
       expect(markup).toContain(`-${option}-description`);
     }
     expect(markup.match(/class="settings-page__preview"/g)).toHaveLength(3);
+    expect(markup).toContain("brand/sidebar-96.png");
+    expect(markup).not.toContain("mediflow-symbol.svg");
     expect(markup).toContain('aria-live="polite"');
   });
 });

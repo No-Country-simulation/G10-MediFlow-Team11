@@ -9,7 +9,7 @@ function PreviewScene() {
       <path d="M68 0H240V22H68ZM0 0H68V138H0Z" fill="var(--preview-surface)" />
       <path d="M68 0V138M68 22H240" stroke="var(--preview-border)" strokeWidth="0.7" />
 
-      <image href="/brand/mediflow-symbol.svg" x="8" y="9" width="13" height="13" />
+      <image href={`${import.meta.env.BASE_URL}brand/sidebar-96.png`} x="8" y="9" width="13" height="13" />
       <text x="25" y="16" className="settings-page__preview-brand">MediFlow</text>
       <text x="25" y="22" fontSize="3.6">IA al servicio de la salud</text>
       <g fill="none" stroke="var(--preview-text)">
