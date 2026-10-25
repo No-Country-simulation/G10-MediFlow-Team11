@@ -988,3 +988,16 @@
   color: var(--hist-muted);
   opacity: 1;
 }
+
+.history-page__additional {
+  --res-u: 3.5px;
+  --res-radius: var(--hist-radius);
+  --res-border-soft: var(--hist-border);
+  --res-surface-muted: var(--hist-neutral-surface);
+  --res-neutral-text: var(--hist-neutral-text);
+  --res-muted: var(--hist-muted);
+  --res-text: var(--hist-text);
+  min-width: 0;
+  font-size: 14px;
+  line-height: calc(var(--res-u) * 5);
+}
