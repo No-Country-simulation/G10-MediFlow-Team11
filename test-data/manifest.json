@@ -1,0 +1,183 @@
+{
+  "lab": "LAB-MF-002",
+  "issue": 8,
+  "title": "Datos de prueba y escenarios ejecutables",
+  "synthetic_only": true,
+  "cases": [
+    {
+      "case_id": "CASE-001",
+      "name": "Flujo estándar / rutina",
+      "purpose": "Validar procesamiento normal sin auditoría.",
+      "input_type": "TEXT",
+      "endpoint": "POST /api/v1/documents/process-text",
+      "input_file": "input.txt",
+      "content_summary": "Informe de laboratorio rutinario, claro y completo.",
+      "synthetic_data": true,
+      "notes": [],
+      "expected_file": "cases/CASE-001/expected.json"
+    },
+    {
+      "case_id": "CASE-002",
+      "name": "Urgencia médica",
+      "purpose": "Validar detección de urgencia y enrutamiento a emergencia.",
+      "input_type": "TEXT",
+      "endpoint": "POST /api/v1/documents/process-text",
+      "input_file": "input.txt",
+      "content_summary": "Informe de laboratorio con hallazgo crítico y recomendación urgente.",
+      "synthetic_data": true,
+      "notes": [],
+      "expected_file": "cases/CASE-002/expected.json"
+    },
+    {
+      "case_id": "CASE-003",
+      "name": "Baja confianza por ambigüedad documental",
+      "purpose": "Validar LOW_CONFIDENCE con entrada legible, estructurable y semánticamente ambigua, sin simular un fallo técnico.",
+      "input_type": "FILE/PDF",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.pdf",
+      "content_summary": "Documento legible con señales contradictorias sobre su tipo documental y sin urgencia.",
+      "synthetic_data": true,
+      "notes": [
+        "La prueba exige una respuesta HTTP 200 estructuralmente valida del servicio IA.",
+        "No se fija un unico document_type ni un unico destino de negocio porque la ambiguedad es el objeto de la prueba.",
+        "El criterio principal es confidence.global < 0.85 y presencia de LOW_CONFIDENCE."
+      ],
+      "expected_file": "cases/CASE-003/expected.json"
+    },
+    {
+      "case_id": "CASE-004",
+      "name": "Documento parcialmente ilegible",
+      "purpose": "Validar ILLEGIBLE_DOCUMENT con una imagen cuyo tipo documental se reconoce, pero cuyo contenido clinico no puede extraerse de forma confiable.",
+      "input_type": "FILE/JPG",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.jpg",
+      "content_summary": "Receta sintetica con encabezado legible y cuerpo severamente degradado/oculto.",
+      "synthetic_data": true,
+      "notes": [
+        "La degradacion preserva el encabezado RECETA MEDICA y vuelve no confiable la lectura de paciente, profesional y medicacion."
+      ],
+      "expected_file": "cases/CASE-004/expected.json"
+    },
+    {
+      "case_id": "CASE-005",
+      "name": "Campo critico faltante - dosis",
+      "purpose": "Validar MISSING_CRITICAL_FIELDS en una receta legible que identifica el medicamento pero omite la dosis.",
+      "input_type": "FILE/PDF",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.pdf",
+      "content_summary": "Receta clara con medicamento identificado y dosis explicitamente no consignada.",
+      "synthetic_data": true,
+      "notes": [
+        "Se limita la expectativa a dosis, campo expresamente contemplado por el reto y por la estructura comun de medications de la arquitectura."
+      ],
+      "expected_file": "cases/CASE-005/expected.json"
+    },
+    {
+      "case_id": "CASE-006",
+      "name": "Datos inconsistentes",
+      "purpose": "Validar detección de contradicción interna.",
+      "input_type": "TEXT",
+      "endpoint": "POST /api/v1/documents/process-text",
+      "input_file": "input.txt",
+      "content_summary": "Informe legible con dos edades contradictorias.",
+      "synthetic_data": true,
+      "notes": [],
+      "expected_file": "cases/CASE-006/expected.json"
+    },
+    {
+      "case_id": "CASE-007",
+      "name": "Rutina adicional - receta",
+      "purpose": "Validar receta clara en formato imagen.",
+      "input_type": "FILE/PNG",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.png",
+      "content_summary": "Receta legible y completa.",
+      "synthetic_data": true,
+      "notes": [],
+      "expected_file": "cases/CASE-007/expected.json"
+    },
+    {
+      "case_id": "CASE-008",
+      "name": "Urgencia adicional - imágenes",
+      "purpose": "Validar un segundo caso urgente en PDF.",
+      "input_type": "FILE/PDF",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.pdf",
+      "content_summary": "Informe radiológico con conclusión urgente explícita.",
+      "synthetic_data": true,
+      "notes": [],
+      "expected_file": "cases/CASE-008/expected.json"
+    },
+    {
+      "case_id": "CASE-009",
+      "name": "Cobertura combinada - inconsistencia + campo critico faltante",
+      "purpose": "Validar que un mismo documento pueda acumular multiples audit_reasons semanticos sin inventar reglas fuera del contrato.",
+      "input_type": "FILE/PNG",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.png",
+      "content_summary": "Receta legible con edades contradictorias y medicamento sin dosis.",
+      "synthetic_data": true,
+      "notes": [
+        "La contradiccion de edad sustenta INCONSISTENT_DATA y la dosis ausente sustenta MISSING_CRITICAL_FIELDS."
+      ],
+      "expected_file": "cases/CASE-009/expected.json"
+    },
+    {
+      "case_id": "CASE-010",
+      "name": "Cobertura semántica adicional - certificado",
+      "purpose": "Ampliar cobertura de tipos documentales con entrada JPG legible.",
+      "input_type": "FILE/JPG",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.jpg",
+      "content_summary": "Certificado médico sintético de rutina.",
+      "synthetic_data": true,
+      "notes": [],
+      "expected_file": "cases/CASE-010/expected.json"
+    },
+    {
+      "case_id": "CASE-011",
+      "name": "Orden de procedimiento para auditoría de autorización",
+      "purpose": "Validar una orden de procedimiento rutinaria con enrutamiento automático a Auditoría de Autorizaciones.",
+      "input_type": "TEXT",
+      "endpoint": "POST /api/v1/documents/process-text",
+      "input_file": "input.txt",
+      "content_summary": "Orden sintética de resonancia magnética de columna lumbar para autorización.",
+      "synthetic_data": true,
+      "notes": [
+        "CASE-011 cubre extracted_data.requested_studies con la estructura contractual aprobada: un array de objetos con name."
+      ],
+      "expected_file": "cases/CASE-011/expected.json"
+    },
+    {
+      "case_id": "CASE-012",
+      "name": "Epicrisis / Informe de Alta hacia Historia Clínica",
+      "purpose": "Validar una epicrisis rutinaria con extracción clínica principal y enrutamiento automático a Historia Clínica.",
+      "input_type": "FILE/PDF",
+      "endpoint": "POST /api/v1/documents/process-file",
+      "input_file": "input.pdf",
+      "content_summary": "Epicrisis sintética con diagnóstico principal y CIE-10 explícitos.",
+      "synthetic_data": true,
+      "notes": [],
+      "expected_file": "cases/CASE-012/expected.json"
+    }
+  ],
+  "technical_scenarios": [
+    {
+      "id": "TECH-001",
+      "reason": "AI_TIMEOUT",
+      "file": "technical/TECH-001.json"
+    },
+    {
+      "id": "TECH-002",
+      "reason": "AI_UNAVAILABLE",
+      "file": "technical/TECH-002.json"
+    },
+    {
+      "id": "TECH-003",
+      "reason": "INVALID_AI_RESPONSE",
+      "file": "technical/TECH-003.json"
+    }
+  ],
+  "version": "1.1",
+  "quality_gate": "QUALITY-GATE.md"
+}

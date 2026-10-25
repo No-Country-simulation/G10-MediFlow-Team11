@@ -1,0 +1,27 @@
+{
+  "status": "NEEDS_AUDIT",
+  "classification": {
+    "document_type": "STUDY_REPORT",
+    "priority_level": "ROUTINE"
+  },
+  "routing_decision": {
+    "primary_destination": "MEDICAL_RECORD",
+    "requires_human_review": true,
+    "audit_reasons_required": [
+      "INCONSISTENT_DATA"
+    ],
+    "audit_reasons_allowed_additional": []
+  },
+  "validation": {
+    "inconsistencies_required": [
+      "edad 44 vs 64"
+    ]
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "auditoria_humana/"
+  }
+}

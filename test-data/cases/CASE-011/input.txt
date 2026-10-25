@@ -1,0 +1,11 @@
+ORDEN DE PROCEDIMIENTO
+
+Paciente: Daniela Soto Muñoz
+Edad: 47 años
+Médico solicitante: Dr. Felipe Andrade
+Matrícula: MED-45821
+Diagnóstico: Dolor lumbar persistente
+CIE-10: M54.5
+Procedimiento solicitado: Resonancia magnética de columna lumbar
+Prioridad: Rutina
+Motivo: Persistencia de síntomas pese a tratamiento conservador.

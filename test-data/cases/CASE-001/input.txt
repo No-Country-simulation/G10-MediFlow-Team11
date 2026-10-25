@@ -1,0 +1,14 @@
+CENTRO CLINICO LOS ARRAYANES
+INFORME DE LABORATORIO
+
+Paciente: Elisa Navarro Fuentes
+Edad: 37 anos
+Medico solicitante: Dr. Tomas Vega
+Matricula: MED-31007
+
+Estudio: Hemograma completo
+Hemoglobina: 13.6 g/dL
+Leucocitos: 6.8 x10^3/uL
+Plaquetas: 245 x10^3/uL
+
+Observacion: resultados dentro de rangos informados por el laboratorio. Control ambulatorio de rutina.

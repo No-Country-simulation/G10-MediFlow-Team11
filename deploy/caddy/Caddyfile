@@ -1,0 +1,88 @@
+mediflow-core.duckdns.org {
+    handle /actuator/health {
+        reverse_proxy 127.0.0.1:8080
+    }
+
+    handle {
+        respond "Not found" 404
+    }
+}
+
+mediflowia.dev {
+    @reserved path /api /api/* /actuator /actuator/*
+    @assets path /assets/* /brand/* /favicon.svg /icons.svg
+    @api_get_collection {
+        method GET
+        path /api/v1/documents /api/v1/documents/audit
+    }
+    @api_get_reserved {
+        method GET
+        path /api/v1/documents/process-text /api/v1/documents/process-file
+    }
+    @api_get_document {
+        method GET
+        path_regexp document ^/api/v1/documents/[^/]+(?:/(?:history|content))?$
+    }
+    @api_process {
+        method POST
+        path /api/v1/documents/process-text /api/v1/documents/process-file
+        header Origin https://mediflowia.dev
+    }
+    @api_review {
+        method PATCH
+        path_regexp review ^/api/v1/documents/[^/]+/review$
+        header Origin https://mediflowia.dev
+    }
+
+    route {
+        handle /actuator/health {
+            reverse_proxy 127.0.0.1:8080
+        }
+
+        handle @api_get_collection {
+            reverse_proxy 127.0.0.1:8080
+        }
+
+        handle @api_get_reserved {
+            respond "Not found" 404
+        }
+
+        handle @api_get_document {
+            reverse_proxy 127.0.0.1:8080
+        }
+
+        handle @api_process {
+            request_body {
+                max_size 11MB
+            }
+            reverse_proxy 127.0.0.1:8080 {
+                transport http {
+                    response_header_timeout 90s
+                }
+            }
+        }
+
+        handle @api_review {
+            reverse_proxy 127.0.0.1:8080 {
+                transport http {
+                    response_header_timeout 90s
+                }
+            }
+        }
+
+        handle @reserved {
+            respond "Not found" 404
+        }
+
+        handle @assets {
+            root * /srv/mediflow/frontend/releases/issue88-pr89-f02f424-develop-7567b90
+            file_server
+        }
+
+        handle {
+            root * /srv/mediflow/frontend/releases/issue88-pr89-f02f424-develop-7567b90
+            try_files {path} /index.html
+            file_server
+        }
+    }
+}

@@ -1,0 +1,18 @@
+{
+  "scenario_id": "TECH-003",
+  "reason": "INVALID_AI_RESPONSE",
+  "requires_fault_injection": true,
+  "must_not_be_triggered_by_clinical_content": true,
+  "setup": "Mock/stub devuelve HTTP 200 con JSON malformado o esquema inválido. Alternativamente, IA responde 502 AI_OUTPUT_INVALID y el retry también falla.",
+  "expected": {
+    "backend_behavior": "Para 200 inválido no retry; para 502 AI_OUTPUT_INVALID sí puede haber 1 retry según arquitectura. Backend traduce el fallo definitivo.",
+    "status": "NEEDS_AUDIT",
+    "audit_reasons": [
+      "INVALID_AI_RESPONSE"
+    ],
+    "primary_destination": "HUMAN_REVIEW",
+    "requires_human_review": true,
+    "http_to_frontend": "200 OK si fallback + OCI/PostgreSQL se persisten correctamente",
+    "prefijo": "auditoria_humana/"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "case_id": "CASE-002",
+  "name": "Urgencia médica",
+  "purpose": "Validar detección de urgencia y enrutamiento a emergencia.",
+  "input_type": "TEXT",
+  "endpoint": "POST /api/v1/documents/process-text",
+  "input_file": "input.txt",
+  "content_summary": "Informe de laboratorio con hallazgo crítico y recomendación urgente.",
+  "synthetic_data": true,
+  "notes": []
+}

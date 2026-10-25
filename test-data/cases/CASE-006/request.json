@@ -1,0 +1,5 @@
+{
+  "document_id": "TEST-CASE-006",
+  "document_text": "CLINICA NUEVO HORIZONTE\nINFORME DE ESTUDIO\n\nPaciente: Nora Castillo Ruiz\nEdad registrada en admision: 44 anos\nMedico solicitante: Dr. Emilio Ferrer\nMatricula: MED-60211\n\nEstudio: Perfil metabolico\nGlucosa: 104 mg/dL\nCreatinina: 0.9 mg/dL\n\nDescripcion del informe: paciente de 64 anos en control ambulatorio.\nPrioridad: rutina.\n\nNota: la edad consignada en el cuerpo del informe no coincide con la edad de admision.",
+  "origin_channel": "Consulta_Ambulatoria"
+}

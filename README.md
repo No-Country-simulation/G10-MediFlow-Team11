@@ -4,6 +4,8 @@
 
 > Documentación técnica completa de arquitectura y contratos: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — *v1.0, Baseline approved*.
 
+> Pruebas E2E aisladas sin OCI: [`docs/local-demo.md`](./docs/local-demo.md).
+
 ---
 
 ## El problema
@@ -42,6 +44,8 @@ El enrutamiento del MVP es **lógico/simulado**: persiste el destino, lo expone 
 
 El detalle completo de contratos entre componentes, estados, `audit_reasons`, modelo de datos y manejo de errores está en [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
+Estructura común de extracted_data: las claves son opcionales; un valor desconocido se omite o se envía en null. patient admite name (string) y age (entero no negativo); requesting_doctor admite name y license_number (strings); primary_diagnosis y suggested_icd10 son strings; medications es un array de objetos con name y dosage (strings opcionales/nullable). [] indica que no se identificaron medicamentos. requested_studies es un array de objetos con name (string opcional/nullable), correspondiente a los estudios solicitados en el documento. [] indica que no se identificaron estudios solicitados; no se infieren estudios que no consten explícitamente en el documento. Se permiten campos adicionales JSON por tipo de documento, sin exigir formularios exhaustivos en el Frontend.
+
 ## Diagrama del flujo del agente
 
 ```mermaid
@@ -73,16 +77,75 @@ flowchart TD
 | LLM | Google Gemini API |
 | Persistencia de archivos | OCI Object Storage (capa Always Free) |
 
+## Documentación por squad
+
+La documentación del proyecto se organiza por ámbito de responsabilidad:
+
+- **Arquitectura y contratos compartidos:** [`docs/architecture/`](./docs/architecture/)
+- **Frontend & UX:** [`docs/frontend-ux/`](./docs/frontend-ux/)
+- **Backend & Cloud:** [`docs/backend-cloud/`](./docs/backend-cloud/)
+- **IA Core:** [`docs/ia-core/`](./docs/ia-core/)
+- **Producto & QA:** [`docs/producto-qa/`](./docs/producto-qa/)
+
+La referencia canónica de arquitectura y contratos compartidos continúa siendo [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+
+---
 ## Cómo ejecutar
 
-> ⚠️ Esta sección se completará con los comandos definitivos a medida que los servicios queden implementados y contenerizados. Los siguientes son de referencia provisional — nombres de carpetas y profiles de Spring Boot pueden cambiar.
+### Clonar el repositorio
 
 ```bash
-# Clonar el repositorio
 git clone https://github.com/No-Country-simulation/G10-MediFlow-Team11.git
 cd G10-MediFlow-Team11
+```
 
-# Backend (Spring Boot)
+### Base de datos PostgreSQL
+
+MediFlow utiliza PostgreSQL como motor de persistencia. En el entorno de desarrollo, el servicio se ejecuta mediante Docker Compose con almacenamiento persistente y verificación de disponibilidad.
+
+#### Configuración
+
+Desde la raíz del repositorio, crea el archivo local de variables de entorno:
+
+```bash
+cp .env.example .env
+```
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Define un valor seguro para `DB_PASSWORD` en `.env` antes de iniciar el servicio.
+
+#### Iniciar PostgreSQL
+
+```bash
+docker compose up -d postgres
+```
+
+Verifica el estado:
+
+```bash
+docker compose ps
+```
+
+PostgreSQL estará disponible cuando el servicio aparezca con estado `healthy`.
+
+Para detener los servicios conservando los datos:
+
+```bash
+docker compose down
+```
+
+La configuración detallada del entorno, persistencia, resolución de conflictos de puerto y conexión con el Backend se encuentra en [`docs/backend-cloud/postgresql-docker.md`](./docs/backend-cloud/postgresql-docker.md).
+
+### Servicios
+
+```bash
+# Backend (Spring Boot) — requiere PostgreSQL en ejecución y las variables de .env
+# disponibles en la sesión (ver la guía de PostgreSQL)
 cd backend
 ./mvnw spring-boot:run
 
@@ -97,19 +160,34 @@ npm install
 npm run dev
 ```
 
-### Variables de entorno previstas
+### Variables de entorno
 
-> Los nombres definitivos se documentarán cuando los servicios queden configurados.
+PostgreSQL y la conexión del Backend utilizan las variables definidas en la plantilla [`.env.example`](./.env.example), en la raíz del repositorio. El archivo `.env` es local, no se versiona y debe definir `DB_PASSWORD`:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=mediflow
+DB_USER=mediflow_user
+DB_PASSWORD=
+```
+
+Variables de referencia para la integración con OCI e IA Core:
 
 ```env
 OCI_BUCKET_NAME=mediflow-documentos-clinicos
 OCI_NAMESPACE=<namespace>
-DATABASE_URL=<postgresql-url>
-AI_SERVICE_URL=<url-del-servicio-python>
+MEDIFLOW_AI_SERVICE_URL=http://localhost:8000
 AUDIT_CONFIDENCE_THRESHOLD=0.85
 GEMINI_API_KEY=<api-key>
 GEMINI_MODEL=<model-id>
 ```
+
+Compose usa el `.env` para interpolar `compose.yaml`; solo las variables declaradas en `environment` se entregan a cada contenedor. El Backend contenerizado recibe `MEDIFLOW_AI_SERVICE_URL=http://ai-core:8000`, `DB_HOST=postgres` y `DB_PORT=5432`, independientemente de los valores locales de la plantilla. Spring Boot ejecutado fuera de Docker requiere las variables en el entorno de su proceso.
+
+### Despliegue en OCI Compute (Issue #59)
+
+La [guía de despliegue](./docs/backend-cloud/oci-compute-deployment.md) reutiliza el único `compose.yaml` sobre `MediFlow_Core_VM`: configuración protegida, ARM64, Instance Principals, HTTPS y verificaciones. La preparación del repositorio no acredita ejecución en OCI; el checklist de la guía se completa con evidencia del despliegue real.
 
 ## Los 3 escenarios obligatorios de demostración
 

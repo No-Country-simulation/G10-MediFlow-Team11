@@ -1,0 +1,816 @@
+import "../styles/processing-page.css";
+import { Plus } from "lucide-react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
+import type { DocumentViewerState } from "../components/DocumentViewer/types";
+import { useNotification } from "../notifications/useNotification";
+import { ApiError, processFile, processText } from "../services/processingService";
+import type { ProcessingResponse } from "../types/processing";
+import fileTabIcon from "../assets/processing/tab-file.svg";
+import textTabIcon from "../assets/processing/tab-text.svg";
+import {
+  ORIGIN_CHANNELS,
+  OTHER_CHANNEL,
+  formatBytes,
+  getFileTypeLabel,
+  getOriginErrorTarget,
+  hasOriginChannel,
+  isOtherChannelMissing,
+  normalizeViewerMimeType,
+  resolveOriginChannel,
+  validateProcessingFile,
+} from "./processingForm";
+
+type InputMode = "file" | "text";
+
+const INPUT_TABS: ReadonlyArray<{ mode: InputMode; label: string; icon: string }> = [
+  { mode: "file", label: "Archivo", icon: fileTabIcon },
+  { mode: "text", label: "Texto", icon: textTabIcon },
+];
+
+function UploadEmptyStateIllustration() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="processing-page__illustration"
+      width="160"
+      height="152"
+      viewBox="0 0 160 152"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M67.797 151.228C105.24 151.228 135.594 145.556 135.594 138.56C135.594 131.564 105.24 125.892 67.797 125.892C30.3537 125.892 0 131.564 0 138.56C0 145.556 30.3537 151.228 67.797 151.228Z"
+        fill="var(--proc-illustration-tray, #AEB8C2)"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M122.034 101.344L98.1091 71.8991C96.9611 70.5131 95.2831 69.6741 93.5161 69.6741H42.0761C40.3101 69.6741 38.6321 70.5131 37.4841 71.8991L13.5601 101.344V114.727H122.035V101.344H122.034Z"
+        fill="var(--proc-illustration-tray, #AEB8C2)"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M33.83 31.67H101.763C102.824 31.67 103.841 32.0915 104.591 32.8416C105.342 33.5918 105.763 34.6092 105.763 35.67V129.014C105.763 130.075 105.342 131.092 104.591 131.842C103.841 132.593 102.824 133.014 101.763 133.014H33.83C32.7691 133.014 31.7517 132.593 31.0015 131.842C30.2514 131.092 29.83 130.075 29.83 129.014V35.67C29.83 34.6092 30.2514 33.5918 31.0015 32.8416C31.7517 32.0915 32.7691 31.67 33.83 31.67Z"
+        fill="var(--proc-illustration-paper, #F5F5F5)"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M42.678 41.623H92.915C93.4454 41.623 93.9541 41.8338 94.3292 42.2088C94.7043 42.5839 94.915 43.0926 94.915 43.623V68.58C94.915 69.1105 94.7043 69.6192 94.3292 69.9943C93.9541 70.3693 93.4454 70.58 92.915 70.58H42.678C42.1475 70.58 41.6388 70.3693 41.2637 69.9943C40.8887 69.6192 40.678 69.1105 40.678 68.58V43.623C40.678 43.0926 40.8887 42.5839 41.2637 42.2088C41.6388 41.8338 42.1475 41.623 42.678 41.623ZM42.94 81.437H92.653C93.2529 81.437 93.8282 81.6754 94.2524 82.0996C94.6766 82.5238 94.915 83.0991 94.915 83.699C94.915 84.299 94.6766 84.8743 94.2524 85.2985C93.8282 85.7227 93.2529 85.961 92.653 85.961H42.94C42.34 85.961 41.7647 85.7227 41.3405 85.2985C40.9163 84.8743 40.678 84.299 40.678 83.699C40.678 83.0991 40.9163 82.5238 41.3405 82.0996C41.7647 81.6754 42.34 81.437 42.94 81.437ZM42.94 93.2H92.653C93.253 93.2 93.8285 93.4384 94.2528 93.8627C94.6771 94.287 94.9155 94.8625 94.9155 95.4625C94.9155 96.0626 94.6771 96.6381 94.2528 97.0624C93.8285 97.4867 93.253 97.725 92.653 97.725H42.94C42.3399 97.725 41.7644 97.4867 41.3401 97.0624C40.9158 96.6381 40.6775 96.0626 40.6775 95.4625C40.6775 94.8625 40.9158 94.287 41.3401 93.8627C41.7644 93.4384 42.3399 93.2 42.94 93.2ZM121.813 136.702C121.038 139.773 118.316 142.062 115.078 142.062H20.515C17.277 142.062 14.555 139.772 13.781 136.702C13.6333 136.117 13.5588 135.516 13.559 134.912V101.345H39.877C42.784 101.345 45.127 103.793 45.127 106.765V106.805C45.127 109.776 47.497 112.175 50.404 112.175H85.189C88.096 112.175 90.466 109.754 90.466 106.782V106.77C90.466 103.798 92.809 101.344 95.716 101.344H122.034V134.913C122.034 135.53 121.957 136.129 121.813 136.702Z"
+        fill="var(--proc-illustration-detail, #DCE0E6)"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M125.121 33.292L118.291 35.942C118.116 36.0102 117.924 36.0275 117.74 35.992C117.555 35.9564 117.384 35.8693 117.246 35.7408C117.108 35.6123 117.01 35.4476 116.962 35.2656C116.914 35.0836 116.918 34.8917 116.974 34.712L118.911 28.505C116.322 25.561 114.802 21.971 114.802 18.097C114.802 8.102 124.92 0 137.402 0C149.881 0 160 8.102 160 18.097C160 28.092 149.882 36.194 137.401 36.194C132.873 36.194 128.657 35.128 125.121 33.292Z"
+        fill="var(--proc-illustration-paper, #F5F5F5)"
+      />
+      <path
+        d="M146.304 21.365C147.878 21.365 149.153 20.1047 149.153 18.55C149.153 16.9953 147.878 15.735 146.304 15.735C144.731 15.735 143.455 16.9953 143.455 18.55C143.455 20.1047 144.731 21.365 146.304 21.365Z"
+        fill="var(--proc-illustration-tray, #AEB8C2)"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M131.348 21.013H125.65L128.548 16.087L131.348 21.013ZM134.909 16.087H139.894V21.013H134.909V16.087Z"
+        fill="var(--proc-illustration-tray, #AEB8C2)"
+      />
+    </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="processing-page__spinner"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    >
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="processing-page__inline-error-icon"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
+function ReadyStatusChip() {
+  return (
+    <div className="processing-page__status-chip">
+      <span className="processing-page__status-chip-label">Estado</span>
+      <span className="processing-page__status-chip-value">
+        <span className="processing-page__status-dot" />
+        Listo para procesar
+      </span>
+    </div>
+  );
+}
+
+interface OriginFieldsProps {
+  originId: string;
+  originChannel: string;
+  originOtro: string;
+  disabled?: boolean;
+  fieldError?: string | null;
+  onChannelChange: (value: string) => void;
+  onOtherChange: (value: string) => void;
+}
+
+function OriginFields({
+  originId,
+  originChannel,
+  originOtro,
+  disabled,
+  fieldError,
+  onChannelChange,
+  onOtherChange,
+}: OriginFieldsProps) {
+  const otherId = `${originId}-otro`;
+  const selectErrorId = `${originId}-select-err`;
+  const otherErrorId = `${originId}-otro-err`;
+
+  const errorTarget = getOriginErrorTarget(
+    Boolean(fieldError),
+    originChannel,
+    originOtro,
+  );
+  const selectInvalid = errorTarget === "select";
+  const otherInvalid = errorTarget === "other";
+
+  return (
+    <div>
+      <label htmlFor={originId} className="processing-page__field-label">
+        Canal de origen <span className="processing-page__required">*</span>
+      </label>
+      <select
+        id={originId}
+        value={originChannel}
+        onChange={(event) => onChannelChange(event.target.value)}
+        disabled={disabled}
+        className={[
+          "processing-page__select",
+          originChannel === "" ? "processing-page__select--placeholder" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        aria-required="true"
+        aria-invalid={selectInvalid || undefined}
+        aria-describedby={selectInvalid ? selectErrorId : undefined}
+      >
+        <option value="" disabled>
+          Seleccione un canal
+        </option>
+        {ORIGIN_CHANNELS.map((channel) => (
+          <option key={channel} value={channel}>
+            {channel}
+          </option>
+        ))}
+      </select>
+      {selectInvalid && (
+        <p id={selectErrorId} className="processing-page__field-error" role="alert">
+          {fieldError}
+        </p>
+      )}
+      {originChannel === OTHER_CHANNEL && (
+        <div className="processing-page__origin-other">
+          <label htmlFor={otherId} className="processing-page__field-label">
+            Especifique el canal{" "}
+            <span className="processing-page__required">*</span>
+          </label>
+          <input
+            id={otherId}
+            type="text"
+            value={originOtro}
+            onChange={(event) => onOtherChange(event.target.value)}
+            placeholder="Escriba el canal de origen"
+            disabled={disabled}
+            className="processing-page__textinput"
+            aria-required="true"
+            aria-invalid={otherInvalid || undefined}
+            aria-describedby={otherInvalid ? otherErrorId : undefined}
+          />
+          {otherInvalid && (
+            <p id={otherErrorId} className="processing-page__field-error" role="alert">
+              {fieldError}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProcessingPage() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadPickerRef = useRef<HTMLButtonElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const tabRefs = useRef<Record<InputMode, HTMLButtonElement | null>>({
+    file: null,
+    text: null,
+  });
+
+  const textareaId = useId();
+  const originIdFile = useId();
+  const originIdText = useId();
+
+  const { showNotification, showError } = useNotification();
+  const navigate = useNavigate();
+
+  const [inputMode, setInputMode] = useState<InputMode>("file");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [documentText, setDocumentText] = useState("");
+  const [originChannel, setOriginChannel] = useState("");
+  const [originOtro, setOriginOtro] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [originFieldError, setOriginFieldError] = useState<string | null>(null);
+  const [textFieldError, setTextFieldError] = useState<string | null>(null);
+
+  const selectedMimeType = useMemo(
+    () => (selectedFile ? normalizeViewerMimeType(selectedFile) : null),
+    [selectedFile],
+  );
+
+  const previewDocument = useMemo<DocumentViewerState | null>(() => {
+    if (!selectedFile || !selectedMimeType) return null;
+    return {
+      status: "ready",
+      documentKey: `${selectedFile.name}${selectedFile.lastModified}${selectedFile.size}`,
+      blob: selectedFile,
+      mimeType: selectedMimeType,
+      fileName: selectedFile.name,
+    };
+  }, [selectedFile, selectedMimeType]);
+
+  const handleFile = useCallback((file: File) => {
+    const error = validateProcessingFile(file);
+
+    if (error) {
+      setSelectedFile(null);
+      setFileError(error);
+      return;
+    }
+
+    setSelectedFile(file);
+    setFileError(null);
+    setProcessingError(null);
+  }, []);
+
+  const handleFiles = useCallback(
+    (files: FileList | null) => {
+      if (isProcessing || !files || files.length === 0) return;
+      handleFile(files[0]);
+    },
+    [handleFile, isProcessing],
+  );
+
+  const openPicker = useCallback(() => {
+    if (isProcessing) return;
+    setFileError(null);
+    fileInputRef.current?.click();
+  }, [isProcessing]);
+
+  const hasOrigin = hasOriginChannel(originChannel, originOtro);
+
+  const validateForm = (): boolean => {
+    let ok = true;
+    setOriginFieldError(null);
+    setTextFieldError(null);
+
+    if (originChannel === "") {
+      setOriginFieldError("Indique el canal de origen.");
+      ok = false;
+    } else if (isOtherChannelMissing(originChannel, originOtro)) {
+      setOriginFieldError("Especifique el canal de origen.");
+      ok = false;
+    }
+
+    if (inputMode === "file" && !selectedFile) {
+      setFileError("Seleccione un documento para procesar.");
+      ok = false;
+    }
+
+    if (inputMode === "text" && !documentText.trim()) {
+      setTextFieldError("Ingrese el contenido del documento.");
+      ok = false;
+    }
+
+    return ok;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    const origin_channel = resolveOriginChannel(originChannel, originOtro);
+    let request: Promise<ProcessingResponse>;
+
+    if (inputMode === "file") {
+      if (!selectedFile) return;
+      request = processFile({ file: selectedFile, origin_channel });
+    } else {
+      request = processText({ document_text: documentText.trim(), origin_channel });
+    }
+
+    setIsProcessing(true);
+    setProcessingError(null);
+
+    try {
+      const result = await request;
+
+      showNotification({
+        message: "Documento procesado correctamente.",
+        severity: "success",
+      });
+
+      navigate(`/results/${encodeURIComponent(result.document_id)}`);
+    } catch (error) {
+      showError(error);
+      setProcessingError(error instanceof ApiError && error.code === "MOCK_TEXT_UNAVAILABLE" ? error.message : "No fue posible procesar el texto. La información ingresada se ha conservado.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleClearForm = () => {
+    if (isProcessing) return;
+    setInputMode("file");
+    setSelectedFile(null);
+    setDocumentText("");
+    setOriginChannel("");
+    setOriginOtro("");
+    setFileError(null);
+    setProcessingError(null);
+    setOriginFieldError(null);
+    setTextFieldError(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setFileError(null);
+    setProcessingError(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleOriginChannelChange = (value: string) => {
+    setOriginChannel(value);
+    setOriginOtro("");
+    setOriginFieldError(null);
+    setProcessingError(null);
+  };
+
+  const handleOriginOtherChange = (value: string) => {
+    setOriginOtro(value);
+    setOriginFieldError(null);
+    setProcessingError(null);
+  };
+
+  const hasClearableData =
+    selectedFile !== null ||
+    documentText.length > 0 ||
+    originChannel !== "" ||
+    originOtro.length > 0 ||
+    Boolean(fileError) ||
+    processingError ||
+    Boolean(originFieldError) ||
+    Boolean(textFieldError);
+
+  const isValidForSubmit =
+    inputMode === "file"
+      ? selectedFile !== null && hasOrigin && !fileError
+      : documentText.trim().length > 0 && hasOrigin && !textFieldError;
+
+  let submitLabel: string;
+  if (isProcessing) {
+    submitLabel =
+      inputMode === "text" ? "Procesando texto…" : "Procesando documento…";
+  } else if (processingError) {
+    submitLabel = "Reintentar";
+  } else {
+    submitLabel = inputMode === "text" ? "Procesar texto" : "Procesar documento";
+  }
+
+  const selectMode = (next: InputMode) => {
+    setInputMode(next);
+    setProcessingError(null);
+    setOriginFieldError(null);
+    setTextFieldError(null);
+  };
+
+  const changeMode = (next: InputMode) => {
+    if (isProcessing) return;
+    selectMode(next);
+
+    requestAnimationFrame(() => {
+      if (next === "text") {
+        textareaRef.current?.focus();
+      } else {
+        uploadPickerRef.current?.focus();
+      }
+    });
+  };
+
+  const handleTablistKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (isProcessing) return;
+    const currentIndex = INPUT_TABS.findIndex((tab) => tab.mode === inputMode);
+    let nextIndex: number | null = null;
+
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      nextIndex = (currentIndex + 1) % INPUT_TABS.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      nextIndex = (currentIndex - 1 + INPUT_TABS.length) % INPUT_TABS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = INPUT_TABS.length - 1;
+    }
+
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    const next = INPUT_TABS[nextIndex].mode;
+    selectMode(next);
+    requestAnimationFrame(() => tabRefs.current[next]?.focus());
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    handleFiles(event.dataTransfer.files);
+  };
+
+  const renderOriginFields = (originId: string) => (
+    <OriginFields
+      originId={originId}
+      originChannel={originChannel}
+      originOtro={originOtro}
+      disabled={isProcessing}
+      fieldError={originFieldError}
+      onChannelChange={handleOriginChannelChange}
+      onOtherChange={handleOriginOtherChange}
+    />
+  );
+
+  const actionsBlock = (
+    <div className="processing-page__actions">
+      <div className="processing-page__actions-row">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isProcessing || !isValidForSubmit}
+          className={[
+            "processing-page__btn-primary",
+            isProcessing ? "processing-page__btn-primary--loading" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {isProcessing && <Spinner />}
+          {submitLabel}
+        </button>
+        <button
+          type="button"
+          onClick={handleClearForm}
+          disabled={isProcessing || !hasClearableData}
+          className="processing-page__btn-secondary"
+        >
+          Limpiar
+        </button>
+      </div>
+      {isProcessing && (
+        <p className="processing-page__processing-hint">
+          El procesamiento puede tardar unos segundos.
+        </p>
+      )}
+    </div>
+  );
+
+  const isSplit = inputMode === "file" && selectedFile !== null;
+
+  return (
+    <div
+      className={
+        isSplit ? "processing-page processing-page--split" : "processing-page"
+      }
+    >
+      <div className="processing-page__content">
+        <header className="processing-page__header">
+          <h1 className="processing-page__title">Procesamiento de documentos</h1>
+          <p className="processing-page__description">
+            Cargue un documento clínico o ingrese texto para iniciar su
+            clasificación, extracción y enrutamiento.
+          </p>
+        </header>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+          disabled={isProcessing}
+          onChange={(event) => {
+            handleFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+
+        <div
+          className="processing-page__tablist"
+          role="tablist"
+          aria-label="Tipo de entrada"
+          aria-orientation="horizontal"
+          onKeyDown={handleTablistKeyDown}
+        >
+          {INPUT_TABS.map(({ mode, label, icon }) => {
+            const isActive = inputMode === mode;
+            return (
+              <button
+                key={mode}
+                ref={(node) => {
+                  tabRefs.current[mode] = node;
+                }}
+                type="button"
+                role="tab"
+                id={`${mode}-tab`}
+                aria-selected={isActive}
+                aria-controls={isActive ? `${mode}-panel` : undefined}
+                tabIndex={isActive ? 0 : -1}
+                disabled={isProcessing}
+                onClick={() => changeMode(mode)}
+                className={[
+                  "processing-page__tab",
+                  isActive ? "processing-page__tab--active" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <img
+                  src={icon}
+                  alt=""
+                  className="processing-page__tab-icon"
+                />
+                {label}
+                {isActive && (
+                  <span
+                    className="processing-page__tab-underline"
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {inputMode === "file" && selectedFile === null && (
+          <section
+            id="file-panel"
+            role="tabpanel"
+            aria-labelledby="file-tab"
+            aria-busy={isProcessing}
+            className="processing-page__card"
+          >
+            <div className="processing-page__section-title">
+              Documento <span className="processing-page__required">*</span>
+            </div>
+            <div
+              className={[
+                "processing-page__upload-drop",
+                isDragOver ? "processing-page__upload-drop--drag" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={openPicker}
+              onDragOver={(event) => {
+                if (isProcessing) return;
+                event.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <UploadEmptyStateIllustration />
+              <p className="processing-page__upload-label">
+                Agregue un archivo para previsualizarlo aquí
+              </p>
+              <p className="processing-page__upload-hint">PDF, JPG o PNG</p>
+              <button
+                ref={uploadPickerRef}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openPicker();
+                }}
+                className="processing-page__upload-picker-btn"
+              >
+                <Plus aria-hidden="true" size={16} strokeWidth={2} />
+                Seleccionar archivo
+              </button>
+            </div>
+            {fileError && (
+              <p className="processing-page__field-error" role="alert">
+                {fileError}
+              </p>
+            )}
+
+            <div className="processing-page__origin">
+              {renderOriginFields(originIdFile)}
+            </div>
+
+            <div className="processing-page__card-actions">{actionsBlock}</div>
+          </section>
+        )}
+
+        {isSplit && selectedFile && (
+          <div
+            id="file-panel"
+            role="tabpanel"
+            aria-labelledby="file-tab"
+            className="processing-page__grid"
+          >
+            <section
+              aria-busy={isProcessing}
+              className="processing-page__config-panel"
+            >
+              <div className="processing-page__section-header">
+                Configuración del procesamiento
+              </div>
+              <div className="processing-page__config-body">
+                <p className="processing-page__file-summary-title">
+                  Archivo seleccionado
+                </p>
+                <div className="processing-page__file-info-card">
+                  <div className="processing-page__file-info-row">
+                    <span className="processing-page__file-type-badge">
+                      {selectedMimeType ? getFileTypeLabel(selectedMimeType) : ""}
+                    </span>
+                    <div className="processing-page__file-info-meta">
+                      <p className="processing-page__file-info-name">
+                        {selectedFile.name}
+                      </p>
+                      <p className="processing-page__file-info-sub">
+                        {selectedMimeType ? getFileTypeLabel(selectedMimeType) : ""}{" "}
+                        · {formatBytes(selectedFile.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="processing-page__file-info-actions">
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={openPicker}
+                      className="processing-page__link-btn processing-page__link-btn--primary"
+                    >
+                      Cambiar archivo
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={handleRemoveFile}
+                      className="processing-page__link-btn processing-page__link-btn--muted"
+                    >
+                      Quitar archivo
+                    </button>
+                  </div>
+                </div>
+
+                <hr className="processing-page__divider" />
+
+                {renderOriginFields(originIdFile)}
+
+                {hasOrigin && !processingError && <ReadyStatusChip />}
+
+                {processingError && (
+                  <div className="processing-page__inline-error" role="alert">
+                    <WarningIcon />
+                    <div>
+                      <p className="processing-page__inline-error-title">
+                        No fue posible procesar el documento
+                      </p>
+                      <p className="processing-page__inline-error-body">
+                        Conservamos la información ingresada. Intente nuevamente.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="processing-page__config-footer">{actionsBlock}</div>
+            </section>
+
+            <section className="processing-page__viewer-panel">
+              <div className="processing-page__viewer-header">
+                <h2 className="processing-page__viewer-title">Documento</h2>
+                <span
+                  className="processing-page__viewer-filename"
+                  title={selectedFile.name}
+                >
+                  {selectedFile.name}
+                </span>
+              </div>
+              <div className="processing-page__viewer-body">
+                {previewDocument && (
+                  <DocumentViewer
+                    document={previewDocument}
+                    ariaLabel="Vista previa del documento seleccionado"
+                    className="processing-page__viewer"
+                  />
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {inputMode === "text" && (
+          <section
+            id="text-panel"
+            role="tabpanel"
+            aria-labelledby="text-tab"
+            aria-busy={isProcessing}
+            className="processing-page__card"
+          >
+            <div>
+              <label htmlFor={textareaId} className="processing-page__field-label">
+                Texto del documento{" "}
+                <span className="processing-page__required">*</span>
+              </label>
+              <textarea
+                ref={textareaRef}
+                id={textareaId}
+                value={documentText}
+                onChange={(event) => {
+                  setDocumentText(event.target.value);
+                  setTextFieldError(null);
+                  setProcessingError(null);
+                }}
+                placeholder="Ingrese o pegue el contenido clínico aquí."
+                disabled={isProcessing}
+                aria-required="true"
+                aria-invalid={Boolean(textFieldError)}
+                aria-describedby={textFieldError ? `${textareaId}-err` : undefined}
+                className="processing-page__textarea"
+              />
+              {textFieldError && (
+                <p
+                  id={`${textareaId}-err`}
+                  className="processing-page__field-error"
+                  role="alert"
+                >
+                  {textFieldError}
+                </p>
+              )}
+            </div>
+
+            <div className="processing-page__origin">
+              {renderOriginFields(originIdText)}
+            </div>
+
+            {processingError && (
+              <div
+                className="processing-page__inline-error processing-page__inline-error--text"
+                role="alert"
+              >
+                {processingError}
+              </div>
+            )}
+
+            <div className="processing-page__card-actions">{actionsBlock}</div>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default ProcessingPage;

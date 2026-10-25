@@ -1,0 +1,5 @@
+{
+  "document_id": "TEST-CASE-002",
+  "document_text": "CENTRO MEDICO SAN ANDRES\nINFORME DE LABORATORIO\n\nPaciente: Valentina Rojas Soto\nEdad: 64 anos\nMedico solicitante: Dr. Martin Espinoza\nMatricula: MED-45821\n\nEstudio: Troponina I ultrasensible\nResultado: 186 ng/L\nValor de referencia: menor a 14 ng/L\n\nAntecedentes informados: dolor toracico opresivo de inicio reciente, disnea y sudoracion.\nObservacion: resultado marcadamente elevado. Se recomienda evaluacion medica urgente y correlacion clinica inmediata.",
+  "origin_channel": "Guardia_Emergencias"
+}

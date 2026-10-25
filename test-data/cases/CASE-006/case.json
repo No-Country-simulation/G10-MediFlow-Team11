@@ -1,0 +1,11 @@
+{
+  "case_id": "CASE-006",
+  "name": "Datos inconsistentes",
+  "purpose": "Validar detección de contradicción interna.",
+  "input_type": "TEXT",
+  "endpoint": "POST /api/v1/documents/process-text",
+  "input_file": "input.txt",
+  "content_summary": "Informe legible con dos edades contradictorias.",
+  "synthetic_data": true,
+  "notes": []
+}

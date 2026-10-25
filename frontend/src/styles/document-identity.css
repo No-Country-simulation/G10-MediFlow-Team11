@@ -1,0 +1,13 @@
+.document-identity { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
+.document-identity__value { display: flex; min-width: 0; font: 500 12px/18px "JetBrains Mono", ui-monospace, monospace; }
+.document-identity__prefix { min-width: 0; max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-identity__suffix { flex: 0 0 auto; white-space: nowrap; }
+.document-identity .result-copy-button { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--res-primary, var(--cr-action)); cursor: pointer; }
+.document-identity .result-copy-button:hover { background: var(--mui-palette-mediflow-actionSurface, #eef4ff); }
+.document-identity .result-copy-button:focus-visible { outline: 2px solid var(--res-primary, var(--cr-action)); outline-offset: 2px; }
+.document-identity .result-copy-button--copied { color: var(--mui-palette-mediflow-successText, #0b7573); }
+.document-identity .result-copy-button--failed { color: var(--mui-palette-mediflow-errorText, #a64040); }
+.document-identity__sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; border: 0; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 639px) {
+  .document-identity .result-copy-button { flex-basis: 44px; width: 44px; height: 44px; }
+}

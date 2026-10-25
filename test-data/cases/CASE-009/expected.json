@@ -1,0 +1,33 @@
+{
+  "status": "NEEDS_AUDIT",
+  "classification": {
+    "document_type": "PRESCRIPTION",
+    "priority_level": "ROUTINE"
+  },
+  "routing_decision": {
+    "primary_destination": "PHARMACY",
+    "requires_human_review": true,
+    "audit_reasons_required": [
+      "INCONSISTENT_DATA",
+      "MISSING_CRITICAL_FIELDS"
+    ],
+    "audit_reasons_allowed_additional": [
+      "LOW_CONFIDENCE"
+    ]
+  },
+  "validation": {
+    "inconsistencies_required": [
+      "edad 42 vs 62"
+    ],
+    "missing_fields_required": [
+      "medications[0].dosage"
+    ]
+  },
+  "notification": {
+    "generated": false
+  },
+  "storage": {
+    "state": "SUCCESS",
+    "prefijo_esperado": "auditoria_humana/"
+  }
+}

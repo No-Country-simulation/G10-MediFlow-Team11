@@ -1,0 +1,11 @@
+{
+  "case_id": "CASE-008",
+  "name": "Urgencia adicional - imágenes",
+  "purpose": "Validar un segundo caso urgente en PDF.",
+  "input_type": "FILE/PDF",
+  "endpoint": "POST /api/v1/documents/process-file",
+  "input_file": "input.pdf",
+  "content_summary": "Informe radiológico con conclusión urgente explícita.",
+  "synthetic_data": true,
+  "notes": []
+}
