@@ -74,7 +74,6 @@ export const PRIMARY_NAVIGATION: NavigationItem[] = [
 export const SECONDARY_NAVIGATION: NavigationItem[] = [
   {
     label: "Centro de ayuda",
-    disabled: true,
     description: "Guía y soporte",
     icon: (
       <CircleHelp
@@ -83,6 +82,7 @@ export const SECONDARY_NAVIGATION: NavigationItem[] = [
         aria-hidden="true"
       />
     ),
+    to: "/help",
   },
   {
     label: "Configuración",
