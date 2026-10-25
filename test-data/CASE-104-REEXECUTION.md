@@ -2,18 +2,18 @@
 
 Fecha: 2026-10-24 (America/Bogota)
 
-## Build final de IA Core
+## Build y pruebas locales de IA Core
 
 - Rama: fix/104-ai-core-clinical-cases.
-- Base: origin/develop (45a96d8e5c1834981da003eb129732316e4a249c).
-- Imagen local reconstruida con docker compose up -d --build ai-core.
-- El contenedor quedó healthy y GET /health respondió {"status":"ok"}. Esto solo confirma disponibilidad del proceso, no la del proveedor Gemini.
+- Commit de código: 4a03d0f.
+- Suite completa: 93 passed, 3 advertencias deprecadas de dependencias.
+- Imagen local de IA Core reconstruida; su contenedor quedó healthy.
 
-## Reejecución real de CASE-001 a CASE-007
+## Prueba directa del endpoint local de IA Core
 
-Se enviaron secuencialmente los siete fixtures al endpoint local POST /api/v1/ai/process, con el build final. Todos devolvieron HTTP 503 AI_UNAVAILABLE; no se obtuvo respuesta clínica para comparar con expected.json.
+Se enviaron los siete fixtures al endpoint local POST http://127.0.0.1:8001/api/v1/ai/process. Todos respondieron HTTP 503 AI_UNAVAILABLE.
 
-| Caso | Estado | Evidencia |
+| Caso | Estado de la prueba directa | Evidencia |
 |---|---|---|
 | CASE-001 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
 | CASE-002 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
@@ -23,15 +23,17 @@ Se enviaron secuencialmente los siete fixtures al endpoint local POST /api/v1/ai
 | CASE-006 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
 | CASE-007 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
 
-Las respuestas de corridas anteriores se conservan como antecedente, pero no se cuentan como aceptación del build final porque usaron versiones previas del prompt o del normalizador. El endpoint no expone el diagnóstico interno del proveedor; con esta evidencia no se atribuye el 503 a una causa específica.
+Esta prueba llamó IA Core directamente. No ejercitó el recorrido completo del Backend ni la persistencia en OCI, así que no debe tomarse como validación end-to-end del puente mencionado por Producto/QA. El endpoint devuelve un error genérico y no permite atribuir el 503 a una causa concreta.
 
-## Verificación local
+## Disponibilidad del flujo Backend/OCI
 
-- ai-core/.venv/Scripts/python.exe -m pytest -q: **93 passed**, 3 advertencias deprecadas de dependencias (google-genai, Starlette/httpx y AnyIO).
-- Las regresiones para CASE-002/005/007 están incluidas en ai-core/tests/test_gemini_processor.py.
-- git diff --check: sin errores.
-- Solo hay cambios de código y pruebas dentro de IA Core, más este reporte de reejecución. No se modificaron contratos, Backend, Frontend ni despliegues OCI.
+- GET https://mediflowia.dev/actuator/health respondió UP; es una comprobación de health, no de procesamiento.
+- La documentación del proyecto expone el flujo funcional por POST /api/v1/documents/process-text y POST /api/v1/documents/process-file en mediflowia.dev.
+- No se enviaron documentos a ese servicio en esta validación. La guía de despliegue indica que las solicitudes públicas persisten documentos en OCI, pueden consumir cuota de Gemini y deben usar solo datos sintéticos con el entorno autorizado y actualizado.
+- El Backend local está healthy, pero su configuración usa instance_principal, no tiene OCI_NAMESPACE configurado ni un montaje de configuración OCI. No se confirmó acceso local a OCI.
+- El perfil local-demo no sirve para validar extracción real: deshabilita GEMINI_API_KEY y GEMINI_MODEL, y utiliza fallback con almacenamiento local.
+- No se desplegó la rama a OCI. Por tanto, tampoco se confirmó que mediflowia.dev esté ejecutando el commit 4a03d0f.
 
 ## Estado de aceptación
 
-Las pruebas locales de las instrucciones y de la normalización pasan; no sustituyen la validación de una respuesta real de Gemini. La aceptación funcional de los siete documentos sigue **BLOCKED** hasta que Gemini permita completar las solicitudes y contrastar las respuestas con sus expected.json. Las corridas anteriores no reemplazan esa validación final.
+Las pruebas unitarias y de contrato pasan. La reejecución funcional end-to-end de CASE-001 a CASE-007 contra el commit de esta rama sigue pendiente. Para hacerla se necesita un entorno de QA/puente autorizado que ejecute esta revisión, permita persistir los fixtures sintéticos y tenga Gemini disponible. Las respuestas de la prueba directa local no sustituyen esa validación.
