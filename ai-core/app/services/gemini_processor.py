@@ -167,9 +167,87 @@ class GeminiProcessor:
                 }
             )
 
+        result = self._normalize_unconfirmed_diagnosis(result, request)
         result = self._normalize_missing_dosages(result)
 
         return result
+
+    @staticmethod
+    def _normalize_unconfirmed_diagnosis(
+        result: AIProcessingResponse,
+        request: ProcessingRequest,
+    ) -> AIProcessingResponse:
+        extracted_data = result.extracted_data
+        diagnosis = extracted_data.primary_diagnosis
+        icd10 = extracted_data.suggested_icd10
+
+        if diagnosis is None:
+            if icd10 is None:
+                return result
+            return result.model_copy(
+                update={
+                    "extracted_data": extracted_data.model_copy(
+                        update={"suggested_icd10": None}
+                    )
+                }
+            )
+
+        if (
+            request.input_type != InputType.TEXT
+            or GeminiProcessor._diagnosis_is_explicit(
+                request.document_text or "", diagnosis
+            )
+        ):
+            return result
+
+        return result.model_copy(
+            update={
+                "extracted_data": extracted_data.model_copy(
+                    update={
+                        "primary_diagnosis": None,
+                        "suggested_icd10": None,
+                    }
+                )
+            }
+        )
+
+    @staticmethod
+    def _diagnosis_is_explicit(document_text: str, diagnosis: str) -> bool:
+        def fold_text(value: str) -> str:
+            return "".join(
+                character
+                for character in unicodedata.normalize("NFKD", value.casefold())
+                if not unicodedata.combining(character)
+            )
+
+        def normalize_phrase(value: str) -> str:
+            return re.sub(r"[^a-z0-9]+", " ", fold_text(value)).strip()
+
+        diagnosis_phrase = normalize_phrase(diagnosis)
+        if not diagnosis_phrase:
+            return False
+
+        folded_document = fold_text(document_text)
+        explicit_diagnosis_patterns = (
+            re.compile(
+                r"\b(?:diagnostico(?:\s+(?:principal|presuntivo|confirmado|clinico))?"
+                r"|impresion\s+(?:diagnostica|clinica)|dx)\s*[:=\-]\s*"
+                r"(?P<value>[^\r\n;]+)",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(?:diagnosticad[oa]\s+con|se\s+diagnostica(?:\s+con)?)\s+"
+                r"(?P<value>[^.;\r\n]+)",
+                re.IGNORECASE,
+            ),
+        )
+
+        for pattern in explicit_diagnosis_patterns:
+            for match in pattern.finditer(folded_document):
+                explicit_phrase = normalize_phrase(match.group("value"))
+                if f" {diagnosis_phrase} " in f" {explicit_phrase} ":
+                    return True
+        return False
 
     @staticmethod
     def _normalize_missing_dosages(
@@ -255,6 +333,25 @@ class GeminiProcessor:
                         changed = True
 
             if dosage:
+                dosage = re.sub(
+                    r"\s*,?\s*(?:por\s+)?v[ií]a\s+"
+                    r"(?:oral|intravenos[oa]|intramuscular|subcut[aá]ne[oa]|"
+                    r"t[oó]pic[oa]|rectal|sublingual|inhalatori[oa]|"
+                    r"oft[aá]lmic[oa]|[oó]tic[oa]|nasal|enteral|parenteral|"
+                    r"cut[aá]ne[oa])\s*[.;]?$",
+                    "",
+                    dosage,
+                    flags=re.IGNORECASE,
+                )
+                dosage = re.sub(
+                    r"^(\d+(?:[.,]\d+)?\s*(?:mcg|µg|μg|mg|g|ml|mL|ui|iu))"
+                    r"\s*,\s*(?=\S)",
+                    r"\1 / ",
+                    dosage,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+                dosage = dosage.strip().rstrip(".,; ")
                 dosage = re.sub(
                     r"\s*,?\s*duraci[oó]n\s*:\s*(\d+)\s+(d[ií]as?)\b",
                     r" por \1 \2",

@@ -2,38 +2,35 @@
 
 Fecha: 2026-10-24 (America/Bogota)
 
-## Build y pruebas locales de IA Core
+## Pruebas locales de IA Core
 
-- Rama: fix/104-ai-core-clinical-cases.
-- Commit de código: 4a03d0f.
-- Suite completa: 93 passed, 3 advertencias deprecadas de dependencias.
-- Imagen local de IA Core reconstruida; su contenedor quedó healthy.
+- Rama: `fix/104-ai-core-clinical-cases`.
+- Base: `origin/develop` en el commit `6401f41` (#103 integrado).
+- Suite completa de IA Core: **98 passed**, 3 advertencias deprecadas de dependencias.
+- Pruebas focalizadas de `test_gemini_processor.py`: **35 passed**, 1 advertencia de dependencia.
+- `git diff --check`: sin errores.
+- La prueba directa previa a `http://127.0.0.1:8001/api/v1/ai/process` devolvió HTTP 503 `AI_UNAVAILABLE` en los siete fixtures; no sirve para validar las respuestas reales del modelo.
 
-## Prueba directa del endpoint local de IA Core
+## Reejecución por el puente Backend/OCI
 
-Se enviaron los siete fixtures al endpoint local POST http://127.0.0.1:8001/api/v1/ai/process. Todos respondieron HTTP 503 AI_UNAVAILABLE.
+El 2026-10-24 se enviaron los siete fixtures sintéticos por los endpoints de `https://mediflowia.dev/api/v1/documents/process-text` y `process-file`. Las solicitudes respondieron HTTP 200 y quedaron persistidas en el servicio. Los IDs usados fueron `CASE104-20261024202850-076476-1` a `CASE104-20261024202850-076476-7`, en orden CASE-001 a CASE-007.
 
-| Caso | Estado de la prueba directa | Evidencia |
+El servicio no expuso su revisión de código. No se confirmó que ejecutara esta rama, por lo que la tabla documenta el comportamiento observado del despliegue disponible y **no valida el commit de #104**.
+
+| Caso | Estado observado | Comparación con `expected.json` |
 |---|---|---|
-| CASE-001 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
-| CASE-002 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
-| CASE-003 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
-| CASE-004 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
-| CASE-005 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
-| CASE-006 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
-| CASE-007 | BLOCKED | HTTP 503 AI_UNAVAILABLE |
+| CASE-001 | BLOCKED | Clasificación, prioridad, destino, paciente y médico coinciden. El campo de laboratorio esperado (`estudio`) pertenece al alcance de #103; no se evalúa ni se implementa en #104. |
+| CASE-002 | FAIL | Conservó `URGENT` y `MEDICAL_EMERGENCY`, pero devolvió `primary_diagnosis: "Dolor torácico opresivo"` e ICD-10 `R07.9`, no expresados como diagnóstico en el documento. |
+| CASE-003 | FAIL | El resultado incluyó `MISSING_CRITICAL_FIELDS` e `INCONSISTENT_DATA` además de `LOW_CONFIDENCE`; `expected.json` solo permite `LOW_CONFIDENCE`. |
+| CASE-004 | PASS | Estado, clasificación, destino y auditoría por ilegibilidad cumplen los valores permitidos por `expected.json`. |
+| CASE-005 | FAIL | Devolvió `dosage: null` y `NEEDS_AUDIT`, pero `validation.missing_fields` contenía `dosis de Amoxicilina` y no `medications[0].dosage`. |
+| CASE-006 | PASS | Conservó `NEEDS_AUDIT`, prioridad rutinaria, destino de registro médico y la inconsistencia de edades 44 vs. 64. |
+| CASE-007 | FAIL | Conservó los 3 días, pero devolvió `500 mg, 1 comprimido cada 8 horas por 3 dias, via oral`, distinto del valor esperado sin vía y con separador `/`. |
 
-Esta prueba llamó IA Core directamente. No ejercitó el recorrido completo del Backend ni la persistencia en OCI, así que no debe tomarse como validación end-to-end del puente mencionado por Producto/QA. El endpoint devuelve un error genérico y no permite atribuir el 503 a una causa concreta.
+La prueba persistió documentos sintéticos en OCI; no se borraron. No se hizo un segundo envío para evitar duplicar registros ni consumir cuota adicional de Gemini.
 
-## Disponibilidad del flujo Backend/OCI
+## Cambios de esta rama y estado de aceptación
 
-- GET https://mediflowia.dev/actuator/health respondió UP; es una comprobación de health, no de procesamiento.
-- La documentación del proyecto expone el flujo funcional por POST /api/v1/documents/process-text y POST /api/v1/documents/process-file en mediflowia.dev.
-- No se enviaron documentos a ese servicio en esta validación. La guía de despliegue indica que las solicitudes públicas persisten documentos en OCI, pueden consumir cuota de Gemini y deben usar solo datos sintéticos con el entorno autorizado y actualizado.
-- El Backend local está healthy, pero su configuración usa instance_principal, no tiene OCI_NAMESPACE configurado ni un montaje de configuración OCI. No se confirmó acceso local a OCI.
-- El perfil local-demo no sirve para validar extracción real: deshabilita GEMINI_API_KEY y GEMINI_MODEL, y utiliza fallback con almacenamiento local.
-- No se desplegó la rama a OCI. Por tanto, tampoco se confirmó que mediflowia.dev esté ejecutando el commit 4a03d0f.
+La corrección local refuerza CASE-002 con una verificación de que el diagnóstico aparezca explícitamente en el texto, elimina un CIE-10 si no hay diagnóstico explícito y normaliza el formato de dosis de CASE-007. CASE-005 ya tiene normalización local que convierte textos de ausencia en `null`, añade `medications[i].dosage` y agrega `MISSING_CRITICAL_FIELDS`.
 
-## Estado de aceptación
-
-Las pruebas unitarias y de contrato pasan. La reejecución funcional end-to-end de CASE-001 a CASE-007 contra el commit de esta rama sigue pendiente. Para hacerla se necesita un entorno de QA/puente autorizado que ejecute esta revisión, permita persistir los fixtures sintéticos y tenga Gemini disponible. Las respuestas de la prueba directa local no sustituyen esa validación.
+Los siete resultados end-to-end siguen **BLOCKED respecto de esta rama** hasta que una ejecución autorizada identifique y use la revisión actualizada de IA Core. No se desplegó a OCI. La observación de CASE-003 también requiere reejecutarse contra esa revisión antes de determinar si la discrepancia sigue presente.

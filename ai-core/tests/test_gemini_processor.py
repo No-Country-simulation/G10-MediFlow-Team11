@@ -1,3 +1,4 @@
+import base64
 import json
 import sys
 from pathlib import Path
@@ -156,24 +157,9 @@ def test_study_report_preserves_three_explicit_lab_results() -> None:
         "suggested_icd10": None,
         "requested_studies": [],
         "lab_results": [
-            {
-                "name": "Glucosa en sangre",
-                "value": "174",
-                "unit": "mg/dL",
-                "reference_range": "70–99 mg/dL",
-            },
-            {
-                "name": "HbA1c",
-                "value": "8.2",
-                "unit": "%",
-                "reference_range": "Inferior a 5.7 %",
-            },
-            {
-                "name": "Creatinina sérica",
-                "value": "0.86",
-                "unit": "mg/dL",
-                "reference_range": "0.6–1.1 mg/dL",
-            },
+            {"name": "Glucosa en sangre", "value": "174", "unit": "mg/dL", "reference_range": "70–99 mg/dL"},
+            {"name": "HbA1c", "value": "8.2", "unit": "%", "reference_range": "Inferior a 5.7 %"},
+            {"name": "Creatinina sérica", "value": "0.86", "unit": "mg/dL", "reference_range": "0.6–1.1 mg/dL"},
         ],
     }
     payload["routing_decision"]["audit_reasons"] = ["MISSING_CRITICAL_FIELDS"]
@@ -182,19 +168,13 @@ def test_study_report_preserves_three_explicit_lab_results() -> None:
 
     result = processor.process(text_request())
 
-    assert result.extracted_data.model_dump(mode="json")["lab_results"] == (
-        payload["extracted_data"]["lab_results"]
-    )
+    assert result.extracted_data.model_dump(mode="json")["lab_results"] == payload["extracted_data"]["lab_results"]
     assert result.extracted_data.patient.name is None
     assert result.extracted_data.primary_diagnosis is None
     assert result.extracted_data.suggested_icd10 is None
     assert result.extracted_data.requested_studies == []
-    assert [reason.value for reason in result.routing_decision.audit_reasons] == [
-        "MISSING_CRITICAL_FIELDS"
-    ]
-    assert "No incluyas resultados obtenidos en requested_studies" in (
-        client.models.arguments["config"].system_instruction
-    )
+    assert [reason.value for reason in result.routing_decision.audit_reasons] == ["MISSING_CRITICAL_FIELDS"]
+    assert "No incluyas resultados obtenidos en requested_studies" in client.models.arguments["config"].system_instruction
 
 
 def test_case_002_keeps_urgent_routing_without_diagnosis_or_icd10() -> None:
@@ -218,8 +198,8 @@ def test_case_002_keeps_urgent_routing_without_diagnosis_or_icd10() -> None:
         priority_level=expected["classification"]["priority_level"],
     )
     payload["extracted_data"].update(
-        primary_diagnosis=None,
-        suggested_icd10=None,
+        primary_diagnosis="Dolor torácico opresivo",
+        suggested_icd10="R07.9",
         medications=[],
         requested_studies=[{"name": "Troponina I ultrasensible"}],
     )
@@ -251,6 +231,56 @@ def test_case_002_keeps_urgent_routing_without_diagnosis_or_icd10() -> None:
         in instruction
     )
     assert "síntomas, signos, antecedentes, resultados de laboratorio" in instruction
+
+
+def test_preserves_explicitly_documented_diagnosis_and_icd10() -> None:
+    fixture = json.loads(
+        case_fixture("CASE-011", "request.json").read_text(encoding="utf-8")
+    )
+    request = ProcessingRequest(
+        document_id=fixture["document_id"],
+        input_type="TEXT",
+        mime_type="text/plain",
+        document_text=fixture["document_text"],
+        origin_channel=fixture["origin_channel"],
+    )
+    payload = valid_response_payload()
+    payload["document_id"] = fixture["document_id"]
+    payload["extracted_data"].update(
+        primary_diagnosis="Dolor lumbar persistente",
+        suggested_icd10="M54.5",
+    )
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis == "Dolor lumbar persistente"
+    assert result.extracted_data.suggested_icd10 == "M54.5"
+
+
+def test_clears_icd10_when_primary_diagnosis_is_missing() -> None:
+    fixture = json.loads(
+        case_fixture("CASE-002", "request.json").read_text(encoding="utf-8")
+    )
+    request = ProcessingRequest(
+        document_id=fixture["document_id"],
+        input_type="TEXT",
+        mime_type="text/plain",
+        document_text=fixture["document_text"],
+        origin_channel=fixture["origin_channel"],
+    )
+    payload = valid_response_payload()
+    payload["document_id"] = fixture["document_id"]
+    payload["extracted_data"].update(
+        primary_diagnosis=None,
+        suggested_icd10="R07.9",
+    )
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis is None
+    assert result.extracted_data.suggested_icd10 is None
 
 
 @pytest.mark.parametrize(
@@ -294,6 +324,7 @@ def test_missing_medication_dosage_is_recorded_as_critical() -> None:
     payload["extracted_data"]["medications"] = [
         {"name": "Amoxicilina", "dosage": None}
     ]
+    payload["validation"]["missing_fields"] = ["dosis de Amoxicilina"]
     processor, _ = processor_for(FakeResponse(parsed=payload))
 
     result = processor.process(text_request())
@@ -345,12 +376,22 @@ def test_case_007_does_not_duplicate_strength_already_in_dosage() -> None:
     payload["extracted_data"]["medications"] = [
         {
             "name": "Paracetamol 500 mg",
-            "dosage": "500 mg / 1 comprimido cada 8 horas por 3 dias",
+            "dosage": "500 mg, 1 comprimido cada 8 horas por 3 dias, via oral",
         }
     ]
     processor, _ = processor_for(FakeResponse(parsed=payload))
 
-    result = processor.process(text_request())
+    image = case_fixture("CASE-007", "input.png").read_bytes()
+    request = ProcessingRequest(
+        document_id=payload["document_id"],
+        input_type="FILE",
+        mime_type="image/png",
+        file_name="input.png",
+        content_base64=base64.b64encode(image).decode("ascii"),
+        origin_channel="Consulta_Ambulatoria",
+    )
+
+    result = processor.process(request)
 
     assert result.extracted_data.medications[0].model_dump() == (
         expected["datos_clave_esperados"]["medications"][0]
