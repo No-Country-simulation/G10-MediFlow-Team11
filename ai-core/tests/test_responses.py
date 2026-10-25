@@ -296,3 +296,38 @@ def test_round_trips_requested_studies_as_json() -> None:
     assert [
         study.name for study in restored.extracted_data.requested_studies or []
     ] == ["Radiografía de tórax", "Hemograma completo"]
+
+
+def test_lab_results_round_trip_without_losing_additional_fields() -> None:
+    results = [
+        {"name": "Glucosa en sangre", "value": "174", "unit": "mg/dL", "reference_range": "70–99 mg/dL"},
+        {"name": "HbA1c", "value": "8.2", "unit": "%", "reference_range": "Inferior a 5.7 %"},
+        {"name": "Creatinina sérica", "value": "0.86", "unit": "mg/dL", "reference_range": "0.6–1.1 mg/dL"},
+    ]
+    payload = valid_response_payload()
+    payload["classification"]["document_type"] = "STUDY_REPORT"
+    payload["extracted_data"]["patient"] = {"name": None, "age": None}
+    payload["extracted_data"]["lab_results"] = results
+    payload["extracted_data"]["study_result"] = "Observación sintética"
+    payload["extracted_data"]["requested_studies"] = []
+
+    restored = AIProcessingResponse.model_validate_json(
+        AIProcessingResponse.model_validate(payload).model_dump_json(by_alias=True)
+    )
+
+    data = restored.extracted_data.model_dump(mode="json")
+    assert data["lab_results"] == results
+    assert data["patient"]["name"] is None
+    assert data["study_result"] == "Observación sintética"
+    assert data["requested_studies"] == []
+
+
+def test_lab_result_keeps_absent_reference_as_null() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["lab_results"] = [
+        {"name": "Medición sintética", "value": "7", "unit": None}
+    ]
+
+    result = AIProcessingResponse.model_validate(payload)
+
+    assert result.extracted_data.lab_results[0].reference_range is None

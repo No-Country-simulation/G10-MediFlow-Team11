@@ -61,6 +61,15 @@ class RequestedStudy(BaseModel):
     name: str | None = None
 
 
+class LabResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str
+    value: str
+    unit: str | None = None
+    reference_range: str | None = None
+
+
 class ExtractedData(BaseModel):
     model_config = ConfigDict(extra="allow", str_strip_whitespace=True)
 
@@ -70,6 +79,7 @@ class ExtractedData(BaseModel):
     suggested_icd10: str | None = None
     medications: list[Medication] | None = None
     requested_studies: list[RequestedStudy] | None = None
+    lab_results: list[LabResult] | None = None
 
 
 class ValidationResult(BaseModel):

@@ -5,6 +5,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.mediflow.backend.entity.DocumentRecord;
 import com.mediflow.backend.entity.DocumentTriageHistory;
+import com.mediflow.backend.controller.DocumentQueryController;
+import com.mediflow.backend.dto.response.AiProcessResponse;
 import com.mediflow.backend.enums.*;
 import com.mediflow.backend.persistence.DocumentPersistenceService;
 import com.mediflow.backend.persistence.DurableCommitInspection;
@@ -20,10 +22,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -88,6 +93,63 @@ class DocumentFinalizationPostgresIT {
         document.setUpdatedAt(document.getCreatedAt());
         persistence.saveDocument(document);
         storage.seed(document.getObjectKey(), "original-bytes");
+    }
+
+    @Test
+    void labResultsSurviveConversionJsonbHistoryAndGet() throws Exception {
+        String aiJson = """
+                {
+                  "document_id": "%s",
+                  "classification": {"document_type": "STUDY_REPORT", "specialty": null, "priority_level": "ROUTINE"},
+                  "confidence": {"classification": 0.99, "extraction": 0.94, "global": 0.96},
+                  "extracted_data": {
+                    "patient": {"name": null, "age": null},
+                    "primary_diagnosis": null, "suggested_icd10": null,
+                    "requested_studies": [],
+                    "lab_results": [
+                      {"name": "Glucosa en sangre", "value": "174", "unit": "mg/dL", "reference_range": "70–99 mg/dL"},
+                      {"name": "HbA1c", "value": "8.2", "unit": "%%", "reference_range": "Inferior a 5.7 %%"},
+                      {"name": "Creatinina sérica", "value": "0.86", "unit": "mg/dL", "reference_range": "0.6–1.1 mg/dL"}
+                    ]
+                  },
+                  "validation": {"missing_fields": ["patient.name"], "inconsistencies": [], "warnings": []},
+                  "routing_decision": {"primary_destination": "MEDICAL_RECORD", "audit_reasons": ["MISSING_CRITICAL_FIELDS"],
+                    "justification": "Falta identificación clínica esencial."}
+                }
+                """.formatted(id);
+        AiProcessResponse aiResponse = json.readValue(aiJson, AiProcessResponse.class);
+        FinalizationCommand command = new AiResultInterpreter(json, new NotificationFactory())
+                .fromAiResponse(id, aiResponse);
+        assertEquals(DocumentStatus.NEEDS_AUDIT, command.status());
+        assertEquals(List.of(AuditReason.MISSING_CRITICAL_FIELDS), command.auditReasons());
+        assertEquals(List.of(), command.extractedData().get("requested_studies"));
+        assertEquals(json.readTree(aiJson).get("extracted_data").get("lab_results"),
+                json.valueToTree(command.extractedData().get("lab_results")));
+
+        service.finalizeResult(command);
+
+        DocumentRecord persisted = persistence.getDocument(id);
+        assertEquals("jsonb", jdbc.queryForObject("select pg_typeof(extracted_data)::text from documents where id = ?", String.class, id));
+        assertEquals(3, jdbc.queryForObject("select jsonb_array_length(extracted_data->'lab_results') from documents where id = ?", Integer.class, id));
+        var expected = json.readTree(aiJson).get("extracted_data");
+        var current = json.valueToTree(persisted.getExtractedData());
+        assertEquals(expected.get("lab_results"), current.get("lab_results"));
+        assertTrue(current.get("patient").get("name").isNull());
+        assertTrue(current.get("primary_diagnosis").isNull());
+        assertTrue(current.get("suggested_icd10").isNull());
+        assertEquals(expected.get("lab_results"),
+                json.valueToTree(persistence.listHistory(id).getFirst().getResult()).get("extracted_data").get("lab_results"));
+        assertEquals("jsonb", jdbc.queryForObject("select pg_typeof(result)::text from document_triage_history where document_id = ?", String.class, id));
+
+        var mvc = MockMvcBuilders.standaloneSetup(new DocumentQueryController(persistence, mapper, storage))
+                .setMessageConverters(new JacksonJsonHttpMessageConverter(json)).build();
+        var get = mvc.perform(MockMvcRequestBuilders.get("/api/v1/documents/{id}", id)).andReturn();
+        assertEquals(200, get.getResponse().getStatus());
+        var returned = json.readTree(get.getResponse().getContentAsString());
+        assertEquals(expected.get("lab_results"), returned.get("extracted_data").get("lab_results"));
+        assertTrue(returned.get("extracted_data").get("patient").get("name").isNull());
+        assertEquals("NEEDS_AUDIT", returned.get("status").asString());
+        assertTrue(returned.get("routing_decision").get("requires_human_review").asBoolean());
     }
 
     @Test

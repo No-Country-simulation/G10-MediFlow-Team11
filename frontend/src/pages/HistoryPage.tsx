@@ -12,6 +12,7 @@ import {
 import { useSearchParams, Link } from "react-router-dom";
 import { getDocumentResult } from "../services/resultService";
 import type { ProcessingResponse } from "../types/processing";
+import HistoryClinicalData from "../components/history/HistoryClinicalData";
 import HistoryDocumentSelector from "../components/history/HistoryDocumentSelector";
 import HistoryConfidenceCard from "../components/history/HistoryConfidenceCard";
 import {
@@ -234,72 +235,6 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
           const extractedData = isRecord(entry.result.extracted_data)
             ? entry.result.extracted_data
             : null;
-
-          const patient = isRecord(extractedData?.patient)
-            ? extractedData.patient
-            : null;
-
-          const requestingDoctor = isRecord(extractedData?.requesting_doctor)
-            ? extractedData.requesting_doctor
-            : null;
-
-          const clinicalGroups = [
-            [
-              {
-                label: "Paciente",
-                value: typeof patient?.name === "string" ? patient.name : null,
-              },
-              {
-                label: "Edad",
-                value:
-                  typeof patient?.age === "number" ? `${patient.age} años` : null,
-              },
-            ],
-            [
-              {
-                label: "Médico",
-                value:
-                  typeof requestingDoctor?.name === "string"
-                    ? requestingDoctor.name
-                    : null,
-              },
-              {
-                label: "N.º de colegiado / matrícula profesional",
-                value:
-                  typeof requestingDoctor?.license_number === "string"
-                    ? requestingDoctor.license_number
-                    : null,
-              },
-            ],
-            [
-              {
-                label: "Diagnóstico principal",
-                value:
-                  typeof extractedData?.primary_diagnosis === "string"
-                    ? extractedData.primary_diagnosis
-                    : null,
-              },
-              {
-                label: "Código CIE-10",
-                value:
-                  typeof extractedData?.suggested_icd10 === "string"
-                    ? extractedData.suggested_icd10
-                    : null,
-              },
-            ],
-          ]
-            .map((group) => group.filter((field) => field.value !== null))
-            .filter((group) => group.length > 0);
-
-          const medications = Array.isArray(extractedData?.medications)
-            ? extractedData.medications.filter(isRecord)
-            : [];
-
-          const requestedStudies = Array.isArray(
-            extractedData?.requested_studies,
-          )
-            ? extractedData.requested_studies.filter(isRecord)
-            : [];
 
           const validation = isRecord(entry.result.validation)
             ? entry.result.validation
@@ -547,106 +482,7 @@ function HistoryDocumentView({ documentId }: HistoryDocumentViewProps) {
                         snapshot={entry.result}
                       />
 
-                      {extractedData &&
-                        (clinicalGroups.length > 0 ||
-                          medications.length > 0 ||
-                          requestedStudies.length > 0) && (
-                          <section className="history-page__detail-card history-page__detail-card--full history-page__detail-card--clinical">
-                            <h3 className="history-page__detail-card-title">
-                              Datos clínicos extraídos
-                            </h3>
-                            <div className="history-page__detail-card-body history-page__clinical-content">
-                              {clinicalGroups.length > 0 && (
-                                <div className="history-page__clinical-grid">
-                                  {clinicalGroups.map((group) => (
-                                    <div
-                                      key={group[0].label}
-                                      className="history-page__clinical-group"
-                                    >
-                                      {group.map((item) => (
-                                        <div
-                                          key={item.label}
-                                          className="history-page__detail-row history-page__detail-row--stacked"
-                                        >
-                                          <span className="history-page__detail-label">
-                                            {item.label}
-                                          </span>
-
-                                          <span className="history-page__detail-value">
-                                            {item.value}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {medications.length > 0 && (
-                                <div className="history-page__detail-row history-page__detail-row--stacked">
-                                  <span className="history-page__detail-label">
-                                    Medicamentos
-                                  </span>
-
-                                  <ul className="history-page__medication-list">
-                                    {medications.map((medication, index) => {
-                                      const name =
-                                        typeof medication.name === "string"
-                                          ? medication.name
-                                          : null;
-
-                                      const dosage =
-                                        typeof medication.dosage === "string"
-                                          ? medication.dosage
-                                          : null;
-
-                                      if (!name && !dosage) return null;
-
-                                      return (
-                                        <li
-                                          key={index}
-                                          className="history-page__medication-item"
-                                        >
-                                          {[name, dosage]
-                                            .filter(Boolean)
-                                            .join(" ")}
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {requestedStudies.length > 0 && (
-                                <div className="history-page__detail-row history-page__detail-row--stacked">
-                                  <span className="history-page__detail-label">
-                                    Estudios solicitados
-                                  </span>
-
-                                  <ul className="history-page__medication-list">
-                                    {requestedStudies.map((study, index) => {
-                                      if (
-                                        typeof study.name !== "string" ||
-                                        !study.name.trim()
-                                      ) {
-                                        return null;
-                                      }
-
-                                      return (
-                                        <li
-                                          key={index}
-                                          className="history-page__medication-item"
-                                        >
-                                          {study.name}
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          </section>
-                        )}
+                      <HistoryClinicalData extractedData={extractedData} />
 
                       <section className="history-page__detail-card history-page__detail-card--start">
                         <h3 className="history-page__detail-card-title">

@@ -1,106 +1,85 @@
 import type { ExtractedData, Validation } from "../../types/processing";
+import {
+  cellOf,
+  type FieldEntry,
+  type FieldNode,
+  type ListNode,
+} from "../../utils/extractedFieldStructure";
 
 export interface DataRow {
   label: string;
   value: string | string[];
 }
 
-const KNOWN_KEYS = new Set([
-  "patient",
-  "requesting_doctor",
-  "primary_diagnosis",
-  "suggested_icd10",
-  "medications",
-  "requested_studies",
-]);
-
-const ADDITIONAL_LABELS: Record<string, string> = {
-  measurements: "Mediciones",
-  systolic: "Presión sistólica",
-  diastolic: "Presión diastólica",
-  unit: "Unidad",
-};
-
-function humanizeKey(key: string): string {
-  return ADDITIONAL_LABELS[key] ?? key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+export interface FieldTableColumn {
+  key: string;
+  heading: string;
 }
 
-function isPrimitive(value: unknown): value is string | number | boolean {
+export interface FieldTableRow {
+  key: string;
+  cells: FieldNode[];
+}
+
+export interface FieldTable {
+  columns: FieldTableColumn[];
+  rows: FieldTableRow[];
+}
+
+const LAB_RESULTS_KEY = "lab_results";
+
+const LAB_RESULT_COLUMNS: ReadonlyArray<readonly [key: string, heading: string]> = [
+  ["name", "Prueba"],
+  ["value", "Resultado"],
+  ["unit", "Unidad"],
+  ["reference_range", "Rango de referencia"],
+];
+
+export function isLabResultsTable(entry: FieldEntry): entry is FieldEntry & { node: ListNode } {
   return (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
+    entry.canonicalKey === LAB_RESULTS_KEY &&
+    entry.node.kind === "list" &&
+    entry.node.listKind === "object"
   );
 }
 
-function formatScalar(value: unknown): string | null {
-  if (value == null) return null;
-
-  if (isPrimitive(value)) {
-    return String(value);
+function buildColumns(list: ListNode, clinical: boolean): FieldTableColumn[] {
+  if (!clinical) {
+    return list.columns.map((column) => ({
+      key: column.key,
+      heading: column.displayLabel,
+    }));
   }
 
-  if (Array.isArray(value)) {
-    if (value.length === 0) return null;
-    if (value.every(isPrimitive)) {
-      return value.map((item) => String(item)).join(", ");
+  const used = new Set<string>();
+  const columns: FieldTableColumn[] = LAB_RESULT_COLUMNS.map(([canonicalKey, heading]) => {
+    const column = list.columns.find((candidate) => candidate.canonicalKey === canonicalKey);
+    if (!column) return { key: canonicalKey, heading };
+
+    used.add(column.key);
+    return {
+      key: column.key,
+      heading: column.collides ? `${heading} (${column.key})` : heading,
+    };
+  });
+
+  for (const column of list.columns) {
+    if (!used.has(column.key)) {
+      columns.push({ key: column.key, heading: column.displayLabel });
     }
-
-    const items = value
-      .map((item) => formatScalar(item))
-      .filter((item): item is string => item != null);
-
-    return items.length > 0 ? items.join("; ") : null;
   }
 
-  if (typeof value === "object") {
-    const parts = Object.entries(value as Record<string, unknown>)
-      .map(([key, nested]) => {
-        const formatted = formatScalar(nested);
-        return formatted == null ? null : `${humanizeKey(key)}: ${formatted}`;
-      })
-      .filter((part): part is string => part != null);
-
-    return parts.length > 0 ? parts.join(" · ") : null;
-  }
-
-  return null;
+  return columns;
 }
 
-function formatAdditionalValue(value: unknown): string | string[] | null {
-  if (value == null) return null;
+export function buildFieldTable(list: ListNode, clinical = false): FieldTable {
+  const columns = buildColumns(list, clinical);
+  const rows = list.items.map((row) => ({
+    key: row.path.join("."),
+    cells: columns.map((column) => cellOf(row, column.key)),
+  }));
 
-  if (isPrimitive(value)) {
-    return String(value);
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return null;
-    if (value.every(isPrimitive)) {
-      return value.map((item) => String(item));
-    }
-
-    const items = value
-      .map((item) => formatScalar(item))
-      .filter((item): item is string => item != null);
-
-    return items.length > 0 ? items : null;
-  }
-
-  if (typeof value === "object") {
-    const items = Object.entries(value as Record<string, unknown>)
-      .map(([key, nested]) => {
-        const formatted = formatScalar(nested);
-        return formatted == null ? null : `${humanizeKey(key)}: ${formatted}`;
-      })
-      .filter((item): item is string => item != null);
-
-    return items.length > 0 ? items : null;
-  }
-
-  return null;
+  return { columns, rows };
 }
 
 export function buildExtractedDataRows(data: ExtractedData, missingFields: Validation["missing_fields"] = []): DataRow[] {
@@ -177,18 +156,6 @@ export function buildExtractedDataRows(data: ExtractedData, missingFields: Valid
         value: studies,
       });
     }
-  }
-
-  for (const [key, value] of Object.entries(data)) {
-    if (KNOWN_KEYS.has(key)) continue;
-
-    const formatted = formatAdditionalValue(value);
-    if (formatted == null) continue;
-
-    rows.push({
-      label: humanizeKey(key),
-      value: formatted,
-    });
   }
 
   return rows;

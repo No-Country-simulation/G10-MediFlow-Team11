@@ -4,12 +4,14 @@ import {
   formatMissingField,
   getDataRowLayout,
   getDocumentSourceLabels,
+  getFieldRowLayout,
   getStatusTone,
   getValidationSections,
   hasValidationFindings,
   toPercent,
 } from "./resultPresentation";
 import type { Validation } from "../../types/processing";
+import { buildFieldNode } from "../../utils/extractedFieldStructure";
 
 const emptyValidation: Validation = {
   missing_fields: [],
@@ -68,6 +70,26 @@ describe("getDataRowLayout", () => {
     expect(
       getDataRowLayout({ label: "Notas", value: "x".repeat(56) }),
     ).toBe("block");
+  });
+});
+
+describe("getFieldRowLayout", () => {
+  it("usa línea para escalares cortos y para valores sin dato", () => {
+    expect(getFieldRowLayout(buildFieldNode("Juan Pérez"))).toBe("inline");
+    expect(getFieldRowLayout(buildFieldNode(42))).toBe("inline");
+    expect(getFieldRowLayout(buildFieldNode(true))).toBe("inline");
+    expect(getFieldRowLayout(buildFieldNode(null))).toBe("inline");
+    expect(getFieldRowLayout(buildFieldNode("  "))).toBe("inline");
+    expect(getFieldRowLayout(buildFieldNode([]))).toBe("inline");
+    expect(getFieldRowLayout(buildFieldNode({}))).toBe("inline");
+  });
+
+  it("usa bloque para escalares largos, listas y objetos", () => {
+    expect(getFieldRowLayout(buildFieldNode("x".repeat(55)))).toBe("inline");
+    expect(getFieldRowLayout(buildFieldNode("x".repeat(56)))).toBe("block");
+    expect(getFieldRowLayout(buildFieldNode(["a"]))).toBe("block");
+    expect(getFieldRowLayout(buildFieldNode([{ a: 1 }]))).toBe("block");
+    expect(getFieldRowLayout(buildFieldNode({ a: 1 }))).toBe("block");
   });
 });
 

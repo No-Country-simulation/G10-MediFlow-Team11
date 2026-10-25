@@ -1,7 +1,9 @@
 import { useId } from "react";
 import type { ExtractedData, Validation } from "../../types/processing";
+import { buildAdditionalFields } from "../../utils/extractedFieldStructure";
 import { buildExtractedDataRows, type DataRow } from "./extractedDataRows";
-import { getDataRowLayout } from "./resultPresentation";
+import { FieldEntryValue } from "./ExtractedFieldValue";
+import { getDataRowLayout, getFieldRowLayout } from "./resultPresentation";
 
 interface ExtractedDataCardProps {
   data: ExtractedData;
@@ -30,8 +32,11 @@ function DataRowValue({ value }: { value: DataRow["value"] }) {
 function ExtractedDataCard({ data, missingFields }: ExtractedDataCardProps) {
   const titleId = useId();
   const rows = buildExtractedDataRows(data, missingFields);
+  const { entries: additionalFields } = buildAdditionalFields(data, {
+    omitEmptyCollections: true,
+  });
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && additionalFields.length === 0) {
     return null;
   }
 
@@ -52,6 +57,18 @@ function ExtractedDataCard({ data, missingFields }: ExtractedDataCardProps) {
             <span className="result-data__label">{row.label}</span>
             <div className="result-data__content">
               <DataRowValue value={row.value} />
+            </div>
+          </div>
+        ))}
+
+        {additionalFields.map((entry) => (
+          <div
+            key={entry.key}
+            className={`result-data__row result-data__row--${getFieldRowLayout(entry.node)}`}
+          >
+            <span className="result-data__label">{entry.displayLabel}</span>
+            <div className="result-data__content">
+              <FieldEntryValue entry={entry} />
             </div>
           </div>
         ))}
