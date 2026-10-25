@@ -1,3 +1,4 @@
+import base64
 import json
 import sys
 from pathlib import Path
@@ -9,8 +10,10 @@ from pydantic import ValidationError
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from app.config import Settings
+from app.schemas.enums import SemanticAuditReason
 from app.schemas.requests import ProcessingRequest
 from app.schemas.responses import AIProcessingResponse
+from app.services.pipeline import AIProcessingPipeline
 from app.services.gemini_processor import (
     AIOutputInvalidError,
     GeminiConfigurationError,
@@ -58,6 +61,10 @@ def text_request() -> ProcessingRequest:
         document_text="Solicito hemograma.",
         origin_channel="Guardia",
     )
+
+
+def case_fixture(case_id: str, file_name: str) -> Path:
+    return Path(__file__).parents[2] / "test-data" / "cases" / case_id / file_name
 
 
 class FakeResponse:
@@ -126,8 +133,19 @@ def test_processes_text_and_requests_contract_schema() -> None:
     assert "no puede leerse" in instruction
     assert "dato clínico esencial" in instruction
     assert "datos explícitos del documento se contradicen" in instruction
+    assert "La ambigüedad documental" in instruction
+    assert "dos valores explícitos incompatibles" in instruction
     assert "AUDIT_CONFIDENCE_THRESHOLD" in instruction
     assert "Conserva primary_destination" in instruction
+    assert "No conviertas síntomas" in instruction
+    assert (
+        "suggested_icd10 solo puede basarse en un diagnóstico primario explícito"
+        in instruction
+    )
+    assert "síntomas, signos, antecedentes, resultados de laboratorio" in instruction
+    assert "No omitas la duración" in instruction
+    assert "agregues a dosage datos consignados por separado" in instruction
+    assert "no copies esa frase como dato clínico" in instruction
     assert client.models.arguments["contents"][1] == "Solicito hemograma."
 
 
@@ -158,6 +176,485 @@ def test_study_report_preserves_three_explicit_lab_results() -> None:
     assert result.extracted_data.requested_studies == []
     assert [reason.value for reason in result.routing_decision.audit_reasons] == ["MISSING_CRITICAL_FIELDS"]
     assert "No incluyas resultados obtenidos en requested_studies" in client.models.arguments["config"].system_instruction
+
+
+def test_case_002_keeps_urgent_routing_without_diagnosis_or_icd10() -> None:
+    fixture = json.loads(
+        case_fixture("CASE-002", "request.json").read_text(encoding="utf-8")
+    )
+    expected = json.loads(
+        case_fixture("CASE-002", "expected.json").read_text(encoding="utf-8")
+    )
+    request = ProcessingRequest(
+        document_id=fixture["document_id"],
+        input_type="TEXT",
+        mime_type="text/plain",
+        document_text=fixture["document_text"],
+        origin_channel=fixture["origin_channel"],
+    )
+    payload = valid_response_payload()
+    payload["document_id"] = fixture["document_id"]
+    payload["classification"].update(
+        document_type=expected["classification"]["document_type"],
+        priority_level=expected["classification"]["priority_level"],
+    )
+    payload["extracted_data"].update(
+        primary_diagnosis="Dolor torácico opresivo",
+        suggested_icd10="R07.9",
+        medications=[],
+        requested_studies=[],
+        lab_results=[
+            {
+                "name": "Troponina I ultrasensible",
+                "value": "186",
+                "unit": "ng/L",
+                "reference_range": "menor a 14 ng/L",
+            }
+        ],
+    )
+    payload["routing_decision"].update(
+        primary_destination=expected["routing_decision"]["primary_destination"],
+        justification="Resultado elevado y evaluación urgente indicada.",
+    )
+    processor, client = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis is None
+    assert result.extracted_data.suggested_icd10 is None
+    assert result.classification.priority_level.value == (
+        expected["classification"]["priority_level"]
+    )
+    assert result.routing_decision.primary_destination.value == (
+        expected["routing_decision"]["primary_destination"]
+    )
+    assert result.extracted_data.medications == []
+    assert result.extracted_data.requested_studies == []
+    assert result.extracted_data.model_dump(mode="json")["lab_results"] == [
+        {
+            "name": "Troponina I ultrasensible",
+            "value": "186",
+            "unit": "ng/L",
+            "reference_range": "menor a 14 ng/L",
+        }
+    ]
+    assert "primary_diagnosis no expresado" in expected["must_not_invent"]
+    assert "suggested_icd10" in expected["must_not_invent"]
+    assert "medications" in expected["must_not_invent"]
+    instruction = client.models.arguments["config"].system_instruction
+    assert client.models.arguments["contents"][1] == fixture["document_text"]
+    assert "No conviertas síntomas" in instruction
+    assert (
+        "suggested_icd10 solo puede basarse en un diagnóstico primario explícito"
+        in instruction
+    )
+    assert "síntomas, signos, antecedentes, resultados de laboratorio" in instruction
+
+
+def test_preserves_explicitly_documented_diagnosis_and_icd10() -> None:
+    fixture = json.loads(
+        case_fixture("CASE-011", "request.json").read_text(encoding="utf-8")
+    )
+    request = ProcessingRequest(
+        document_id=fixture["document_id"],
+        input_type="TEXT",
+        mime_type="text/plain",
+        document_text=fixture["document_text"],
+        origin_channel=fixture["origin_channel"],
+    )
+    payload = valid_response_payload()
+    payload["document_id"] = fixture["document_id"]
+    payload["extracted_data"].update(
+        primary_diagnosis="Dolor lumbar persistente",
+        suggested_icd10="M54.5",
+    )
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis == "Dolor lumbar persistente"
+    assert result.extracted_data.suggested_icd10 == "M54.5"
+
+
+@pytest.mark.parametrize(
+    "document_text",
+    [
+        "Diagnóstico: se descarta neumonía",
+        "Diagnóstico: sin evidencia de neumonía",
+        "Diagnóstico: neumonía descartada",
+    ],
+)
+def test_rejects_negated_diagnosis_and_icd10(document_text: str) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"].update(
+        primary_diagnosis="Neumonía",
+        suggested_icd10="J18.9",
+    )
+    request = text_request().model_copy(update={"document_text": document_text})
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis is None
+    assert result.extracted_data.suggested_icd10 is None
+
+
+@pytest.mark.parametrize(
+    "document_text",
+    [
+        "Diagnóstico médico: Neumonía",
+        "Diagnóstico: Neumonía",
+    ],
+)
+def test_preserves_positive_diagnosis_and_icd10(document_text: str) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"].update(
+        primary_diagnosis="Neumonía",
+        suggested_icd10="J18.9",
+    )
+    request = text_request().model_copy(update={"document_text": document_text})
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis == "Neumonía"
+    assert result.extracted_data.suggested_icd10 == "J18.9"
+
+
+@pytest.mark.parametrize(
+    ("document_text", "diagnosis", "icd10", "keep"),
+    [
+        ("Diagnóstico: se descarta neumonía y se confirma bronquitis", "Bronquitis", "J40", True),
+        ("Diagnóstico: se confirma bronquitis y se descarta neumonía", "Neumonía", "J18.9", False),
+    ],
+)
+def test_distinguishes_negation_and_confirmation_in_same_line(
+    document_text: str, diagnosis: str, icd10: str, keep: bool
+) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"].update(primary_diagnosis=diagnosis, suggested_icd10=icd10)
+    request = text_request().model_copy(update={"document_text": document_text})
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis == (diagnosis if keep else None)
+    assert result.extracted_data.suggested_icd10 == (icd10 if keep else None)
+
+
+def test_clears_icd10_when_primary_diagnosis_is_missing() -> None:
+    fixture = json.loads(
+        case_fixture("CASE-002", "request.json").read_text(encoding="utf-8")
+    )
+    request = ProcessingRequest(
+        document_id=fixture["document_id"],
+        input_type="TEXT",
+        mime_type="text/plain",
+        document_text=fixture["document_text"],
+        origin_channel=fixture["origin_channel"],
+    )
+    payload = valid_response_payload()
+    payload["document_id"] = fixture["document_id"]
+    payload["extracted_data"].update(
+        primary_diagnosis=None,
+        suggested_icd10="R07.9",
+    )
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis is None
+    assert result.extracted_data.suggested_icd10 is None
+
+
+@pytest.mark.parametrize(
+    "dosage",
+    [
+        " NO CONSIGNADA ",
+        "NO CONSIGNADA.",
+        "Dosis: NO CONSIGNADA.",
+        "Dosis no indicada",
+        "No se especifica",
+        "Sin dosis",
+        "",
+    ],
+)
+def test_normalizes_absence_text_as_missing_medication_dosage(dosage: str) -> None:
+    expected = json.loads(
+        case_fixture("CASE-005", "expected.json").read_text(encoding="utf-8")
+    )
+    payload = valid_response_payload()
+    payload["extracted_data"]["medications"] = [
+        {"name": "Amoxicilina", "dosage": dosage}
+    ]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    medication = result.extracted_data.medications[0]
+    assert medication.model_dump() == (
+        expected["datos_clave_esperados"]["medications"][0]
+    )
+    assert set(expected["validation"]["missing_fields_required"]) <= set(
+        result.validation.missing_fields
+    )
+    assert set(expected["routing_decision"]["audit_reasons_required"]) <= {
+        reason.value for reason in result.routing_decision.audit_reasons
+    }
+
+
+def test_missing_medication_dosage_is_recorded_as_critical() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["medications"] = [
+        {"name": "Amoxicilina", "dosage": None}
+    ]
+    payload["validation"]["missing_fields"] = ["dosis de Amoxicilina"]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.extracted_data.medications[0].dosage is None
+    assert "medications[0].dosage" in result.validation.missing_fields
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+
+
+def case_003_payload() -> dict:
+    payload = valid_response_payload()
+    payload["classification"]["document_type"] = "STUDY_REPORT"
+    payload["confidence"] = {
+        "classification": 0.7,
+        "extraction": 0.7,
+        "global": 0.72,
+    }
+    payload["extracted_data"] = {"requested_studies": []}
+    payload["validation"]["missing_fields"] = ["primary_diagnosis"]
+    payload["routing_decision"].update(
+        primary_destination="MEDICAL_RECORD",
+        audit_reasons=["MISSING_CRITICAL_FIELDS", "LOW_CONFIDENCE"],
+    )
+    return payload
+
+
+def test_case_003_missing_diagnosis_is_not_a_critical_field() -> None:
+    fixture = json.loads(
+        case_fixture("CASE-003", "expected.json").read_text(encoding="utf-8")
+    )
+    processor, _ = processor_for(FakeResponse(parsed=case_003_payload()))
+    pipeline = AIProcessingPipeline(
+        processor=processor,
+        config=Settings(
+            _env_file=None, gemini_api_key="test-key", gemini_model="test-model"
+        ),
+    )
+
+    result = pipeline.process(text_request())
+
+    reasons = {reason.value for reason in result.routing_decision.audit_reasons}
+    assert reasons == set(fixture["routing_decision"]["audit_reasons_required"])
+    assert result.confidence.global_ < fixture["confidence"]["global_max_exclusive"]
+    assert result.routing_decision.primary_destination.value in (
+        fixture["routing_decision"]["primary_destination_allowed"]
+    )
+    assert result.validation.missing_fields == ["primary_diagnosis"]
+
+
+@pytest.mark.parametrize(
+    "missing_fields",
+    [["primary_diagnosis"], ["suggested_icd10"], [" Extracted_Data.Primary_Diagnosis "]],
+)
+def test_missing_diagnosis_alone_does_not_add_critical_fields_reason(
+    missing_fields: list[str],
+) -> None:
+    payload = case_003_payload()
+    payload["validation"]["missing_fields"] = missing_fields
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.routing_decision.audit_reasons == [SemanticAuditReason.LOW_CONFIDENCE]
+    assert result.validation.missing_fields == missing_fields
+
+
+def test_missing_diagnosis_does_not_hide_other_critical_fields() -> None:
+    payload = case_003_payload()
+    payload["validation"]["missing_fields"] = ["primary_diagnosis", "patient.name"]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+
+
+def test_critical_reason_without_listed_fields_is_preserved() -> None:
+    payload = case_003_payload()
+    payload["validation"]["missing_fields"] = []
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+
+
+@pytest.mark.parametrize("document_type", ["DISCHARGE_SUMMARY", "PROCEDURE_ORDER"])
+def test_missing_diagnosis_stays_critical_when_document_requires_it(
+    document_type: str,
+) -> None:
+    payload = case_003_payload()
+    payload["classification"]["document_type"] = document_type
+    payload["routing_decision"]["primary_destination"] = "MEDICAL_RECORD"
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+    assert result.validation.missing_fields == ["primary_diagnosis"]
+
+
+@pytest.mark.parametrize(
+    "document_type",
+    ["STUDY_REPORT", "IMAGING_REPORT", "PRESCRIPTION", "MEDICAL_CERTIFICATE"],
+)
+def test_missing_diagnosis_is_optional_for_non_diagnostic_documents(
+    document_type: str,
+) -> None:
+    payload = case_003_payload()
+    payload["classification"]["document_type"] = document_type
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.routing_decision.audit_reasons == [SemanticAuditReason.LOW_CONFIDENCE]
+
+
+def test_missing_dosage_stays_critical_alongside_missing_diagnosis() -> None:
+    payload = case_003_payload()
+    payload["classification"]["document_type"] = "PRESCRIPTION"
+    payload["extracted_data"]["medications"] = [
+        {"name": "Amoxicilina", "dosage": "NO CONSIGNADA"}
+    ]
+    payload["validation"]["missing_fields"] = ["primary_diagnosis"]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert "medications[0].dosage" in result.validation.missing_fields
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+
+
+@pytest.mark.parametrize(
+    "model_dosage",
+    [
+        "1 comprimido cada 8 horas durante 3 dias",
+        "1 comprimido cada 8 horas, duracion: 3 dias",
+    ],
+)
+def test_case_007_preserves_medication_duration_in_dosage(
+    model_dosage: str,
+) -> None:
+    expected = json.loads(
+        case_fixture("CASE-007", "expected.json").read_text(encoding="utf-8")
+    )
+    payload = valid_response_payload()
+    payload["extracted_data"]["medications"] = [
+        {
+            "name": "Paracetamol 500 mg",
+            "dosage": model_dosage,
+        }
+    ]
+    processor, client = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.extracted_data.medications[0].model_dump() == (
+        expected["datos_clave_esperados"]["medications"][0]
+    )
+    assert "No omitas la duración" in (
+        client.models.arguments["config"].system_instruction
+    )
+
+
+def test_case_007_does_not_duplicate_strength_already_in_dosage() -> None:
+    expected = json.loads(
+        case_fixture("CASE-007", "expected.json").read_text(encoding="utf-8")
+    )
+    payload = valid_response_payload()
+    payload["extracted_data"]["medications"] = [
+        {
+            "name": "Paracetamol 500 mg",
+            "dosage": "500 mg, 1 comprimido cada 8 horas por 3 dias, via oral",
+        }
+    ]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    image = case_fixture("CASE-007", "input.png").read_bytes()
+    request = ProcessingRequest(
+        document_id=payload["document_id"],
+        input_type="FILE",
+        mime_type="image/png",
+        file_name="input.png",
+        content_base64=base64.b64encode(image).decode("ascii"),
+        origin_channel="Consulta_Ambulatoria",
+    )
+
+    result = processor.process(request)
+
+    assert result.extracted_data.medications[0].model_dump() == (
+        expected["datos_clave_esperados"]["medications"][0]
+    )
+
+
+def test_preserves_medication_name_when_dosage_reports_another_strength() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["medications"] = [
+        {
+            "name": "Paracetamol 500 mg",
+            "dosage": "250 mg / 1 comprimido cada 8 horas por 3 dias",
+        }
+    ]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    medication = result.extracted_data.medications[0]
+    assert medication.name == "Paracetamol 500 mg"
+    assert medication.dosage == "250 mg / 1 comprimido cada 8 horas por 3 dias"
+
+
+def test_missing_dosage_does_not_promote_strength_from_medication_name() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["medications"] = [
+        {"name": "Amoxicilina 500 mg", "dosage": None}
+    ]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.extracted_data.medications[0].name == "Amoxicilina 500 mg"
+    assert result.extracted_data.medications[0].dosage is None
+
+
+def test_absence_text_does_not_promote_strength_from_medication_name() -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"]["medications"] = [
+        {"name": "Amoxicilina 500 mg", "dosage": "Dosis: no consignada"}
+    ]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.extracted_data.medications[0].name == "Amoxicilina 500 mg"
+    assert result.extracted_data.medications[0].dosage is None
+    assert "medications[0].dosage" in result.validation.missing_fields
 
 
 @pytest.mark.parametrize(

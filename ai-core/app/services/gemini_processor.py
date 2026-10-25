@@ -1,6 +1,8 @@
 import base64
 import binascii
 import json
+import re
+import unicodedata
 from typing import Protocol
 
 from google import genai
@@ -8,7 +10,7 @@ from google.genai import errors, types
 from pydantic import BaseModel, ValidationError
 
 from app.config import Settings, settings
-from app.schemas.enums import InputType
+from app.schemas.enums import DocumentType, InputType, SemanticAuditReason
 from app.schemas.requests import ProcessingRequest
 from app.schemas.responses import AIProcessingResponse
 
@@ -21,15 +23,38 @@ Devuelve exclusivamente datos que cumplan el esquema de respuesta proporcionado.
 Usa únicamente los valores permitidos por los enums del esquema. document_id debe
 ser idéntico al recibido. No inventes datos; deja como null u omite los valores
 desconocidos y refleja las carencias en validation.
+primary_diagnosis solo puede contener un diagnóstico que el documento indique
+explícitamente como tal. No conviertas síntomas, signos, antecedentes,
+resultados de laboratorio ni recomendaciones de evaluación en diagnósticos.
+suggested_icd10 solo puede basarse en un diagnóstico primario explícito. Si el
+documento no establece un diagnóstico, deja primary_diagnosis y
+suggested_icd10 en null; nunca infieras un diagnóstico ni su código a partir de
+síntomas, signos, antecedentes, resultados de laboratorio o recomendaciones.
+Conserva por separado la prioridad y el destino indicados por la evidencia del
+documento, aunque no haya diagnóstico definitivo.
+Para cada medicamento, dosage debe conservar la indicación completa tal como
+aparece, incluida la dosis, presentación/cantidad, frecuencia y duración del
+tratamiento cuando formen parte de esa indicación. No omitas la duración ni
+agregues a dosage datos consignados por separado, como la vía. Si el documento
+indica que un dato está ausente (por ejemplo, "no consignada", "no indicado" o
+"sin especificar"), no copies esa frase como dato clínico: usa null y registra
+el campo en validation.missing_fields.
 Asigna audit_reasons solo cuando el documento aporte evidencia concreta:
 - ILLEGIBLE_DOCUMENT: el contenido o una parte clínica necesaria no puede leerse
     con fiabilidad; no lo uses solo porque falten datos.
 - MISSING_CRITICAL_FIELDS: falta un dato clínico esencial para interpretar o
     actuar de forma segura sobre el documento; enumera el dato en
-    validation.missing_fields.
+    validation.missing_fields. En informes de estudios o imágenes, recetas y
+    certificados médicos, la ausencia de diagnóstico (primary_diagnosis o
+    suggested_icd10) no es por sí sola un dato crítico faltante: no asignes este
+    motivo solo por eso. En resúmenes de alta y órdenes de procedimiento el
+    diagnóstico sí puede ser esencial.
 - INCONSISTENT_DATA: dos o más datos explícitos del documento se contradicen;
     describe la contradicción en validation.inconsistencies. No infieras una
-    contradicción a partir de un dato desconocido.
+    contradicción a partir de un dato desconocido. La ambigüedad documental,
+    la baja confianza, la falta de información o una parte poco clara no son
+    contradicciones por sí mismas; exige dos valores explícitos incompatibles
+    para el mismo dato antes de asignar este motivo.
 La aplicación calcula LOW_CONFIDENCE a partir de confidence.global y de la
 configuración AUDIT_CONFIDENCE_THRESHOLD; no lo agregues por una regla fija
 distinta de ese umbral. Conserva primary_destination como destino de negocio
@@ -46,6 +71,16 @@ si la unidad o el intervalo no constan. No infieras resultados ni intervalos.
 No incluyas resultados obtenidos en requested_studies. Si no hay resultados de
 laboratorio explícitos, devuelve lab_results como [].
 """
+
+
+DIAGNOSIS_OPTIONAL_DOCUMENT_TYPES = frozenset(
+    {
+        DocumentType.STUDY_REPORT,
+        DocumentType.IMAGING_REPORT,
+        DocumentType.PRESCRIPTION,
+        DocumentType.MEDICAL_CERTIFICATE,
+    }
+)
 
 
 def _remove_additional_properties(schema: object) -> None:
@@ -146,7 +181,305 @@ class GeminiProcessor:
                 }
             )
 
+        result = self._normalize_unconfirmed_diagnosis(result, request)
+        result = self._normalize_missing_dosages(result)
+        result = self._normalize_noncritical_missing_diagnosis(result)
+
         return result
+
+    @staticmethod
+    def _normalize_noncritical_missing_diagnosis(
+        result: AIProcessingResponse,
+    ) -> AIProcessingResponse:
+        reasons = result.routing_decision.audit_reasons
+        missing_fields = result.validation.missing_fields
+        if (
+            SemanticAuditReason.MISSING_CRITICAL_FIELDS not in reasons
+            or result.classification.document_type
+            not in DIAGNOSIS_OPTIONAL_DOCUMENT_TYPES
+        ):
+            return result
+
+        noncritical_fields = {"primary_diagnosis", "suggested_icd10"}
+
+        def is_noncritical(field_name: str) -> bool:
+            normalized = field_name.strip().casefold()
+            normalized = normalized.removeprefix("extracted_data.")
+            return normalized in noncritical_fields
+
+        if not missing_fields or not all(map(is_noncritical, missing_fields)):
+            return result
+
+        return result.model_copy(
+            update={
+                "routing_decision": result.routing_decision.model_copy(
+                    update={
+                        "audit_reasons": [
+                            reason
+                            for reason in reasons
+                            if reason != SemanticAuditReason.MISSING_CRITICAL_FIELDS
+                        ]
+                    }
+                )
+            }
+        )
+
+    @staticmethod
+    def _normalize_unconfirmed_diagnosis(
+        result: AIProcessingResponse,
+        request: ProcessingRequest,
+    ) -> AIProcessingResponse:
+        extracted_data = result.extracted_data
+        diagnosis = extracted_data.primary_diagnosis
+        icd10 = extracted_data.suggested_icd10
+
+        if diagnosis is None:
+            if icd10 is None:
+                return result
+            return result.model_copy(
+                update={
+                    "extracted_data": extracted_data.model_copy(
+                        update={"suggested_icd10": None}
+                    )
+                }
+            )
+
+        if (
+            request.input_type != InputType.TEXT
+            or GeminiProcessor._diagnosis_is_explicit(
+                request.document_text or "", diagnosis
+            )
+        ):
+            return result
+
+        return result.model_copy(
+            update={
+                "extracted_data": extracted_data.model_copy(
+                    update={
+                        "primary_diagnosis": None,
+                        "suggested_icd10": None,
+                    }
+                )
+            }
+        )
+
+    @staticmethod
+    def _diagnosis_is_explicit(document_text: str, diagnosis: str) -> bool:
+        def fold_text(value: str) -> str:
+            return "".join(
+                character
+                for character in unicodedata.normalize("NFKD", value.casefold())
+                if not unicodedata.combining(character)
+            )
+
+        def normalize_phrase(value: str) -> str:
+            return re.sub(r"[^a-z0-9]+", " ", fold_text(value)).strip()
+
+        diagnosis_phrase = normalize_phrase(diagnosis)
+        if not diagnosis_phrase:
+            return False
+
+        folded_document = fold_text(document_text)
+        explicit_diagnosis_patterns = (
+            re.compile(
+                r"\b(?:diagnostico(?:\s+(?:principal|presuntivo|confirmado|clinico|medico))?"
+                r"|impresion\s+(?:diagnostica|clinica)|dx)\s*[:=\-]\s*"
+                r"(?P<value>[^\r\n;]+)",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(?:diagnosticad[oa]\s+con|se\s+diagnostica(?:\s+con)?)\s+"
+                r"(?P<value>[^.;\r\n]+)",
+                re.IGNORECASE,
+            ),
+        )
+
+        for pattern in explicit_diagnosis_patterns:
+            for match in pattern.finditer(folded_document):
+                explicit_phrase = normalize_phrase(match.group("value"))
+                if f" {diagnosis_phrase} " not in f" {explicit_phrase} ":
+                    continue
+
+                # The mention must not be an explicit negation of the diagnosis.
+                prefix, _, suffix = explicit_phrase.partition(diagnosis_phrase)
+                negations = list(re.finditer(
+                    r"\b(?:se\s+descarta(?:n)?|descartad[oa]s?|"
+                    r"sin\s+evidencia\s+de|no\s+(?:se\s+)?"
+                    r"(?:confirma|diagnostica|presenta)|"
+                    r"negativ[oa]\s+para)\b",
+                    prefix,
+                ))
+                confirmations = [
+                    match for match in re.finditer(
+                        r"\b(?:se\s+confirma|se\s+diagnostica|confirmad[oa]s?)\b",
+                        prefix,
+                    )
+                    if not any(neg.start() <= match.start() < neg.end() for neg in negations)
+                ]
+                if negations and (
+                    not confirmations or negations[-1].start() > confirmations[-1].start()
+                ):
+                    continue
+                if re.match(r"\s*(?:descartad[oa]s?|no\s+confirmad[oa]s?)\b", suffix):
+                    continue
+                return True
+        return False
+
+    @staticmethod
+    def _normalize_missing_dosages(
+        result: AIProcessingResponse,
+    ) -> AIProcessingResponse:
+        medications = result.extracted_data.medications
+        if not medications:
+            return result
+
+        missing_fields = list(result.validation.missing_fields)
+        audit_reasons = list(result.routing_decision.audit_reasons)
+        normalized_medications = []
+        changed = False
+        absent_values = {
+            "no consignada",
+            "no consignado",
+            "no se consigna",
+            "no indicada",
+            "no indicado",
+            "no se indica",
+            "no especificada",
+            "no especificado",
+            "no se especifica",
+            "sin especificar",
+            "sin consignar",
+            "no informada",
+            "no informado",
+            "no consta",
+            "sin dosis",
+            "dosis ausente",
+        }
+
+        def normalized_absence_text(value: str) -> str:
+            normalized = "".join(
+                character
+                for character in unicodedata.normalize(
+                    "NFKD", value.casefold().strip()
+                )
+                if not unicodedata.combining(character)
+            ).rstrip(" .,:;")
+            if normalized.startswith("dosis"):
+                normalized = normalized[5:].lstrip(" :.-")
+            return normalized
+
+        for index, medication in enumerate(medications):
+            dosage = medication.dosage
+            name = medication.name
+            normalized_dosage = (
+                normalized_absence_text(dosage) if dosage is not None else None
+            )
+            dosage_is_missing = (
+                not normalized_dosage or normalized_dosage in absent_values
+            )
+            if name and dosage and not dosage_is_missing:
+                strength_pattern = (
+                    r"\d+(?:[.,]\d+)?\s*(?:mcg|µg|μg|mg|g|ml|mL|ui|iu)"
+                )
+                match = re.search(
+                    rf"\s+({strength_pattern})$",
+                    name,
+                    flags=re.IGNORECASE,
+                )
+                if match:
+                    strength = match.group(1).strip()
+                    dosage_strengths = re.findall(
+                        strength_pattern, dosage, flags=re.IGNORECASE
+                    )
+                    strength_key = re.sub(r"\s+", "", strength.casefold()).replace(
+                        "μ", "µ"
+                    )
+                    dosage_strength_keys = {
+                        re.sub(r"\s+", "", value.casefold()).replace("μ", "µ")
+                        for value in dosage_strengths
+                    }
+
+                    if not dosage_strengths or strength_key in dosage_strength_keys:
+                        name = name[: match.start()].strip()
+                        if not dosage_strengths:
+                            dosage = f"{strength} / {dosage.strip()}"
+                        medication = medication.model_copy(
+                            update={"name": name, "dosage": dosage}
+                        )
+                        changed = True
+
+            if dosage:
+                dosage = re.sub(
+                    r"\s*,?\s*(?:por\s+)?v[ií]a\s+"
+                    r"(?:oral|intravenos[oa]|intramuscular|subcut[aá]ne[oa]|"
+                    r"t[oó]pic[oa]|rectal|sublingual|inhalatori[oa]|"
+                    r"oft[aá]lmic[oa]|[oó]tic[oa]|nasal|enteral|parenteral|"
+                    r"cut[aá]ne[oa])\s*[.;]?$",
+                    "",
+                    dosage,
+                    flags=re.IGNORECASE,
+                )
+                dosage = re.sub(
+                    r"^(\d+(?:[.,]\d+)?\s*(?:mcg|µg|μg|mg|g|ml|mL|ui|iu))"
+                    r"\s*,\s*(?=\S)",
+                    r"\1 / ",
+                    dosage,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+                dosage = dosage.strip().rstrip(".,; ")
+                dosage = re.sub(
+                    r"\s*,?\s*duraci[oó]n\s*:\s*(\d+)\s+(d[ií]as?)\b",
+                    r" por \1 \2",
+                    dosage,
+                    flags=re.IGNORECASE,
+                )
+                dosage = re.sub(
+                    r"\bdurante\s+(\d+)\s+(d[ií]as?)\b",
+                    r"por \1 \2",
+                    dosage,
+                    flags=re.IGNORECASE,
+                )
+                if dosage != medication.dosage:
+                    medication = medication.model_copy(update={"dosage": dosage})
+                    changed = True
+
+            normalized_dosage = (
+                normalized_absence_text(dosage) if dosage is not None else None
+            )
+            if dosage is not None and (
+                not normalized_dosage or normalized_dosage in absent_values
+            ):
+                medication = medication.model_copy(update={"dosage": None})
+                changed = True
+                dosage = None
+
+            normalized_medications.append(medication)
+            if medication.name and not dosage:
+                field_name = f"medications[{index}].dosage"
+                if field_name not in missing_fields:
+                    missing_fields.append(field_name)
+                    changed = True
+                if SemanticAuditReason.MISSING_CRITICAL_FIELDS not in audit_reasons:
+                    audit_reasons.append(SemanticAuditReason.MISSING_CRITICAL_FIELDS)
+                    changed = True
+
+        if not changed:
+            return result
+
+        return result.model_copy(
+            update={
+                "extracted_data": result.extracted_data.model_copy(
+                    update={"medications": normalized_medications}
+                ),
+                "validation": result.validation.model_copy(
+                    update={"missing_fields": missing_fields}
+                ),
+                "routing_decision": result.routing_decision.model_copy(
+                    update={"audit_reasons": audit_reasons}
+                ),
+            }
+        )
 
     @staticmethod
     def _build_contents(request: ProcessingRequest) -> str | list[str | types.Part]:
