@@ -97,21 +97,21 @@ const expectedStates = [
 ];
 
 const expectedFileSteps = [
-  "Ingresa a Procesamiento",
-  "Selecciona Archivo",
-  "Carga el documento",
-  "Selecciona el Canal de origen",
-  "Inicia el procesamiento",
-  "Consulta el resultado",
+  "Ingrese a Procesamiento",
+  "Seleccione Archivo",
+  "Cargue el documento",
+  "Seleccione el Canal de origen",
+  "Inicie el procesamiento",
+  "Consulte el resultado",
 ];
 
 const expectedTextSteps = [
-  "Ingresa a Procesamiento",
-  "Selecciona Texto",
-  "Escribe o pega el contenido",
-  "Selecciona el Canal de origen",
-  "Inicia el procesamiento",
-  "Consulta el resultado",
+  "Ingrese a Procesamiento",
+  "Seleccione Texto",
+  "Escriba o pegue el contenido",
+  "Seleccione el Canal de origen",
+  "Inicie el procesamiento",
+  "Consulte el resultado",
 ];
 
 function guideMarkup(mode: "file" | "text", activeStep = 0, expanded = false) {
@@ -133,14 +133,14 @@ function guideMarkup(mode: "file" | "text", activeStep = 0, expanded = false) {
 }
 
 const expectedProblems = [
-  ["No puedo cargar un documento", "Comprueba que el archivo sea PDF, JPG o PNG, que tenga contenido y que no supere el tamaño permitido. Después, vuelve a seleccionarlo."],
-  ["No puedo comenzar el procesamiento", "Comprueba que hayas ingresado el documento o texto, seleccionado el canal de origen y completado los campos solicitados."],
-  ["No fue posible procesar el documento", "Si MediFlow muestra un error durante el procesamiento, la información ingresada se conserva. Selecciona «Reintentar» para realizar un nuevo intento."],
-  ["Una receta u orden de examen no se interpretó correctamente", "Revisa el resultado del documento. Si MediFlow indica que necesita revisión, entra a Auditoría para consultar el documento y continuar con su revisión."],
-  ["La información extraída no coincide con el documento original", "Si la información extraída no coincide con el documento original, comprueba el resultado. Si el documento está pendiente de revisión humana, entra a Auditoría, abre Revisión Clínica y corrige los campos permitidos antes de registrar la decisión."],
-  ["Un documento quedó pendiente de revisión", "Entra a Auditoría para consultar los documentos pendientes. Si tienes esa responsabilidad, abre el documento y realiza la revisión correspondiente."],
-  ["No puedo consultar el resultado de un documento", "Si aparece el mensaje «No fue posible cargar el resultado», selecciona «Reintentar» para volver a consultar la información."],
-  ["Necesito consultar los cambios realizados a un documento", "Puedes consultar los cambios de un documento desde su resultado, seleccionando «Ver historial». También puedes entrar a «Historial» desde el menú lateral, buscar el documento por su identificador o nombre de archivo y seleccionar «Consultar historial»."],
+  ["No puedo cargar un documento", "Compruebe que el archivo sea PDF, JPG o PNG, que tenga contenido y que no supere el tamaño permitido. Después, vuelva a seleccionarlo."],
+  ["No puedo comenzar el procesamiento", "Compruebe que haya ingresado el documento o texto, seleccionado el canal de origen y completado los campos solicitados."],
+  ["No fue posible procesar el documento", "Si MediFlow muestra un error durante el procesamiento, la información ingresada se conserva. Seleccione «Reintentar» para realizar un nuevo intento."],
+  ["Una receta u orden de examen no se interpretó correctamente", "Revise el resultado del documento. Si MediFlow indica que necesita revisión, ingrese a Auditoría para consultar el documento y continuar con su revisión."],
+  ["La información extraída no coincide con el documento original", "Si la información extraída no coincide con el documento original, compruebe el resultado. Si el documento está pendiente de revisión humana, ingrese a Auditoría, abra Revisión Clínica y corrija los campos permitidos antes de registrar la decisión."],
+  ["Un documento quedó pendiente de revisión", "Ingrese a Auditoría para consultar los documentos pendientes. Si tiene esa responsabilidad, abra el documento y realice la revisión correspondiente."],
+  ["No puedo consultar el resultado de un documento", "Si aparece el mensaje «No fue posible cargar el resultado», seleccione «Reintentar» para volver a consultar la información."],
+  ["Necesito consultar los cambios realizados a un documento", "Puede consultar los cambios de un documento desde su resultado, seleccionando «Ver historial». También puede ingresar a «Historial» desde el menú lateral, buscar el documento por su identificador o nombre de archivo y seleccionar «Consultar historial»."],
 ];
 
 describe("Ticket #76 - Centro de ayuda", () => {
@@ -152,7 +152,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
 
     expect(markup).toContain("<h1>Centro de ayuda</h1>");
     expect(markup).toContain(
-      "Conoce cómo procesar documentos, interpretar sus resultados y resolver situaciones frecuentes.",
+      "Conozca cómo procesar documentos, interpretar sus resultados y resolver situaciones frecuentes.",
     );
     expect(markup).not.toContain('aria-label="Ruta de navegación"');
     expect(markup).not.toContain('aria-current="page"');
@@ -278,8 +278,8 @@ describe("Ticket #76 - Centro de ayuda", () => {
   it("usa el texto aprobado del paso final sin un resaltado falso", () => {
     const markup = guideMarkup("file", 5);
 
-    expect(markup).toContain("Consulta el resultado");
-    expect(markup).toContain("Al finalizar el procesamiento, MediFlow te llevará automáticamente a «Resultado».");
+    expect(markup).toContain("Consulte el resultado");
+    expect(markup).toContain("Al finalizar el procesamiento, MediFlow lo llevará automáticamente a «Resultado».");
     expect(markup).not.toContain("help-guide__highlight");
     expect(markup).not.toContain("help-guide__arrow");
   });
@@ -392,7 +392,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
     expect(clickableNode).toBeDefined();
   });
 
-  it("explica las limitaciones del MVP sin afirmar una integración hospitalaria efectiva", () => {
+  it("explica las limitaciones de esta versión sin afirmar una integración hospitalaria efectiva", () => {
     const aboutSection = pageElements.find((element) => element.props.id === "about");
     const aboutText = textContent(aboutSection);
 
@@ -456,7 +456,7 @@ describe("Ticket #76 - Centro de ayuda", () => {
       (element) => element.props.className === "help-page__section-action",
     );
     expect(textContent(processingAction)).toBe(
-      "Utiliza las siguientes guías o ve a Procesamiento para comenzar.",
+      "Utilice las siguientes guías o ingrese a Procesamiento para comenzar.",
     );
 
     const auditSection = pageElements.find((element) => element.props.id === "audit");

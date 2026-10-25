@@ -184,8 +184,8 @@
 @media (min-width: 1024px) {
   .help-guide__dialog { height: calc(100dvh - 36px); }
   .help-guide__dialog-content { flex: 1 1 auto; grid-template-rows: minmax(0, 1fr) auto; overflow-x: hidden; overflow-y: auto; }
-  .help-guide__image-scroller { display: flex; min-height: 0; height: 100%; align-items: center; justify-content: center; }
-  .help-guide__image-scroller .help-guide__screen { width: auto; max-width: 100%; height: 100%; max-height: 100%; }
+  .help-guide__image-scroller { display: flex; min-height: 0; height: 100%; align-items: center; justify-content: center; container-type: size; }
+  .help-guide__image-scroller .help-guide__screen { width: min(100cqw, 100cqh * 1366 / 768); height: auto; max-width: none; max-height: none; flex: none; }
   .help-guide__dialog-steps { min-height: 0; height: 100%; overflow: visible; }
   .help-guide__dialog-steps .help-guide__steps { gap: 4px; }
   .help-guide__dialog-steps .help-guide__step { grid-template-columns: 25px minmax(0, 1fr); gap: 7px; padding: 6px; }

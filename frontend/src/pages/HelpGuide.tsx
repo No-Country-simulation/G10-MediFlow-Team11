@@ -27,8 +27,8 @@ type GuideDefinition = {
 };
 
 const RESULT_STEP: GuideStep = {
-  title: "Consulta el resultado",
-  description: "Al finalizar el procesamiento, MediFlow te llevará automáticamente a «Resultado».",
+  title: "Consulte el resultado",
+  description: "Al finalizar el procesamiento, MediFlow lo llevará automáticamente a «Resultado».",
   highlight: null,
 };
 
@@ -39,11 +39,11 @@ const GUIDE_DEFINITIONS: Record<GuideMode, GuideDefinition> = {
     image: fileProcedureImage,
     imageAlt: "Pantalla de Procesamiento de MediFlow en la modalidad Archivo, con un documento seleccionado y su vista previa.",
     steps: [
-      { title: "Ingresa a Procesamiento", description: "Abre Procesamiento desde el menú lateral.", highlight: [12, 159, 216, 64] },
-      { title: "Selecciona Archivo", description: "Elige la modalidad Archivo.", highlight: [264, 132, 70, 36] },
-      { title: "Carga el documento", description: "Selecciona un archivo PDF, JPG o PNG.", highlight: [274, 275, 514, 102] },
-      { title: "Selecciona el Canal de origen", description: "Selecciona el canal correspondiente.", highlight: [274, 419, 514, 60] },
-      { title: "Inicia el procesamiento", description: "Pulsa Procesar documento.", highlight: [274, 713, 162, 42] },
+      { title: "Ingrese a Procesamiento", description: "Abra Procesamiento desde el menú lateral.", highlight: [12, 159, 216, 64] },
+      { title: "Seleccione Archivo", description: "Elija la modalidad Archivo.", highlight: [264, 132, 70, 36] },
+      { title: "Cargue el documento", description: "Seleccione un archivo PDF, JPG o PNG.", highlight: [274, 275, 514, 102] },
+      { title: "Seleccione el Canal de origen", description: "Seleccione el canal correspondiente.", highlight: [274, 419, 514, 60] },
+      { title: "Inicie el procesamiento", description: "Pulse Procesar documento.", highlight: [274, 713, 162, 42] },
       RESULT_STEP,
     ],
   },
@@ -53,11 +53,11 @@ const GUIDE_DEFINITIONS: Record<GuideMode, GuideDefinition> = {
     image: textProcedureImage,
     imageAlt: "Pantalla de Procesamiento de MediFlow en la modalidad Texto, con contenido clínico y Canal de origen.",
     steps: [
-      { title: "Ingresa a Procesamiento", description: "Abre Procesamiento desde el menú lateral.", highlight: [13, 159, 216, 64] },
-      { title: "Selecciona Texto", description: "Elige la modalidad Texto.", highlight: [354, 132, 57, 36] },
-      { title: "Escribe o pega el contenido", description: "Introduce el texto clínico en el campo correspondiente.", highlight: [437, 230, 735, 227] },
-      { title: "Selecciona el Canal de origen", description: "Selecciona el canal correspondiente.", highlight: [437, 483, 506, 56] },
-      { title: "Inicia el procesamiento", description: "Pulsa Procesar texto.", highlight: [437, 576, 124, 40] },
+      { title: "Ingrese a Procesamiento", description: "Abra Procesamiento desde el menú lateral.", highlight: [13, 159, 216, 64] },
+      { title: "Seleccione Texto", description: "Elija la modalidad Texto.", highlight: [354, 132, 57, 36] },
+      { title: "Escriba o pegue el contenido", description: "Introduzca el texto clínico en el campo correspondiente.", highlight: [437, 230, 735, 227] },
+      { title: "Seleccione el Canal de origen", description: "Seleccione el canal correspondiente.", highlight: [437, 483, 506, 56] },
+      { title: "Inicie el procesamiento", description: "Pulse Procesar texto.", highlight: [437, 576, 124, 40] },
       RESULT_STEP,
     ],
   },
