@@ -13,6 +13,7 @@ from app.config import Settings
 from app.schemas.enums import SemanticAuditReason
 from app.schemas.requests import ProcessingRequest
 from app.schemas.responses import AIProcessingResponse
+from app.services.pipeline import AIProcessingPipeline
 from app.services.gemini_processor import (
     AIOutputInvalidError,
     GeminiConfigurationError,
@@ -413,6 +414,137 @@ def test_missing_medication_dosage_is_recorded_as_critical() -> None:
     result = processor.process(text_request())
 
     assert result.extracted_data.medications[0].dosage is None
+    assert "medications[0].dosage" in result.validation.missing_fields
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+
+
+def case_003_payload() -> dict:
+    payload = valid_response_payload()
+    payload["classification"]["document_type"] = "STUDY_REPORT"
+    payload["confidence"] = {
+        "classification": 0.7,
+        "extraction": 0.7,
+        "global": 0.72,
+    }
+    payload["extracted_data"] = {"requested_studies": []}
+    payload["validation"]["missing_fields"] = ["primary_diagnosis"]
+    payload["routing_decision"].update(
+        primary_destination="MEDICAL_RECORD",
+        audit_reasons=["MISSING_CRITICAL_FIELDS", "LOW_CONFIDENCE"],
+    )
+    return payload
+
+
+def test_case_003_missing_diagnosis_is_not_a_critical_field() -> None:
+    fixture = json.loads(
+        case_fixture("CASE-003", "expected.json").read_text(encoding="utf-8")
+    )
+    processor, _ = processor_for(FakeResponse(parsed=case_003_payload()))
+    pipeline = AIProcessingPipeline(
+        processor=processor,
+        config=Settings(
+            _env_file=None, gemini_api_key="test-key", gemini_model="test-model"
+        ),
+    )
+
+    result = pipeline.process(text_request())
+
+    reasons = {reason.value for reason in result.routing_decision.audit_reasons}
+    assert reasons == set(fixture["routing_decision"]["audit_reasons_required"])
+    assert result.confidence.global_ < fixture["confidence"]["global_max_exclusive"]
+    assert result.routing_decision.primary_destination.value in (
+        fixture["routing_decision"]["primary_destination_allowed"]
+    )
+    assert result.validation.missing_fields == ["primary_diagnosis"]
+
+
+@pytest.mark.parametrize(
+    "missing_fields",
+    [["primary_diagnosis"], ["suggested_icd10"], [" Extracted_Data.Primary_Diagnosis "]],
+)
+def test_missing_diagnosis_alone_does_not_add_critical_fields_reason(
+    missing_fields: list[str],
+) -> None:
+    payload = case_003_payload()
+    payload["validation"]["missing_fields"] = missing_fields
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.routing_decision.audit_reasons == [SemanticAuditReason.LOW_CONFIDENCE]
+    assert result.validation.missing_fields == missing_fields
+
+
+def test_missing_diagnosis_does_not_hide_other_critical_fields() -> None:
+    payload = case_003_payload()
+    payload["validation"]["missing_fields"] = ["primary_diagnosis", "patient.name"]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+
+
+def test_critical_reason_without_listed_fields_is_preserved() -> None:
+    payload = case_003_payload()
+    payload["validation"]["missing_fields"] = []
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+
+
+@pytest.mark.parametrize("document_type", ["DISCHARGE_SUMMARY", "PROCEDURE_ORDER"])
+def test_missing_diagnosis_stays_critical_when_document_requires_it(
+    document_type: str,
+) -> None:
+    payload = case_003_payload()
+    payload["classification"]["document_type"] = document_type
+    payload["routing_decision"]["primary_destination"] = "MEDICAL_RECORD"
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
+        result.routing_decision.audit_reasons
+    )
+    assert result.validation.missing_fields == ["primary_diagnosis"]
+
+
+@pytest.mark.parametrize(
+    "document_type",
+    ["STUDY_REPORT", "IMAGING_REPORT", "PRESCRIPTION", "MEDICAL_CERTIFICATE"],
+)
+def test_missing_diagnosis_is_optional_for_non_diagnostic_documents(
+    document_type: str,
+) -> None:
+    payload = case_003_payload()
+    payload["classification"]["document_type"] = document_type
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
+    assert result.routing_decision.audit_reasons == [SemanticAuditReason.LOW_CONFIDENCE]
+
+
+def test_missing_dosage_stays_critical_alongside_missing_diagnosis() -> None:
+    payload = case_003_payload()
+    payload["classification"]["document_type"] = "PRESCRIPTION"
+    payload["extracted_data"]["medications"] = [
+        {"name": "Amoxicilina", "dosage": "NO CONSIGNADA"}
+    ]
+    payload["validation"]["missing_fields"] = ["primary_diagnosis"]
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(text_request())
+
     assert "medications[0].dosage" in result.validation.missing_fields
     assert SemanticAuditReason.MISSING_CRITICAL_FIELDS in (
         result.routing_decision.audit_reasons

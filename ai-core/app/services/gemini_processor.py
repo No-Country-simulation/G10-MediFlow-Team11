@@ -10,7 +10,7 @@ from google.genai import errors, types
 from pydantic import BaseModel, ValidationError
 
 from app.config import Settings, settings
-from app.schemas.enums import InputType, SemanticAuditReason
+from app.schemas.enums import DocumentType, InputType, SemanticAuditReason
 from app.schemas.requests import ProcessingRequest
 from app.schemas.responses import AIProcessingResponse
 
@@ -44,7 +44,11 @@ Asigna audit_reasons solo cuando el documento aporte evidencia concreta:
     con fiabilidad; no lo uses solo porque falten datos.
 - MISSING_CRITICAL_FIELDS: falta un dato clínico esencial para interpretar o
     actuar de forma segura sobre el documento; enumera el dato en
-    validation.missing_fields.
+    validation.missing_fields. En informes de estudios o imágenes, recetas y
+    certificados médicos, la ausencia de diagnóstico (primary_diagnosis o
+    suggested_icd10) no es por sí sola un dato crítico faltante: no asignes este
+    motivo solo por eso. En resúmenes de alta y órdenes de procedimiento el
+    diagnóstico sí puede ser esencial.
 - INCONSISTENT_DATA: dos o más datos explícitos del documento se contradicen;
     describe la contradicción en validation.inconsistencies. No infieras una
     contradicción a partir de un dato desconocido. La ambigüedad documental,
@@ -67,6 +71,16 @@ si la unidad o el intervalo no constan. No infieras resultados ni intervalos.
 No incluyas resultados obtenidos en requested_studies. Si no hay resultados de
 laboratorio explícitos, devuelve lab_results como [].
 """
+
+
+DIAGNOSIS_OPTIONAL_DOCUMENT_TYPES = frozenset(
+    {
+        DocumentType.STUDY_REPORT,
+        DocumentType.IMAGING_REPORT,
+        DocumentType.PRESCRIPTION,
+        DocumentType.MEDICAL_CERTIFICATE,
+    }
+)
 
 
 def _remove_additional_properties(schema: object) -> None:
@@ -169,8 +183,46 @@ class GeminiProcessor:
 
         result = self._normalize_unconfirmed_diagnosis(result, request)
         result = self._normalize_missing_dosages(result)
+        result = self._normalize_noncritical_missing_diagnosis(result)
 
         return result
+
+    @staticmethod
+    def _normalize_noncritical_missing_diagnosis(
+        result: AIProcessingResponse,
+    ) -> AIProcessingResponse:
+        reasons = result.routing_decision.audit_reasons
+        missing_fields = result.validation.missing_fields
+        if (
+            SemanticAuditReason.MISSING_CRITICAL_FIELDS not in reasons
+            or result.classification.document_type
+            not in DIAGNOSIS_OPTIONAL_DOCUMENT_TYPES
+        ):
+            return result
+
+        noncritical_fields = {"primary_diagnosis", "suggested_icd10"}
+
+        def is_noncritical(field_name: str) -> bool:
+            normalized = field_name.strip().casefold()
+            normalized = normalized.removeprefix("extracted_data.")
+            return normalized in noncritical_fields
+
+        if not missing_fields or not all(map(is_noncritical, missing_fields)):
+            return result
+
+        return result.model_copy(
+            update={
+                "routing_decision": result.routing_decision.model_copy(
+                    update={
+                        "audit_reasons": [
+                            reason
+                            for reason in reasons
+                            if reason != SemanticAuditReason.MISSING_CRITICAL_FIELDS
+                        ]
+                    }
+                )
+            }
+        )
 
     @staticmethod
     def _normalize_unconfirmed_diagnosis(
