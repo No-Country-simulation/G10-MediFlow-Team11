@@ -4,6 +4,9 @@ import DocumentIdentity from "../components/DocumentIdentity";
 import { Link, useBlocker, useLocation, useNavigate, useParams } from "react-router-dom";
 import DocumentViewer from "../components/DocumentViewer/DocumentViewer";
 import type { DocumentViewerState } from "../components/DocumentViewer/types";
+import LabResultsEditor from "../components/review/LabResultsEditor";
+import { AdditionalFieldsEditor } from "../components/review/FieldEditor";
+import { buildAdditionalFields } from "../utils/extractedFieldStructure";
 import { documentTypeLabel } from "../config/auditLabels";
 import { getDocumentContent } from "../services/documentService";
 import { ApiError } from "../services/processingService";
@@ -20,8 +23,11 @@ import type {
   Validation,
 } from "../types/processing";
 import {
-  activeReviewSection, approvalBlockers, createReviewPatch, hasSpecialtyChanged, hasUnsavedReviewChanges,
-  humanizeMissingField, parseAdditionalJson, restoredTextValue, reviewSourceLabel, reviewWarningMessages,
+  activeReviewSection, approvalBlockers, createReviewPatch, hasSpecialtyChanged, pendingReviewCopy, pendingReviewState,
+  addLabResultRow, coerceLabCellInput, dropIncompleteNewLabRows, findLabResultsKey, hasValidationChanged,
+  humanizeMissingField, incompleteNewLabRows, labResultPath, newLabResultRow, removeLabResultRow, restoredTextValue,
+  rejectionCopy, reviewSourceLabel,
+  reviewWarningMessages,
   shouldBlockReviewNavigation, writeReviewField,
 } from "./clinicalReviewModel";
 import "../styles/clinical-review.css";
@@ -53,10 +59,6 @@ const standardFields: { path: string[]; label: string; number?: boolean; hint?: 
   { path: ["primary_diagnosis"], label: "Diagnóstico principal" },
   { path: ["suggested_icd10"], label: "CIE-10 sugerido (opcional)", hint: "Ingrese un código solo si está respaldado por el documento original." },
 ];
-const standardKeys = new Set([
-  "patient", "requesting_doctor", "primary_diagnosis", "suggested_icd10",
-  "medications", "requested_studies",
-]);
 
 function copyData(data: ExtractedData): ExtractedData {
   return structuredClone(data);
@@ -69,10 +71,6 @@ function readPath(data: ExtractedData, path: string[]): unknown {
     value = (value as Record<string, unknown>)[key];
   }
   return value;
-}
-
-function emptyValidation(): Validation {
-  return { missing_fields: [], inconsistencies: [], warnings: [] };
 }
 
 function reviewError(error: unknown): string {
@@ -130,7 +128,7 @@ function ReviewSection({ id, title, children }: { id: string; title: string; chi
   );
 }
 
-function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewer: DocumentViewerState }) {
+export function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewer: DocumentViewerState }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [documentType, setDocumentType] = useState<DocumentType | "">(result.classification?.document_type ?? "");
@@ -148,12 +146,13 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   const [drafts, setDrafts] = useState<Record<ValidationKey, string>>({
     missing_fields: "", inconsistencies: "", warnings: "",
   });
-  const [extraJson, setExtraJson] = useState<Record<string, string>>(() =>
-    Object.fromEntries(Object.entries(result.extracted_data ?? {})
-      .filter(([key]) => !standardKeys.has(key))
-      .map(([key, value]) => [key, JSON.stringify(value, null, 2)])),
-  );
-  const [extraErrors, setExtraErrors] = useState<Record<string, string | null>>({});
+  const [labKey] = useState(() => findLabResultsKey(result.extracted_data, true) ?? "lab_results");
+  const originalLabValue = result.extracted_data?.[labKey];
+  const originalLabRows = Array.isArray(originalLabValue) ? (originalLabValue as Record<string, unknown>[]) : [];
+  const [labHadRows] = useState(originalLabRows.length > 0);
+  const [labOriginals, setLabOriginals] = useState<Record<string, unknown>[]>(() => structuredClone(originalLabRows));
+  const [labDrafts, setLabDrafts] = useState<Record<string, { text: string; error: string }>>({});
+  const [newLabRows, setNewLabRows] = useState<boolean[]>(() => originalLabRows.map(() => false));
   const [confirmed, setConfirmed] = useState(false);
   const [activeTab, setActiveTab] = useState("review-classification");
   const [dialog, setDialog] = useState<DialogKind>(null);
@@ -165,9 +164,6 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   const validationCheckboxRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
   const redirectTimer = useRef<number | undefined>(undefined);
-  const initialExtraJson = Object.fromEntries(Object.entries(result.extracted_data ?? {})
-    .filter(([key]) => !standardKeys.has(key))
-    .map(([key, value]) => [key, JSON.stringify(value, null, 2)]));
 
   useEffect(() => () => window.clearTimeout(redirectTimer.current), []);
   useEffect(() => {
@@ -204,11 +200,13 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
     || hasSpecialtyChanged(result.classification?.specialty, specialty);
   const extractedChanged = JSON.stringify(extracted) !== JSON.stringify(result.extracted_data ?? {});
   const destinationChanged = destination !== result.routing_decision.primary_destination;
-  const validationChanged = JSON.stringify(validation) !== JSON.stringify(result.validation ?? emptyValidation());
+  const validationChanged = hasValidationChanged(validation, result.validation);
   const contentChanged = classificationChanged || extractedChanged || destinationChanged;
-  const needsValidation = result.validation === null || contentChanged || validationChanged;
-  const dirty = hasUnsavedReviewChanges({ contentChanged, validationChanged, confirmed, drafts, extraJson, initialExtraJson });
-  const hasExtraError = Object.values(extraErrors).some(Boolean);
+  const invalidLabCells = Object.keys(labDrafts).length;
+  const pending = pendingReviewState({
+    contentChanged, validationChanged, confirmed, drafts, hasInvalidLabDrafts: invalidLabCells > 0,
+  });
+  const dirty = pending !== null;
   const blocker = useBlocker(({ currentLocation, nextLocation }) => shouldBlockReviewNavigation({
     dirty, saving, success: !!success,
     currentPath: currentLocation.pathname + currentLocation.search,
@@ -225,8 +223,15 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty, saving, success]);
+  const labValue = extracted[labKey];
+  const labShapeValid = labValue === undefined || labValue === null
+    || (Array.isArray(labValue) && labValue.every((row) => typeof row === "object" && row !== null && !Array.isArray(row)));
+  const labRows: unknown[] = Array.isArray(labValue) ? labValue : [];
+  const labVisible = labShapeValid && (labRows.length > 0 || labHadRows || documentType === "STUDY_REPORT");
+  const incompleteLabRows = labVisible ? incompleteNewLabRows(labRows, newLabRows) : [];
   const approvalReasons = approvalBlockers({
-    documentType, priority, destination, hasExtraError, needsValidation, confirmed,
+    documentType, priority, destination, hasIncompleteLabRows: incompleteLabRows.length > 0,
+    hasInvalidLabCells: invalidLabCells > 0, confirmed,
     saving, success: !!success, conflict,
   });
   const canApprove = approvalReasons.length === 0;
@@ -257,20 +262,51 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
     updateValidation(key, [...validation[key], value]);
     setDrafts((previous) => ({ ...previous, [key]: "" }));
   };
-  const updateExtraJson = (key: string, text: string) => {
-    setExtraJson((previous) => ({ ...previous, [key]: text }));
-    const parsed = parseAdditionalJson(result.extracted_data?.[key], text, key);
-    setExtraErrors((previous) => ({ ...previous, [key]: parsed.error ?? null }));
-    if (!parsed.error) setExtracted((previous) => ({ ...previous, [key]: parsed.value }));
+  const commitLabResults = (next: ExtractedData) => {
+    setExtracted(next);
     setConfirmed(false);
+  };
+  const updateAdditionalField = (path: readonly (string | number)[], value: unknown) => {
+    setExtracted((previous) => writeReviewField(result.extracted_data, previous, path.map(String), value));
+    setConfirmed(false);
+  };
+  const updateLabCell = (index: number, column: string, raw: string) => {
+    const draftKey = `${index}:${column}`;
+    const input = coerceLabCellInput(raw, labOriginals[index]?.[column], column);
+    if (!input.ok) {
+      setLabDrafts((previous) => ({ ...previous, [draftKey]: { text: raw, error: input.error } }));
+      setConfirmed(false);
+      return;
+    }
+    setLabDrafts((previous) => {
+      if (!(draftKey in previous)) return previous;
+      const next = { ...previous };
+      delete next[draftKey];
+      return next;
+    });
+    commitLabResults(writeReviewField(result.extracted_data, extracted, labResultPath(index, column, labKey), input.value));
+  };
+  const addLabRow = () => {
+    const row = newLabResultRow(extracted[labKey]);
+    setLabOriginals((previous) => [...previous, { ...row }]);
+    setNewLabRows((previous) => [...previous, true]);
+    setLabDrafts({});
+    commitLabResults(addLabResultRow(extracted, row, labKey));
+  };
+  const removeLabRow = (index: number) => {
+    setLabOriginals((previous) => previous.filter((_, i) => i !== index));
+    setNewLabRows((previous) => previous.filter((_, i) => i !== index));
+    setLabDrafts({});
+    commitLabResults(removeLabResultRow(extracted, index, labKey, result.extracted_data));
   };
 
   const submit = async (decision: ReviewDecision) => {
     if (saving || success || conflict || (decision === "APPROVE" && !canApprove)) return;
     const request = createReviewPatch({
       decision, result, documentType, priority, specialty, destination,
-      extracted, medicationOriginals: medicationOriginals.current, studyOriginals: studyOriginals.current,
-      validation, confirmed, hasExtraError,
+      extracted: decision === "REJECT" && labVisible ? dropIncompleteNewLabRows(extracted, labKey, newLabRows, result.extracted_data) : extracted,
+      medicationOriginals: medicationOriginals.current, studyOriginals: studyOriginals.current,
+      validation, confirmed: confirmed && invalidLabCells === 0,
     });
     setDialog(null);
     setSaving(true);
@@ -295,6 +331,8 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
   const leave = () => blocker.state === "blocked" ? blocker.proceed() : navigate("/audit");
   const sourceName = reviewSourceLabel(result.document_id, viewer.status === "text", location.state);
   const warningMessages = reviewWarningMessages(result.routing_decision.audit_reasons, result.validation?.missing_fields);
+  const otherFields = buildAdditionalFields(extracted, { omitEmptyCollections: true }).entries
+    .filter((entry) => entry.key !== labKey || (!labVisible && entry.node.kind !== "null"));
 
   return (
     <div className="clinical-review">
@@ -386,6 +424,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                   </div>
                   <div className="clinical-review__array-group">
                     <h4>Medicamentos</h4>
+                    {(extracted.medications ?? []).length === 0 && <p className="clinical-review__empty">Sin medicamentos registrados</p>}
                     {(extracted.medications ?? []).map((item, index) => (
                       <div className="clinical-review__array-row" key={index}>
                         <label>Medicamento {index + 1}<input value={item.name ?? ""} placeholder="Nombre" disabled={saving || !!success} onChange={(event) => updateMedication(index, "name", event.target.value)} /></label>
@@ -397,6 +436,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                   </div>
                   <div className="clinical-review__array-group">
                     <h4>Estudios solicitados</h4>
+                    {(extracted.requested_studies ?? []).length === 0 && <p className="clinical-review__empty">Sin estudios solicitados</p>}
                     {(extracted.requested_studies ?? []).map((item, index) => (
                       <div className="clinical-review__array-row" key={index}>
                         <label>Estudio {index + 1}<input value={item.name ?? ""} placeholder="Sin valor" disabled={saving || !!success} onChange={(event) => updateStudy(index, event.target.value)} /></label>
@@ -405,11 +445,17 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                     ))}
                     <button type="button" className="clinical-review__add" disabled={saving || !!success} onClick={() => { studyOriginals.current.push({ name: null }); setExtracted((previous) => ({ ...previous, requested_studies: [...(previous.requested_studies ?? []), { name: null }] })); setConfirmed(false); }}>Agregar estudio</button>
                   </div>
-                  {Object.keys(extraJson).length > 0 && <div className="clinical-review__array-group"><h4>Otros datos</h4>
-                    {Object.entries(extraJson).map(([key, value], index) => <label key={key}>{key}
-                      <textarea value={value} rows={3} spellCheck={false} disabled={saving || !!success} aria-invalid={!!extraErrors[key]} aria-describedby={extraErrors[key] ? `clinical-extra-error-${index}` : undefined} onChange={(event) => updateExtraJson(key, event.target.value)} />
-                      {extraErrors[key] && <span id={`clinical-extra-error-${index}`} className="clinical-review__field-error">{extraErrors[key]}</span>}
-                    </label>)}
+                  {(labVisible || otherFields.length > 0) && <div className="clinical-review__array-group"><h4>Datos adicionales</h4>
+                    {labVisible && <div className="clinical-review__structured">
+                      <div className="clinical-review__structured-item">
+                        <h5 className="clinical-review__structured-label">Resultados de laboratorio</h5>
+                        <LabResultsEditor rows={labRows} disabled={saving || !!success}
+                          hasIncompleteNewRows={incompleteLabRows.length > 0} hasInvalidDrafts={invalidLabCells > 0} originals={labOriginals} drafts={labDrafts} onChangeCell={updateLabCell}
+                          onAddRow={addLabRow} onRemoveRow={removeLabRow} />
+                      </div>
+                    </div>}
+                    {otherFields.length > 0 && <AdditionalFieldsEditor entries={otherFields} original={result.extracted_data}
+                      disabled={saving || !!success} onChange={updateAdditionalField} />}
                   </div>}
                 </ReviewSection>
                 <ReviewSection id="review-validation" title="Validación">
@@ -427,7 +473,7 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                     </div>
                   </div>)}
                   <label className="clinical-review__confirmation"><input ref={validationCheckboxRef} type="checkbox" checked={confirmed} disabled={saving || !!success} onChange={(event) => setConfirmed(event.target.checked)} />Validación revisada</label>
-                  {needsValidation && !confirmed && <p className="clinical-review__hint">Confirme la validación después de revisar los cambios realizados.</p>}
+                  {!confirmed && <p className="clinical-review__hint">Marque esta casilla después de revisar los datos y los hallazgos de validación. Es obligatoria para aprobar.</p>}
                 </ReviewSection>
                 <ReviewSection id="review-destination" title="Destino">
                   <label className="clinical-review__destination"><span>Destino principal <em aria-hidden="true">*</em></span>
@@ -451,12 +497,12 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
                     ? approvalReasons.join(" ")
                     : `Para aprobar: ${approvalReasons.join(" ")}`)}
                 </p>
-                {needsValidation && !confirmed && !saving && !success && !conflict && <button type="button" className="clinical-review__validation-jump" onClick={() => {
+                {!confirmed && !saving && !success && !conflict && <button type="button" className="clinical-review__validation-jump" onClick={() => {
                   setActiveTab("review-validation");
                   validationCheckboxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                   validationCheckboxRef.current?.focus({ preventScroll: true });
                 }}>Ir a validación</button>}
-                <span>{dirty && !success ? "● Cambios sin registrar" : ""}</span>
+                <span className={pending === "confirmation" ? "clinical-review__pending-confirmation" : undefined}>{pending && !success ? pendingReviewCopy(pending).indicator : ""}</span>
               </div>
               <div className="clinical-review__action-buttons">
                 <button type="button" className="clinical-review__cancel" disabled={saving || !!success} onClick={leave}>Cancelar</button>
@@ -476,13 +522,11 @@ function ReviewWorkspace({ result, viewer }: { result: ProcessingResponse; viewe
       {dialog === "reject" && <ReviewDialog title="Rechazar documento" onClose={() => setDialog(null)} actions={<>
         <button type="button" onClick={() => setDialog(null)}>Cancelar</button>
         <button type="button" className="clinical-review__dialog-danger" onClick={() => void submit("REJECT")}>Confirmar rechazo</button>
-      </>}>{confirmed && !hasExtraError
-        ? "Esta acción registrará el documento como rechazado y enviará las correcciones revisadas. ¿Desea continuar?"
-        : "Esta acción registrará el documento como rechazado. Las correcciones sin confirmar no se enviarán. ¿Desea continuar?"}</ReviewDialog>}
-      {blocker.state === "blocked" && <ReviewDialog title="Cambios sin guardar" onClose={() => blocker.reset()} actions={<>
+      </>}>{rejectionCopy({ confirmed, incompleteLabRows: incompleteLabRows.length, invalidLabCells })}</ReviewDialog>}
+      {blocker.state === "blocked" && <ReviewDialog title={pendingReviewCopy(pending ?? "data").dialogTitle} onClose={() => blocker.reset()} actions={<>
         <button type="button" onClick={() => blocker.reset()}>Continuar editando</button>
         <button type="button" className="clinical-review__dialog-primary" onClick={leave}>Salir sin registrar</button>
-      </>}>Se realizaron modificaciones que no han sido registradas. ¿Desea salir de todas formas?</ReviewDialog>}
+      </>}>{pendingReviewCopy(pending ?? "data").dialogMessage}</ReviewDialog>}
     </div>
   );
 }

@@ -84,6 +84,20 @@
 .clinical-review__add { border: 1px solid var(--cr-border); border-radius: 8px; padding: 6px 10px; background: #fff; color: var(--cr-action); font-size: 12px; }
 .clinical-review__array-group > label { margin-bottom: 12px; }
 .clinical-review__field-error { color: #a64040; font-size: 12px; }
+.clinical-review__empty { margin-bottom: 8px; color: #6b6b6b; font-size: 12px; line-height: 18px; }
+.clinical-review__structured { --res-u: 3.5px; --res-radius: 8px; --res-border-soft: #eeeeee; --res-surface-muted: #fafafa; --res-neutral-text: #666666; --res-muted: var(--cr-muted); --res-text: var(--cr-text); display: flex; flex-direction: column; font-size: 13px; line-height: calc(var(--res-u) * 5); }
+.clinical-review__structured-item { padding: 10px 0; }
+.clinical-review__structured-item:first-child { padding-top: 0; }
+.clinical-review__structured-item + .clinical-review__structured-item { border-top: 1px solid var(--res-border-soft); }
+.clinical-review__structured-label { margin-bottom: 4px; color: var(--cr-muted); font-size: 12px; line-height: 18px; font-weight: 500; }
+.clinical-review__structured-value { min-width: 0; color: var(--cr-text); overflow-wrap: anywhere; }
+.clinical-review__lab-editor { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.clinical-review__lab-editor .result-table { align-self: stretch; }
+.clinical-review__lab-editor .result-table__table :where(input) { height: 34px; min-height: 34px; padding: 4px 8px; font-size: 13px; }
+.clinical-review__lab-editor .result-table__table :is(th, td) { padding-inline: 6px; }
+.clinical-review__lab-editor .result-table__table td input { min-width: 72px; }
+.clinical-review__lab-editor .result-table__table td:first-child input { min-width: 130px; }
+.clinical-review__row-remove { border: 1px solid var(--cr-border); border-radius: 6px; padding: 4px 8px; background: transparent; color: var(--cr-action); font-size: 12px; white-space: nowrap; }
 .clinical-review__validation-group { padding: 14px 0; border-bottom: 1px solid #eee; }
 .clinical-review__validation-group:first-child { padding-top: 0; }
 .clinical-review__validation-group p { color: #6b6b6b; font-size: 12px; }
@@ -114,6 +128,7 @@
 .clinical-review__approval-help:empty { display: none; }
 .clinical-review__action-context > span { color: var(--cr-muted); font-size: 12px; }
 .clinical-review__action-context > span:empty { display: none; }
+.clinical-review__action-context > .clinical-review__pending-confirmation { color: var(--cr-action); font-weight: 500; }
 .clinical-review__action-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .clinical-review__actions button { position: relative; height: 32px; min-height: 32px; border-radius: 8px; padding: 4px 12px; font-size: 13px; font-weight: 500; line-height: 22px; white-space: nowrap; }
 .clinical-review__actions button::after { position: absolute; top: -6px; right: 0; bottom: -6px; left: 0; content: ""; }
@@ -262,6 +277,16 @@
 
 [data-mediflow-color-scheme="dark"] .clinical-review__field-error {
   color: var(--cr-error);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__empty {
+  color: var(--cr-muted);
+}
+
+[data-mediflow-color-scheme="dark"] .clinical-review__structured {
+  --res-border-soft: var(--cr-border);
+  --res-surface-muted: var(--mui-palette-mediflow-surfaceMuted);
+  --res-neutral-text: var(--cr-muted);
 }
 
 [data-mediflow-color-scheme="dark"] .clinical-review__validation-group li {

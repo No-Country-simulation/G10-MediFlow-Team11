@@ -5,6 +5,7 @@ import type {
 import type { ReviewDecision, ReviewRequest } from "../services/reviewService";
 import { auditReasonLabel } from "../config/auditLabels";
 import { missingFieldLabel } from "../config/missingFieldLabels";
+import { resolveFieldLabel } from "../config/extractedFieldLabels";
 
 export function changedFields(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
@@ -58,6 +59,167 @@ export function writeReviewField(original: ExtractedData | null, draft: Extracte
   return next;
 }
 
+const LAB_RESULTS_KEY = "lab_results";
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function newLabResultRow(existing?: unknown): Record<string, unknown> {
+  const keys = Array.isArray(existing) ? existing.flatMap((row) => (isPlainRecord(row) ? Object.keys(row) : [])) : [];
+  const keyFor = (canonical: string) =>
+    keys.find((key) => resolveFieldLabel(key).canonicalKey === canonical) ?? canonical;
+  return {
+    [keyFor("name")]: "",
+    [keyFor("value")]: "",
+    [keyFor("unit")]: null,
+    [keyFor("reference_range")]: null,
+  };
+}
+
+export function labResultPath(index: number, property: string, key = LAB_RESULTS_KEY): string[] {
+  return [key, String(index), property];
+}
+
+export function addLabResultRow(
+  draft: ExtractedData,
+  row?: Record<string, unknown>,
+  key = LAB_RESULTS_KEY,
+): ExtractedData {
+  const current = draft[key];
+  if (current !== undefined && current !== null && !Array.isArray(current)) return structuredClone(draft);
+  return { ...structuredClone(draft), [key]: [...structuredClone(current ?? []), { ...(row ?? newLabResultRow(current)) }] };
+}
+
+function restoreOriginalEmptyLabResults(
+  next: ExtractedData,
+  key: string,
+  original: ExtractedData | null | undefined,
+): ExtractedData {
+  const rows = next[key];
+  if (original === undefined || !Array.isArray(rows) || rows.length > 0) return next;
+  const originalValue = original?.[key];
+  if (originalValue === undefined) delete next[key];
+  else if (originalValue === null) next[key] = null;
+  return next;
+}
+
+export function removeLabResultRow(
+  draft: ExtractedData,
+  index: number,
+  key = LAB_RESULTS_KEY,
+  original?: ExtractedData | null,
+): ExtractedData {
+  const next = structuredClone(draft);
+  const current = next[key];
+  if (Array.isArray(current)) next[key] = current.filter((_, i) => i !== index);
+  return restoreOriginalEmptyLabResults(next, key, original);
+}
+
+export function findLabResultsKey(data: ExtractedData | null | undefined, includeEmpty = false): string | null {
+  if (!data) return null;
+  return Object.keys(data).find((key) => {
+    const value = data[key];
+    if (resolveFieldLabel(key).canonicalKey !== LAB_RESULTS_KEY) return false;
+    if (includeEmpty && value === null) return true;
+    return Array.isArray(value) && (includeEmpty || value.length > 0) && value.every(isPlainRecord);
+  }) ?? null;
+}
+
+function isBlankValue(value: unknown): boolean {
+  return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+}
+
+function labCell(row: Record<string, unknown>, canonical: string): unknown {
+  const key = Object.keys(row).find((candidate) => resolveFieldLabel(candidate).canonicalKey === canonical);
+  return key === undefined ? undefined : row[key];
+}
+
+export function isIncompleteLabRow(row: unknown): boolean {
+  return isPlainRecord(row) && (isBlankValue(labCell(row, "name")) || isBlankValue(labCell(row, "value")));
+}
+
+export function incompleteNewLabRows(rows: unknown, isNew: readonly boolean[]): number[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.flatMap((row, index) => (isNew[index] === true && isIncompleteLabRow(row) ? [index] : []));
+}
+
+export function dropIncompleteNewLabRows(
+  draft: ExtractedData,
+  key: string,
+  isNew: readonly boolean[],
+  original?: ExtractedData | null,
+): ExtractedData {
+  const next = structuredClone(draft);
+  const rows = next[key];
+  if (Array.isArray(rows)) {
+    const dropped = new Set(incompleteNewLabRows(rows, isNew));
+    next[key] = rows.filter((_, index) => !dropped.has(index));
+  }
+  return restoreOriginalEmptyLabResults(next, key, original);
+}
+
+export function rejectionCopy(input: { confirmed: boolean; incompleteLabRows: number; invalidLabCells: number }): string {
+  if (input.invalidLabCells > 0) {
+    return "Esta acción registrará el documento como rechazado. Hay valores inválidos en resultados de laboratorio, marcados en la tabla: no se enviará ninguna corrección, solo la decisión. ¿Desea continuar?";
+  }
+  return (input.confirmed
+    ? "Esta acción registrará el documento como rechazado y enviará las correcciones revisadas."
+    : "Esta acción registrará el documento como rechazado. Las correcciones sin confirmar no se enviarán.")
+    + (input.confirmed && input.incompleteLabRows > 0 ? " Las filas nuevas incompletas de resultados de laboratorio no se enviarán." : "")
+    + " ¿Desea continuar?";
+}
+
+export function labCellAdmitsNull(columnKey: string): boolean {
+  const canonical = resolveFieldLabel(columnKey).canonicalKey;
+  return canonical !== "name" && canonical !== "value";
+}
+
+export type LabCellInput = { ok: true; value: unknown } | { ok: false; error: string };
+
+const NUMBER_INPUT = /^-?(\d+\.?\d*|\.\d+)$/;
+
+export function coerceLabCellInput(raw: string, original: unknown, columnKey: string): LabCellInput {
+  if (typeof original === "number") {
+    const text = raw.trim();
+    if (text === "") {
+      return labCellAdmitsNull(columnKey)
+        ? { ok: true, value: null }
+        : { ok: false, error: "Este valor numérico no puede quedar vacío." };
+    }
+    return NUMBER_INPUT.test(text) && Number.isFinite(Number(text))
+      ? { ok: true, value: Number(text) }
+      : { ok: false, error: "Ingrese un número válido." };
+  }
+  if (typeof original === "boolean") {
+    if (raw === "true") return { ok: true, value: true };
+    if (raw === "false") return { ok: true, value: false };
+    return labCellAdmitsNull(columnKey)
+      ? { ok: true, value: null }
+      : { ok: false, error: "Seleccione Sí o No." };
+  }
+  return { ok: true, value: restoredTextValue(raw, original as string | null | undefined) };
+}
+
+export function valueAtPath(data: unknown, path: readonly (string | number)[]): unknown {
+  let current: unknown = data;
+  for (const key of path) {
+    if (typeof current !== "object" || current === null) return undefined;
+    current = (current as Record<string, unknown>)[key as string];
+  }
+  return current;
+}
+
+export function coerceFieldInput(raw: string, original: unknown): unknown {
+  if (typeof original === "number") {
+    if (raw.trim() === "") return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : raw;
+  }
+  if (typeof original === "boolean") return raw === "true" ? true : raw === "false" ? false : null;
+  return restoredTextValue(raw, original as string | null | undefined);
+}
+
 export function normalizeReviewExtraction(
   original: ExtractedData | null, draft: ExtractedData,
   medicationOriginals = original?.medications ?? [], studyOriginals = original?.requested_studies ?? [],
@@ -79,31 +241,14 @@ export function normalizeReviewExtraction(
   return normalized;
 }
 
-function removedNestedKey(before: unknown, after: unknown, path: string): string | null {
-  if (after === null) return null;
-  if (!before || typeof before !== "object" || Array.isArray(before)) return null;
-  if (!after || typeof after !== "object" || Array.isArray(after)) return path;
-  const oldObject = before as Record<string, unknown>;
-  const newObject = after as Record<string, unknown>;
-  for (const key of Object.keys(oldObject)) {
-    const childPath = path ? `${path}.${key}` : key;
-    if (!Object.hasOwn(newObject, key)) return childPath;
-    const nested = removedNestedKey(oldObject[key], newObject[key], childPath);
-    if (nested) return nested;
-  }
-  return null;
-}
+const VALIDATION_KEYS = ["missing_fields", "inconsistencies", "warnings"] as const;
 
-export function parseAdditionalJson(original: unknown, text: string, key: string): { value?: unknown; error?: string } {
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    return { error: "Ingrese un valor JSON válido." };
-  }
-  const removed = removedNestedKey(original, value, key);
-  if (removed) return { error: `No se puede eliminar la clave ${removed}: el Backend conserva las claves omitidas. Use null solo si el campo admite un valor nulo.` };
-  return { value };
+export function hasValidationChanged(current: Validation, original: Validation | null | undefined): boolean {
+  return VALIDATION_KEYS.some((key) => {
+    const before = original?.[key] ?? [];
+    const after = current[key] ?? [];
+    return before.length !== after.length || before.some((item, index) => item !== after[index]);
+  });
 }
 
 export function warningMissingFieldLabels(missingFields: Validation["missing_fields"] | null | undefined): string[] {
@@ -141,8 +286,8 @@ export function approvalBlockers(input: {
   documentType: DocumentType | "";
   priority: PriorityLevel | "";
   destination: RoutingDestination;
-  hasExtraError: boolean;
-  needsValidation: boolean;
+  hasIncompleteLabRows?: boolean;
+  hasInvalidLabCells?: boolean;
   confirmed: boolean;
   saving: boolean;
   success: boolean;
@@ -156,8 +301,11 @@ export function approvalBlockers(input: {
   if (!input.documentType) reasons.push("Seleccione el tipo de documento.");
   if (!input.priority) reasons.push("Seleccione la prioridad.");
   if (input.destination === "HUMAN_REVIEW") reasons.push("Seleccione un destino final.");
-  if (input.hasExtraError) reasons.push("Corrija los errores de formato en Otros datos.");
-  if (input.needsValidation && !input.confirmed) reasons.push("Confirme la validación revisada.");
+  if (input.hasIncompleteLabRows) {
+    reasons.push("Complete Prueba y Resultado, o elimine las filas nuevas incompletas de resultados de laboratorio.");
+  }
+  if (input.hasInvalidLabCells) reasons.push("Corrija los valores inválidos de resultados de laboratorio.");
+  if (!input.confirmed) reasons.push("Confirme la validación revisada.");
   return reasons;
 }
 
@@ -178,12 +326,35 @@ export function hasUnsavedReviewChanges(input: {
   validationChanged: boolean;
   confirmed: boolean;
   drafts: Record<keyof Validation, string>;
-  extraJson: Record<string, string>;
-  initialExtraJson: Record<string, string>;
+  hasInvalidLabDrafts?: boolean;
 }): boolean {
-  return input.contentChanged || input.validationChanged || input.confirmed
-    || Object.values(input.drafts).some((value) => value.length > 0)
-    || Object.keys(input.extraJson).some((key) => input.extraJson[key] !== input.initialExtraJson[key]);
+  return input.contentChanged || input.validationChanged || input.confirmed || !!input.hasInvalidLabDrafts
+    || Object.values(input.drafts).some((value) => value.length > 0);
+}
+
+export type PendingReviewState = "data" | "confirmation" | null;
+
+export function pendingReviewState(input: Parameters<typeof hasUnsavedReviewChanges>[0]): PendingReviewState {
+  if (hasUnsavedReviewChanges({ ...input, confirmed: false })) return "data";
+  return input.confirmed ? "confirmation" : null;
+}
+
+export function pendingReviewCopy(state: Exclude<PendingReviewState, null>): {
+  indicator: string;
+  dialogTitle: string;
+  dialogMessage: string;
+} {
+  return state === "data"
+    ? {
+      indicator: "● Cambios sin registrar",
+      dialogTitle: "Cambios sin guardar",
+      dialogMessage: "Se realizaron modificaciones que no han sido registradas. ¿Desea salir de todas formas?",
+    }
+    : {
+      indicator: "✓ Validación confirmada · decisión sin registrar",
+      dialogTitle: "Decisión sin registrar",
+      dialogMessage: "Confirmó la validación, pero aún no registró una decisión. No se modificaron datos. ¿Desea salir de todas formas?",
+    };
 }
 
 export function shouldBlockReviewNavigation(input: {
@@ -212,11 +383,10 @@ export function createReviewPatch(input: {
   studyOriginals?: RequestedStudy[];
   validation: Validation;
   confirmed: boolean;
-  hasExtraError: boolean;
 }): ReviewRequest {
   const { decision, result, documentType, priority, specialty, destination, validation } = input;
   const request: ReviewRequest = { decision };
-  if (decision === "REJECT" && (!input.confirmed || input.hasExtraError)) return request;
+  if (decision === "REJECT" && !input.confirmed) return request;
   const classification: Partial<DocumentClassification> = {};
   if (documentType && documentType !== result.classification?.document_type) classification.document_type = documentType;
   if (priority && priority !== result.classification?.priority_level) classification.priority_level = priority;
@@ -227,7 +397,7 @@ export function createReviewPatch(input: {
   const extractionPatch = changedFields(result.extracted_data ?? {}, extracted);
   const extractedChanged = Object.keys(extractionPatch).length > 0;
   const destinationChanged = destination !== result.routing_decision.primary_destination;
-  const validationChanged = JSON.stringify(validation) !== JSON.stringify(result.validation ?? { missing_fields: [], inconsistencies: [], warnings: [] });
+  const validationChanged = hasValidationChanged(validation, result.validation);
   if (classificationChanged) request.classification = classification;
   if (extractedChanged || (decision === "APPROVE" && result.extracted_data === null)) {
     request.extracted_data = extractionPatch as ExtractedData;
