@@ -230,7 +230,7 @@ class GeminiProcessor:
         folded_document = fold_text(document_text)
         explicit_diagnosis_patterns = (
             re.compile(
-                r"\b(?:diagnostico(?:\s+(?:principal|presuntivo|confirmado|clinico))?"
+                r"\b(?:diagnostico(?:\s+(?:principal|presuntivo|confirmado|clinico|medico))?"
                 r"|impresion\s+(?:diagnostica|clinica)|dx)\s*[:=\-]\s*"
                 r"(?P<value>[^\r\n;]+)",
                 re.IGNORECASE,
@@ -245,8 +245,32 @@ class GeminiProcessor:
         for pattern in explicit_diagnosis_patterns:
             for match in pattern.finditer(folded_document):
                 explicit_phrase = normalize_phrase(match.group("value"))
-                if f" {diagnosis_phrase} " in f" {explicit_phrase} ":
-                    return True
+                if f" {diagnosis_phrase} " not in f" {explicit_phrase} ":
+                    continue
+
+                # The mention must not be an explicit negation of the diagnosis.
+                prefix, _, suffix = explicit_phrase.partition(diagnosis_phrase)
+                negations = list(re.finditer(
+                    r"\b(?:se\s+descarta(?:n)?|descartad[oa]s?|"
+                    r"sin\s+evidencia\s+de|no\s+(?:se\s+)?"
+                    r"(?:confirma|diagnostica|presenta)|"
+                    r"negativ[oa]\s+para)\b",
+                    prefix,
+                ))
+                confirmations = [
+                    match for match in re.finditer(
+                        r"\b(?:se\s+confirma|se\s+diagnostica|confirmad[oa]s?)\b",
+                        prefix,
+                    )
+                    if not any(neg.start() <= match.start() < neg.end() for neg in negations)
+                ]
+                if negations and (
+                    not confirmations or negations[-1].start() > confirmations[-1].start()
+                ):
+                    continue
+                if re.match(r"\s*(?:descartad[oa]s?|no\s+confirmad[oa]s?)\b", suffix):
+                    continue
+                return True
         return False
 
     @staticmethod

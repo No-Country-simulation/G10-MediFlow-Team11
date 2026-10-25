@@ -201,7 +201,15 @@ def test_case_002_keeps_urgent_routing_without_diagnosis_or_icd10() -> None:
         primary_diagnosis="Dolor torácico opresivo",
         suggested_icd10="R07.9",
         medications=[],
-        requested_studies=[{"name": "Troponina I ultrasensible"}],
+        requested_studies=[],
+        lab_results=[
+            {
+                "name": "Troponina I ultrasensible",
+                "value": "186",
+                "unit": "ng/L",
+                "reference_range": "menor a 14 ng/L",
+            }
+        ],
     )
     payload["routing_decision"].update(
         primary_destination=expected["routing_decision"]["primary_destination"],
@@ -220,6 +228,15 @@ def test_case_002_keeps_urgent_routing_without_diagnosis_or_icd10() -> None:
         expected["routing_decision"]["primary_destination"]
     )
     assert result.extracted_data.medications == []
+    assert result.extracted_data.requested_studies == []
+    assert result.extracted_data.model_dump(mode="json")["lab_results"] == [
+        {
+            "name": "Troponina I ultrasensible",
+            "value": "186",
+            "unit": "ng/L",
+            "reference_range": "menor a 14 ng/L",
+        }
+    ]
     assert "primary_diagnosis no expresado" in expected["must_not_invent"]
     assert "suggested_icd10" in expected["must_not_invent"]
     assert "medications" in expected["must_not_invent"]
@@ -256,6 +273,72 @@ def test_preserves_explicitly_documented_diagnosis_and_icd10() -> None:
 
     assert result.extracted_data.primary_diagnosis == "Dolor lumbar persistente"
     assert result.extracted_data.suggested_icd10 == "M54.5"
+
+
+@pytest.mark.parametrize(
+    "document_text",
+    [
+        "Diagnóstico: se descarta neumonía",
+        "Diagnóstico: sin evidencia de neumonía",
+        "Diagnóstico: neumonía descartada",
+    ],
+)
+def test_rejects_negated_diagnosis_and_icd10(document_text: str) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"].update(
+        primary_diagnosis="Neumonía",
+        suggested_icd10="J18.9",
+    )
+    request = text_request().model_copy(update={"document_text": document_text})
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis is None
+    assert result.extracted_data.suggested_icd10 is None
+
+
+@pytest.mark.parametrize(
+    "document_text",
+    [
+        "Diagnóstico médico: Neumonía",
+        "Diagnóstico: Neumonía",
+    ],
+)
+def test_preserves_positive_diagnosis_and_icd10(document_text: str) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"].update(
+        primary_diagnosis="Neumonía",
+        suggested_icd10="J18.9",
+    )
+    request = text_request().model_copy(update={"document_text": document_text})
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis == "Neumonía"
+    assert result.extracted_data.suggested_icd10 == "J18.9"
+
+
+@pytest.mark.parametrize(
+    ("document_text", "diagnosis", "icd10", "keep"),
+    [
+        ("Diagnóstico: se descarta neumonía y se confirma bronquitis", "Bronquitis", "J40", True),
+        ("Diagnóstico: se confirma bronquitis y se descarta neumonía", "Neumonía", "J18.9", False),
+    ],
+)
+def test_distinguishes_negation_and_confirmation_in_same_line(
+    document_text: str, diagnosis: str, icd10: str, keep: bool
+) -> None:
+    payload = valid_response_payload()
+    payload["extracted_data"].update(primary_diagnosis=diagnosis, suggested_icd10=icd10)
+    request = text_request().model_copy(update={"document_text": document_text})
+    processor, _ = processor_for(FakeResponse(parsed=payload))
+
+    result = processor.process(request)
+
+    assert result.extracted_data.primary_diagnosis == (diagnosis if keep else None)
+    assert result.extracted_data.suggested_icd10 == (icd10 if keep else None)
 
 
 def test_clears_icd10_when_primary_diagnosis_is_missing() -> None:
