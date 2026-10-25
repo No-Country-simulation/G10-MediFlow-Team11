@@ -1,6 +1,7 @@
 import type { DocumentStatus, Validation } from "../../types/processing";
 import type { DataRow } from "./extractedDataRows";
 import { missingFieldLabel } from "../../config/missingFieldLabels";
+import type { FieldNode } from "../../utils/extractedFieldStructure";
 
 export type StatusTone = "success" | "attention" | "danger" | "neutral";
 
@@ -46,6 +47,18 @@ export function formatMissingField(field: string): string {
 export function getDataRowLayout(row: DataRow): DataRowLayout {
   if (Array.isArray(row.value)) return "block";
   return row.value.length >= BLOCK_VALUE_MIN_LENGTH ? "block" : "inline";
+}
+
+export function getFieldRowLayout(node: FieldNode): DataRowLayout {
+  switch (node.kind) {
+    case "null":
+    case "empty":
+      return "inline";
+    case "scalar":
+      return node.blank ? "inline" : getDataRowLayout({ label: "", value: node.text });
+    default:
+      return "block";
+  }
 }
 
 export function hasValidationFindings(validation: Validation): boolean {
