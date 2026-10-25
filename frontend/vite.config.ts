@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'node',
       include: ['src/**/*.{test,spec}.{ts,tsx}'],
-      isolate: false,
+      isolate: true,
       server: {
         deps: {
           inline: ['vitest'],
