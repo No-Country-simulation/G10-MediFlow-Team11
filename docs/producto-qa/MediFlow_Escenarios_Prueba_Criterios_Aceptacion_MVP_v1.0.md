@@ -3,7 +3,10 @@
 **Proyecto:** MediFlow — Hackathon ONE G10  
 **Issue:** #4 — Definir escenarios de prueba y criterios de aceptación del MVP  
 **Squad:** Producto / QA  
-**Estado:** Entregable preparado para revisión del equipo  
+**Estado documental:** Validación estática completada
+
+**Estado del MVP:** integrado, probado y publicado según la aceptación del proyecto. Este documento define criterios; los resultados y sus límites se conservan en registros de evidencia separados.
+
 **Referencia técnica vigente:** `docs/ARCHITECTURE.md` — Arquitectura Base y Contratos de Integración v1.0
 
 ---
@@ -12,7 +15,7 @@
 
 Definir los escenarios principales con los que Producto/QA validará el comportamiento observable del MVP de MediFlow y establecer criterios claros para determinar si cada flujo cumple o no cumple lo esperado.
 
-Este documento define **qué se debe comprobar**. Los documentos y datos sintéticos concretos para ejecutar los escenarios se preparan posteriormente en el Issue #8.
+Este documento define **qué se debe comprobar**. El repositorio contiene documentos y datos sintéticos para ejecutar los escenarios asociados al Issue #8. Los resultados observados se conservan en sus registros de evidencia —incluida la [reejecución #104](../../test-data/CASE-104-REEXECUTION.md)— y no cambian el carácter normativo de estos criterios.
 
 ## 2. Regla general de validación
 
@@ -26,6 +29,12 @@ Cada ejecución QA debe disponer de:
 
 ### PASS
 El comportamiento obtenido coincide con el resultado esperado y existe evidencia suficiente.
+
+### Validación estática
+La documentación, estructura o consistencia contractual fue inspeccionada sin ejecutar el flujo funcional. No equivale a PASS.
+
+### NOT_VERIFIED
+La ejecución o integración no fue comprobada con evidencia disponible. No equivale a PASS ni a FAIL.
 
 ### FAIL
 El comportamiento obtenido no coincide con el resultado esperado, falta una condición obligatoria o el sistema produce un resultado inseguro/incompatible con el contrato.
@@ -206,13 +215,13 @@ Para cada ejecución se debe conservar, como mínimo:
 
 ## 10. Relación con Issue #8
 
-El Issue #4 define **cómo se validará** MediFlow.
+El documento asociado al Issue #4 define **cómo se validará** MediFlow. Su cierre o integración remota es `NOT_VERIFIED` aquí.
 
-El Issue #8 debe crear posteriormente los **documentos y datos sintéticos concretos** necesarios para ejecutar estas pruebas, manteniendo como mínimo los tres escenarios principales y ampliando la cobertura según las necesidades de Producto/QA y de los squads técnicos.
+El repositorio contiene los **documentos y datos sintéticos concretos** asociados al Issue #8 para ejecutar estas pruebas, cubriendo los tres escenarios principales y ampliando la cobertura para Producto/QA y los squads técnicos. El estado remoto del issue y su integración es `NOT_VERIFIED` aquí.
 
-## 11. Criterio de cierre del Issue #4
+## 11. Criterios de cierre del Issue #4
 
-El Issue #4 puede pasar a revisión/cierre cuando:
+Los criterios documentales establecidos para proponer el cierre del Issue #4 son:
 
 - los tres escenarios principales están documentados;
 - cada uno tiene entrada, resultado esperado, PASS y FAIL;
@@ -221,7 +230,7 @@ El Issue #4 puede pasar a revisión/cierre cuando:
 - la evidencia mínima está definida;
 - existe trazabilidad con la arquitectura vigente;
 - la cobertura de rutina, urgencia y ambigüedad/revisión humana está confirmada;
-- el entregable fue revisado por el equipo y las observaciones fueron resueltas.
+- revisión del entregable por el equipo y resolución de observaciones, condición que requiere respaldo documental antes de declararse cumplida.
 
 ---
 

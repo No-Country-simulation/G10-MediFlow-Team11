@@ -14,7 +14,7 @@ Frontend de **MediFlow**, desarrollado con React y TypeScript. Esta aplicación 
 
 Antes de ejecutar el proyecto es necesario contar con:
 
-* Node.js
+* Node.js compatible con Vite 8.3.0 (`^20.19.0 || >=22.12.0`)
 * npm
 
 ## Instalación
@@ -86,6 +86,8 @@ npm run lint
 `npm run build` valida la compilación de TypeScript y genera el build de producción.
 
 `npm run lint` ejecuta ESLint sobre el proyecto.
+
+Para obtener una vista previa local del build de producción, ejecuta primero `npm run build` y después `npm run preview`.
 
 ## Estructura principal
 
@@ -201,7 +203,27 @@ src/types/processing.ts
 
 Estos tipos representan las solicitudes, respuestas, estados, clasificación, validación, enrutamiento, almacenamiento y errores utilizados en la integración con Backend.
 
-Los identificadores técnicos deben mantenerse alineados con los contratos definidos en `ARCHITECTURE.md`.
+Los identificadores técnicos deben mantenerse alineados con los contratos definidos en [Arquitectura de MediFlow](../docs/ARCHITECTURE.md).
+
+## Resultados, revisión clínica e historial
+
+La vista de resultado presenta `extracted_data` de forma estructurada. Además de
+los campos comunes, conserva y muestra campos adicionales por tipo de documento.
+Para `STUDY_REPORT`, `lab_results` se representa como una lista legible de
+resultados de laboratorio, omitiendo valores nulos sin inventar información.
+
+La revisión clínica permite editar clasificación, datos extraídos, validación y
+destino antes de aprobar o rechazar. Los campos comunes tienen controles
+específicos; `lab_results` dispone de un editor visual por filas para `name`,
+`value`, `unit` y `reference_range`. Los demás campos adicionales se editan como
+JSON estructurado y se validan antes de enviar el `PATCH` al Backend. La interfaz
+mantiene visible el documento original y evita perder cambios sin guardar.
+
+La vista de Historial consulta
+`GET /api/v1/documents/{id}/history` y presenta los snapshots confirmados del
+triaje inicial y de las revisiones humanas. La visualización y edición descritas
+están presentes en el código integrado; esta comprobación estática no sustituye
+una validación funcional end-to-end.
 
 ## Modo Mock
 
@@ -238,7 +260,6 @@ El modo mock está destinado al desarrollo y pruebas del Frontend cuando los dem
 * El código y los identificadores técnicos se escriben en **inglés**.
 * Los textos visibles para el usuario se escriben en **español**.
 * El Frontend no debe comunicarse directamente con AI Core; toda comunicación externa debe realizarse mediante Backend.
-* La comunicación externa del Frontend se realiza mediante Backend.
 * Los contratos de integración deben respetar `ARCHITECTURE.md`.
 * La configuración dependiente del entorno no debe hardcodearse en componentes o servicios.
 * Los archivos `.env` locales no deben versionarse.
@@ -257,12 +278,14 @@ El layout mantiene una estructura común para las vistas principales:
 -   header sobre el área principal;
 -   contenido dinámico mediante rutas anidadas de React Router.
 
-La navegación global incluye únicamente:
+La navegación principal incluye:
 
+-   `Inicio` (`/`);
 -   `Procesamiento` (`/processing`);
--   `Auditoría` (`/audit`).
+-   `Auditoría` (`/audit`);
+-   `Historial` (`/history`).
 
-Las vistas de resultado e historial se consideran navegación contextual asociada a un documento y no forman parte de la navegación global.
+Las vistas de Resultado y Revisión Clínica utilizan rutas contextuales. Configuración está disponible en `/settings`.
 
 Las nuevas vistas que utilicen el App Shell deben integrarse como rutas hijas de `AppLayout` para reutilizar sidebar y header.
 
@@ -284,7 +307,10 @@ Para errores provenientes de servicios, `showError(error)` convierte el error en
 
 La normalización de errores HTTP permanece en la capa de servicios. La interfaz no debe mostrar directamente códigos de error, stack traces, URLs internas u otros detalles técnicos sensibles.
 
-`Centro de ayuda` y `Configuración` se mantienen visibles en la parte inferior del sidebar como elementos reservados de la interfaz. Actualmente se encuentran deshabilitados y no representan funcionalidades activas del MVP.
+El Centro de ayuda está disponible en `/help` y desde la navegación. Incluye
+guías diferenciadas para procesar archivos y texto, explicación de resultados,
+auditoría y estados, además de problemas frecuentes y preguntas frecuentes.
+Configuración permite seleccionar la apariencia: claro, oscuro o sistema.
 
 ## Formulario de procesamiento de documentos
 
@@ -316,7 +342,7 @@ El tamaño máximo permitido por archivo es de **10 MB**. La validación de form
 Además del contenido, el formulario permite indicar:
 
 -   **Canal de origen:** obligatorio. Incluye los canales más comunes y una opción `Otro` que habilita un campo de texto libre.
--   **ID del documento:** opcional.
+-   **ID del documento:** no se solicita manualmente; el Backend determina el identificador y lo devuelve en la respuesta.
 
 `origin_channel` se mantiene como `string` en el contrato enviado al Backend.
 
