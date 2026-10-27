@@ -73,7 +73,7 @@ Frontend
   10. Consume la respuesta canónica (200 OK) o el panel de auditoría (HITL)
 ```
 
-La definición completa de contratos, DTOs, códigos de error y reglas de enrutamiento vive en el documento interno **MediFlow — Arquitectura Base y Contratos de Integración (v1.0)**.
+La definición canónica de arquitectura, contratos de integración, DTOs, códigos de error y reglas de enrutamiento se encuentra en [Arquitectura de MediFlow](../docs/ARCHITECTURE.md).
 
 ---
 
@@ -158,7 +158,7 @@ Puntos clave:
 
 - `./mvnw clean compile` → `BUILD SUCCESS`.
 - El arranque completo y `GET /actuator/health` requieren PostgreSQL en ejecución (ver [PostgreSQL — Configuración del servicio](#postgresql--configuración-del-servicio)).
-- Test de contexto (`BackendApplicationTests`) incluido; requiere PostgreSQL en ejecución.
+- Las pruebas vigentes se encuentran en `src/test/`. La ejecución de pruebas que requieren PostgreSQL o Docker debe verificarse con el entorno correspondiente.
 
 ### Contenerización del Backend (Issue #53)
 
@@ -298,6 +298,20 @@ Modelo mínimo §10, con Hibernate `ddl-auto: update` en desarrollo. Las entidad
 | `documents` | `DocumentRecord` | PK pública `id` (`document_id`). Columnas consultables + JSONB `extracted_data`, `validation`, `notification`. `audit_reasons` como `text[]`. `priority` mapea `PriorityLevel`. No hay columna `needs_audit` (se deriva de `status`). |
 | `document_triage_history` | `DocumentTriageHistory` | PK (`document_id`, `sequence`). `@Immutable` (append-only). `result` JSONB (snapshot canónico, sin rutas OCI). `event_type` + `decision` nullable solo en `INITIAL_TRIAGE`. |
 
+Para documentos `STUDY_REPORT`, `extracted_data.lab_results` se conserva como
+parte del JSONB completo de `extracted_data`. El Backend admite campos
+adicionales por tipo de documento, por lo que no transforma ni descarta esta
+estructura al persistirla. `DocumentResponseMapper` la recupera para la
+respuesta canónica; los snapshots de `document_triage_history` preservan el
+resultado correspondiente a cada triaje o revisión. La revisión humana puede
+actualizar `extracted_data`, incluido `lab_results`, mediante el endpoint de
+revisión ya definido, sin crear un endpoint específico de laboratorio.
+
+El código integrado incluye comprobaciones de serialización HTTP y persistencia
+PostgreSQL para esta estructura. Su presencia respalda el contrato y el
+round-trip esperado, pero no implica que esas pruebas se hayan ejecutado durante
+esta actualización documental.
+
 `DocumentPersistenceService` guarda/recupera documentos y **solo inserta** historial: `sequence` = `max + 1` bajo `SELECT … FOR UPDATE` de la fila del documento; `occurred_at` se alinea con `documents.updated_at`.
 
 Repositorios Spring Data: `DocumentRepository`, `DocumentTriageHistoryRepository` (consulta por `document_id` ordenada por `sequence`).
@@ -393,14 +407,32 @@ Definidas en la plantilla [`/.env.example`](../.env.example), en la raíz del re
 
 ## Flujo de contribución
 
-Los cambios del Backend se integran por pull request contra la rama acordada del squad. Vincular el issue con Development, no incluir secretos y respetar los contratos de `docs/ARCHITECTURE.md`.
+Los cambios del Backend se integran mediante Pull Request hacia la rama `develop`. Vincular el issue con Development, no incluir secretos y respetar los contratos de `docs/ARCHITECTURE.md`.
 
 Plantilla: [`.github/PULL_REQUEST_TEMPLATE.MD`](../.github/PULL_REQUEST_TEMPLATE.MD).
 
 ---
 
-## Próximos pasos
+## Funcionalidades implementadas
 
-- Endpoints de procesamiento, orquestación con IA Core y reconstrucción de la respuesta canónica a partir de `DocumentRecord`.
-- Integración OCI Object Storage y compensación PostgreSQL ↔ OCI (secciones 11–12).
-- Revisión humana `PATCH /api/v1/documents/{id}/review` usando el historial append-only.
+El Backend incorpora las siguientes funcionalidades del MVP:
+
+- **Procesamiento de documentos:** `POST /api/v1/documents/process-file` y `POST /api/v1/documents/process-text`, mediante `DocumentProcessingController` y `DocumentProcessingService`.
+- **Integración con IA Core:** envío de solicitudes al servicio de IA, interpretación de respuestas y tratamiento de fallos de comunicación.
+- **Persistencia:** almacenamiento de documentos y resultados en PostgreSQL, con integración a OCI Object Storage en el entorno correspondiente.
+- **Revisión humana:** `PATCH /api/v1/documents/{id}/review`, implementado mediante `DocumentReviewController` y `HumanReviewService`.
+- **Consultas e historial:** controladores y servicios para consultar documentos, resultados y trazabilidad.
+
+Estas funcionalidades están presentes en el código integrado. Su existencia no constituye por sí sola evidencia de una validación end-to-end completa.
+
+## Entorno local de demostración
+
+El repositorio incluye un entorno aislado que utiliza PostgreSQL y almacenamiento local en lugar de OCI Object Storage. Permite realizar verificaciones de procesamiento, persistencia y revisión humana sin configurar credenciales de OCI.
+
+Consulta [la guía de demostración local](../docs/local-demo.md) para conocer los requisitos, comandos de arranque y smoke test.
+
+Este entorno no sustituye la validación de Gemini ni las verificaciones del despliegue OCI.
+
+## Validación y evidencias
+
+El Backend forma parte del MVP integrado y publicado en [mediflowia.dev](https://mediflowia.dev/). Las pruebas y verificaciones realizadas por los equipos se conservan en los registros de evidencia correspondientes; esta documentación distingue esos resultados de los procedimientos locales y de cualquier comprobación específica que continúe pendiente.

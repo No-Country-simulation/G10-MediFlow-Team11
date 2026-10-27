@@ -2,7 +2,11 @@
 
 ## Estado
 
-**Auditoría estática: PASS con validación de ejecución pendiente.**
+**Validación estática: completada. MVP integrado, probado y publicado según la aceptación del proyecto.**
+
+- **PASS:** comprobación ejecutada cuyo resultado coincide con lo esperado y cuenta con evidencia suficiente.
+- **Validación estática:** inspección documental o estructural; no acredita la ejecución del pipeline.
+- **NOT_VERIFIED:** ejecución o integración no comprobada con evidencia disponible.
 
 Este entregable corresponde al Issue #8 y contiene 12 casos funcionales sintéticos, 3 escenarios técnicos coordinados y los resultados esperados para Backend, IA Core, Frontend y Producto/QA.
 
@@ -22,7 +26,7 @@ Este entregable corresponde al Issue #8 y contiene 12 casos funcionales sintéti
 
 ## Principio de validación
 
-Los fixtures definen entradas y expectativas, pero los comportamientos dependientes del modelo no se declaran PASS hasta ejecutarse con una versión/configuración identificada del pipeline.
+Los fixtures definen entradas y expectativas, pero cada PASS conserva el alcance de la versión y configuración efectivamente ejecutadas. La [reejecución de validación #104](../test-data/CASE-104-REEXECUTION.md) mantiene sus resultados unitarios y los resultados PASS, FAIL y BLOCKED observados en aquel despliegue. La confirmación operativa del MVP no reescribe ese registro histórico ni convierte automáticamente cada caso específico en PASS.
 
 ## Correcciones v1.1
 
