@@ -5,7 +5,7 @@ Servicio de IA del proyecto MediFlow. Expone el procesamiento de documentos clí
 ## Contratos Pydantic
 
 Los modelos de `app.schemas` representan el contrato Backend -> IA de
-`POST /api/v1/ai/process`, definido en `docs/ARCHITECTURE.md`:
+`POST /api/v1/ai/process`, definido en [Arquitectura de MediFlow](../docs/ARCHITECTURE.md):
 
 - `ProcessingRequest` exige `document_id`, `input_type`, `mime_type` y
  `origin_channel`; para `FILE` exige `content_base64` y para `TEXT` exige
@@ -26,7 +26,8 @@ Los modelos de `app.schemas` representan el contrato Backend -> IA de
  `routing_decision.audit_reasons`, son arrays obligatorios. Los motivos de
  auditoria se limitan a los enums semanticos del contrato.
 - `extracted_data` permite campos adicionales por tipo de documento, como
- `study_result`.
+  `lab_results` para `STUDY_REPORT`. Este campo conserva una lista de resultados
+  estructurados presentes en el documento; IA Core no inventa valores ausentes.
 
 ## Procesamiento con Gemini
 
@@ -43,9 +44,51 @@ Los estudios solicitados se devuelven como
 `extracted_data.requested_studies`, un array de objetos `{ "name": "..." }`;
 solo se incluyen solicitudes explícitas y se devuelve `[]` cuando no se
 identifican. Para cumplir con las restricciones de Gemini Developer API, el
-esquema enviado al modelo omite `additionalProperties`; la respuesta resultante
-se valida después con los modelos Pydantic completos, que preservan los campos
-adicionales permitidos en `extracted_data`.
+esquema enviado al modelo omite `additionalProperties`. `lab_results` no depende
+de esa apertura: está declarado explícitamente en `ExtractedData`, por lo que la
+propiedad y su estructura permanecen en el esquema enviado a Gemini. La respuesta
+resultante se valida después con los modelos Pydantic completos, que preservan
+los campos adicionales permitidos en `extracted_data`.
+
+El procesamiento del MVP es **síncrono**: IA Core recibe una solicitud del
+Backend, consulta Gemini, valida la salida y responde en la misma llamada HTTP.
+No utiliza colas, workers ni polling. Gemini realiza el análisis multimodal; los
+modelos Pydantic y el pipeline local aplican el contrato, normalizan
+`requested_studies` y agregan `LOW_CONFIDENCE` según el umbral configurado.
+
+### Resultados de laboratorio
+
+Cuando el documento se clasifica como `STUDY_REPORT`, los resultados de
+laboratorio pueden devolverse en `extracted_data.lab_results`. El campo se trata
+como una lista explícita de objetos con `name`, `value`, `unit` y
+`reference_range`; `unit` y `reference_range` son `null` cuando no aparecen. Se
+conserva dentro de `extracted_data` sin introducir otro endpoint ni otro tipo de
+respuesta. Solo deben incluirse resultados respaldados por el documento, sin
+inferir valores ni duplicarlos en `requested_studies`.
+
+## Alcance y limitaciones del MVP
+
+IA Core clasifica documentos, extrae datos, calcula confianza, informa
+validaciones semánticas y sugiere un destino. Sus `audit_reasons` se limitan a
+`LOW_CONFIDENCE`, `ILLEGIBLE_DOCUMENT`, `MISSING_CRITICAL_FIELDS` e
+`INCONSISTENT_DATA`.
+
+El Backend conserva la responsabilidad final sobre `document_id`, `status`,
+`requires_human_review`, motivos técnicos, notificaciones, persistencia y
+respuesta al Frontend. IA Core no escribe directamente en OCI Object Storage ni
+PostgreSQL: recibe el contenido normalizado del Backend y devuelve únicamente el
+resultado de IA.
+
+Los errores HTTP de IA Core mantienen el sobre `{ "error": { "code",
+"message" } }`: `400 INVALID_REQUEST`, `502 AI_OUTPUT_INVALID` y
+`503 AI_UNAVAILABLE`. El Backend traduce los fallos técnicos a los motivos
+contractuales `INVALID_AI_RESPONSE`, `AI_TIMEOUT` o `AI_UNAVAILABLE` cuando
+corresponde.
+
+El MVP no incluye procesamiento asíncrono, integraciones hospitalarias reales,
+persistencia propia, autenticación clínica de producción ni resiliencia
+distribuida avanzada. Utiliza datos sintéticos y enrutamiento lógico/simulado,
+según [Arquitectura de MediFlow](../docs/ARCHITECTURE.md).
 
 ## Dependencias y reproducibilidad
 
@@ -85,6 +128,8 @@ Copy-Item .env.example .env
 uvicorn app.main:app --reload
 ```
 
+La variable `APP_ENV` identifica el entorno de ejecución y utiliza `development` como valor predeterminado. Actualmente no modifica el comportamiento del servicio.
+
 Completa `GEMINI_API_KEY` y `GEMINI_MODEL` en `.env` antes de utilizar el
 servicio de procesamiento.
 
@@ -102,6 +147,9 @@ python -m pytest -q
 ```
 
 Desde `ai-core/`, ejecuta la suite completa con `python -m pytest -q`.
+
+Este comando documenta el procedimiento de ejecución; este README no atribuye a
+IA Core resultados de pruebas ejecutadas o reportadas por otros squads.
 
 ## Ejecución con Docker
 

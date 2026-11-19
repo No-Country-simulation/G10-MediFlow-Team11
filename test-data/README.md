@@ -41,6 +41,24 @@ Este directorio contiene datos **100% sintéticos** para validar los escenarios 
 
 Cada carpeta contiene `case.json`, el archivo de entrada y `expected.json`. Los casos TEXT incluyen `request.json`; los casos FILE incluyen `request-meta.json`.
 
+## Uso operativo
+
+### Requisitos
+
+- Para inspección estructural solo se necesita acceso al repositorio y a los archivos de `test-data/`.
+- Para ejecución funcional deben estar disponibles los componentes implicados y su configuración, según los README de [Backend](../backend/README.md), [Frontend](../frontend/README.md) e [IA Core](../ai-core/README.md).
+- Los comportamientos dependientes del modelo requieren Gemini configurado. Las operaciones sobre OCI requieren el entorno y la autenticación descritos por Backend; la [demostración local](../docs/local-demo.md) sustituye OCI y arranca IA Core sin Gemini.
+
+### Selección y ejecución
+
+Los casos se organizan en `cases/CASE-NNN/`. Seleccione el caso según la tabla anterior, consulte `case.json` y use la entrada indicada junto con `request.json` o `request-meta.json`. Compare la respuesta observada con `expected.json` y con los [criterios de aceptación](../docs/producto-qa/MediFlow_Escenarios_Prueba_Criterios_Aceptacion_MVP_v1.0.md).
+
+El repositorio no define aquí un ejecutor único para los doce casos. Siga el procedimiento del componente que se esté validando. La demostración local incluye un smoke test persistente y utiliza explícitamente CASE-010, pero no comprueba la clasificación automática de rutina o urgencia.
+
+### Alcance de la evidencia
+
+La revisión de estructura, contratos y expectativas es **validación estática**; no demuestra el comportamiento de Gemini, OCI ni del flujo integrado. Una ejecución funcional solo acredita la revisión y configuración observadas. Los estados de control se registran en [`QUALITY-GATE.md`](./QUALITY-GATE.md) y [`ISSUE-8-VALIDATION.md`](./ISSUE-8-VALIDATION.md); [`CASE-104-REEXECUTION.md`](./CASE-104-REEXECUTION.md) conserva resultados unitarios y una ejecución histórica con sus PASS, FAIL, BLOCKED y límites, sin extrapolarlos al código integrado actual.
+
 ## Escenarios técnicos coordinados
 
 - `TECH-001.json`: `AI_TIMEOUT`

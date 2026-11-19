@@ -88,6 +88,7 @@ MediFlow utiliza OCI Compute, Docker Compose y Caddy para alojar sus servicios y
 - [`./postgresql-docker.md`](./postgresql-docker.md): PostgreSQL con Docker Compose para desarrollo local.
 - [Contenerización del Backend](../../backend/README.md#contenerización-del-backend-issue-53): ejecución del Backend con Docker para desarrollo local.
 - [Despliegue en OCI Compute (#59)](./oci-compute-deployment.md): ARM64, variables protegidas, Instance Principals, HTTPS, operación y checklist de aceptación en la VM.
+- [Evidencias de OCI Compute](./oci-compute-deployment-evidence.md): resultados aportados, procedencia, limitaciones y verificaciones pendientes.
 - [Despliegue del Frontend en OCI](./oci-frontend-deployment.md): build de React/Vite, publicación y activación de releases estáticos con Caddy, verificación y rollback.
 
 ## Seguridad
